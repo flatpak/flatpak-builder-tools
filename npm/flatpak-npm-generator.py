@@ -15,7 +15,7 @@ electron_arches = {
 }
 
 
-def getModuleSources(module, seen=None, include_devel=True):
+def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
     sources = []
     seen = seen or {}
 
@@ -33,14 +33,22 @@ def getModuleSources(module, seen=None, include_devel=True):
             url = module["version"]
         added_url = url
         integrity = module["integrity"]
+
+        if npm3:
+            dest = "npm-cache/" + name + "/" + module["version"] + "/"
+            destFilename = "package.tgz"
+        else:
+            dest = "npm-cache/_cacache/content-v2/%s/%s/%s" % (integrity_type, hex[0:2], hex[2:4]),
+            destFilename = hex[4:]
+
         if integrity not in seen:
             seen[integrity] = True
             integrity_type, integrity_base64 = integrity.split("-", 2)
             hex = binascii.hexlify(base64.b64decode(integrity_base64)).decode('utf8')
             source = {"type": "file",
                       "url": url,
-                      "dest": "npm-cache/_cacache/content-v2/%s/%s/%s" % (integrity_type, hex[0:2], hex[2:4]),
-                      "dest-filename": hex[4:]}
+                      "dest": dest,
+                      "dest-filename": destFilename}
             source[integrity_type] = hex
             sources.append(source)
 
@@ -78,7 +86,7 @@ def getModuleSources(module, seen=None, include_devel=True):
     if "dependencies" in module:
         deps = module["dependencies"]
         for dep in deps:
-            child_sources = getModuleSources(deps[dep], seen, include_devel=include_devel)
+            child_sources = getModuleSources(deps[dep], dep, seen, include_devel=include_devel, npm3=npm3)
             sources = sources + child_sources
 
     return sources
@@ -90,11 +98,13 @@ def main():
     parser.add_argument('-o', type=str, dest='outfile', default='generated-sources.json')
     parser.add_argument('--production', action='store_true', default=False)
     parser.add_argument('--recursive', action='store_true', default=False)
+    parser.add_argument('--npm3',action='store_true',default=False)
     args = parser.parse_args()
 
     include_devel = not args.production
 
     outfile = args.outfile
+    npm3 =args.npm3
 
     if args.recursive:
         import glob
@@ -110,7 +120,7 @@ def main():
         with open(lockfile, 'r') as f:
             root = json.loads(f.read())
 
-        s = getModuleSources(root, seen, include_devel=include_devel)
+        s = getModuleSources(root, None, seen, include_devel=include_devel, npm3=npm3)
         sources += s
         print(' ... %d new entries' % len(s), file=sys.stderr)
 
