@@ -72,6 +72,7 @@ def parseGitUrl(url):
 
 def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
     sources = []
+    modules = []
     seen = seen or {}
 
     version = module.get("version", "")
@@ -108,9 +109,21 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
             sources.append(source)
     elif isGitUrl(module["version"]):
         parsedUrl = parseGitUrl(module["version"])
-        print("git package found:")
-        print("url: " + parsedUrl["url"])
-        print("commit: " + parsedUrl["commit"])
+        moduleName = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
+        gitmodule = {"name": moduleName,
+                     "cleanup": ["*"],
+                     "buildsystem": "simple",
+                     "build-commands": [
+                        "mkdir -p /app/npm-git-modules/",
+                        "tar cvzf /app/npm-git-modules/" + moduleName + ".tgz *"],
+                     "source": [
+                        {
+                            "type": "git",
+                            "url": parsedUrl["url"],
+                            "commit": parsedUrl["commit"]
+                        }
+                     ]}
+        modules.append(gitmodule)
 
     if added_url:
         # Special case electron, adding sources for the electron binaries
@@ -146,25 +159,27 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
     if "dependencies" in module:
         deps = module["dependencies"]
         for dep in deps:
-            child_sources = getModuleSources(deps[dep], dep, seen, include_devel=include_devel, npm3=npm3)
-            sources = sources + child_sources
+            child_sources = getModuleSources(deps[dep], seen, include_devel=include_devel)
+            sources += child_sources["sources"]
+            modules += child_sources["modules"]
 
-    return sources
-
+    return {"sources": sources, "modules": modules}
 
 def main():
     parser = argparse.ArgumentParser(description='Flatpak NPM generator')
     parser.add_argument('lockfile', type=str)
-    parser.add_argument('-o', type=str, dest='outfile', default='generated-sources.json')
+    parser.add_argument('-so', type=str, dest='sourcesOutFile', default='generated-sources.json')
     parser.add_argument('--production', action='store_true', default=False)
     parser.add_argument('--recursive', action='store_true', default=False)
     parser.add_argument('--npm3',action='store_true',default=False)
+    parser.add_argument('-mo', type=str, dest='modulesOutFile', default='generated-modules.json')
     args = parser.parse_args()
 
     include_devel = not args.production
 
-    outfile = args.outfile
     npm3 =args.npm3
+    sourcesOutFile = args.sourcesOutFile
+    modulesOutFile = args.modulesOutFile
 
     if args.recursive:
         import glob
@@ -173,6 +188,7 @@ def main():
         lockfiles = [args.lockfile]
 
     sources = []
+    modules = []
     seen = {}
     for lockfile in lockfiles:
         print('Scanning "%s" ' % lockfile, file=sys.stderr)
@@ -182,14 +198,21 @@ def main():
 
         s = getModuleSources(root, None, seen, include_devel=include_devel, npm3=npm3)
         sources += s
-        print(' ... %d new entries' % len(s), file=sys.stderr)
+        sources += s["sources"]
+        modules += s["modules"]
+        print(' ... %d new regular entries' % len(s["sources"]), file=sys.stderr)
+        print(' ... %d new git entries' % len(s["modules"]), file=sys.stderr)
 
-    print('%d total entries' % len(sources), file=sys.stderr)
+    print('%d total regular entries' % len(sources), file=sys.stderr)
+    print('%d total git entries' % len(modules), file=sys.stderr)
 
-    print('Writing to "%s"' % outfile)
-    with open(outfile, 'w') as f:
+    print('Writing to "%s"' % sourcesOutFile)
+    with open(sourcesOutFile, 'w') as f:
         f.write(json.dumps(sources, indent=4))
 
+    print('Writing to "%s"' % modulesOutFile)
+    with open(modulesOutFile, 'w') as f:
+        f.write(json.dumps(modules, indent=4))
 
 if __name__ == '__main__':
     main()
