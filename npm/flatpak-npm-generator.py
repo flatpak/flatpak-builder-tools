@@ -187,7 +187,7 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
 def main():
     parser = argparse.ArgumentParser(description='Flatpak NPM generator')
     parser.add_argument('lockfile', type=str)
-    parser.add_argument('-so', type=str, dest='sourcesOutFile', default='generated-sources.json')
+    parser.add_argument('-o', type=str, dest='sourcesOutFile', default='generated-sources.json')
     parser.add_argument('--production', action='store_true', default=False)
     parser.add_argument('--recursive', action='store_true', default=False)
     parser.add_argument('--npm3',action='store_true',default=False)
