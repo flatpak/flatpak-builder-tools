@@ -7,6 +7,7 @@ import base64
 import binascii
 import urllib.request
 import urllib.parse
+import re
 
 electron_arches = {
     "ia32": "i386",
@@ -14,6 +15,60 @@ electron_arches = {
     "arm": "arm"
 }
 
+def isGitUrl(url):
+    return url.startswith("github:") or url.startswith("gitlab:") or url.startswith("bitbucket:") or url.startswith("git")
+
+def getPathandCommitInfo(strippedUrl):
+    parsedUrl = {}
+    parsedUrl["path"] = re.split(r'#[0-9a-fA-F]*', strippedUrl)[0]
+    parsedUrl["commit"] = re.findall(r'#[0-9a-fA-F]*', strippedUrl)[0][1:]
+    return parsedUrl;
+
+def parseGitUrl(url):
+    if url.startswith("github:"):
+        prefixStrippedUrl = re.split("github:", url)[1]
+        parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
+        parsedUrl["server"] = "https://github.com/"
+        parsedUrl["url"] = parsedUrl["server"] + parsedUrl["path"]
+
+    elif url.startswith("gitlab:"):
+        prefixStrippedUrl = re.split("gitlab:", url)[1]
+        parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
+        parsedUrl["server"] = "https://gitlab.com/"
+        parsedUrl["url"] = parsedUrl["server"] + parsedUrl["path"]
+
+    elif url.startswith("bitbucket:"):
+        prefixStrippedUrl = re.split("bitbucket:", url)[1]
+        parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
+        parsedUrl["server"] = "https://bitbucket.org/"
+        parsedUrl["url"] = parsedUrl["server"] + parsedUrl["path"]
+
+    elif url.startwith("git://"):
+        prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
+        parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
+        parsedUrl["domain"] = re.findall(r'\w+\.\w+\/',url)[0]
+        parsedUrl["protocol"] = "git://"
+        parsedUrl["url"] = parsedUrl["protocol"] + parsedUrl["domain"] + parsedUrl["path"]
+
+    elif url.startwith("git+https://"):
+        prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
+        parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
+        parsedUrl["domain"] = re.findall(r'\w+\.\w+\/',url)[0]
+        parsedUrl["protocol"] = "https://"
+        parsedUrl["url"] = parsedUrl["protocol"] + parsedUrl["domain"] + parsedUrl["path"]
+
+    elif url.startwith("git+http://"):
+        prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
+        parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
+        parsedUrl["domain"] = re.findall(r'\w+\.\w+\/',url)[0]
+        parsedUrl["protocol"] = "http://"
+        parsedUrl["url"] = parsedUrl["protocol"] + parsedUrl["domain"] + parsedUrl["path"]
+
+    elif url.startwith("git+ssh://"):
+        print("ssh protocol not supported")
+        print("Found url is: " + url)
+
+    return parsedUrl
 
 def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
     sources = []
@@ -51,6 +106,11 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
                       "dest-filename": destFilename}
             source[integrity_type] = hex
             sources.append(source)
+    elif isGitUrl(module["version"]):
+        parsedUrl = parseGitUrl(module["version"])
+        print("git package found:")
+        print("url: " + parsedUrl["url"])
+        print("commit: " + parsedUrl["commit"])
 
     if added_url:
         # Special case electron, adding sources for the electron binaries
