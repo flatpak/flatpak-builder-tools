@@ -8,6 +8,7 @@ import binascii
 import urllib.request
 import urllib.parse
 import re
+import os
 
 electron_arches = {
     "ia32": "i386",
@@ -116,7 +117,7 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
                      "build-commands": [
                         "mkdir -p /app/npm-git-modules/",
                         "tar cvzf /app/npm-git-modules/" + moduleName + ".tgz *"],
-                     "source": [
+                     "sources": [
                         {
                             "type": "git",
                             "url": parsedUrl["url"],
@@ -172,14 +173,14 @@ def main():
     parser.add_argument('--production', action='store_true', default=False)
     parser.add_argument('--recursive', action='store_true', default=False)
     parser.add_argument('--npm3',action='store_true',default=False)
-    parser.add_argument('-mo', type=str, dest='modulesOutFile', default='generated-modules.json')
+    parser.add_argument('-mdir', type=str, dest='modulesOutDir', default='generated-modules')
     args = parser.parse_args()
 
     include_devel = not args.production
 
     npm3 =args.npm3
     sourcesOutFile = args.sourcesOutFile
-    modulesOutFile = args.modulesOutFile
+    modulesOutDir = args.modulesOutDir
 
     if args.recursive:
         import glob
@@ -210,9 +211,11 @@ def main():
     with open(sourcesOutFile, 'w') as f:
         f.write(json.dumps(sources, indent=4))
 
-    print('Writing to "%s"' % modulesOutFile)
-    with open(modulesOutFile, 'w') as f:
-        f.write(json.dumps(modules, indent=4))
+    for module in modules:
+        print('Writing to "%s"' % module["name"])
+        moduleFile = module["name"] + ".json"
+        with open(os.path.join(modulesOutDir,moduleFile), 'w') as f:
+            f.write(json.dumps(module, indent=4))
 
 if __name__ == '__main__':
     main()
