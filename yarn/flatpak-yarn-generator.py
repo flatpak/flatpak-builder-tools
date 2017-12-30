@@ -28,9 +28,9 @@ def getModuleSources(lockfile, include_devel=True):
                 currentSource = temp[0] + '-' + temp[1]
             else:
                 currentSource = destLocation
-        if 'version' in line and currentSource:
+        if 'version ' in line and currentSource:
             currentSourceVersion = re.split('version ', line)[1].strip('\n').strip('"')
-        if 'resolved' in line and currentSource and currentSourceVersion:
+        if 'resolved ' in line and currentSource and currentSourceVersion:
             if currentSource == 'electron':
                 shasums_url = "https://github.com/electron/electron/releases/download/v" + currentSourceVersion + "/SHASUMS256.txt"
                 f = urllib.request.urlopen(shasums_url)
@@ -60,6 +60,9 @@ def getModuleSources(lockfile, include_devel=True):
             
             resolvedStrippedStr = re.split('resolved ', line)[1].strip('\n').strip('"')
             tempList = re.split('#', resolvedStrippedStr)
+            if len(tempList) == 1:
+                tempList.append(resolvedStrippedStr)
+                tempList = re.split('/',resolvedStrippedStr)[-1]
             source = {'type': 'file',
                       'url': tempList[0],
                       'sha1': tempList[1],
