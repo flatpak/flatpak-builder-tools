@@ -4,6 +4,14 @@ import argparse
 import sys
 import json
 import re
+import urllib.request
+import urllib.parse
+
+electron_arches = {
+    "ia32": "i386",
+    "x64": "x86_64",
+    "arm": "arm"
+}
 
 def getModuleSources(lockfile, include_devel=True):
     sources = []
@@ -23,13 +31,40 @@ def getModuleSources(lockfile, include_devel=True):
         if 'version' in line and currentSource:
             currentSourceVersion = re.split('version ', line)[1].strip('\n').strip('"')
         if 'resolved' in line and currentSource and currentSourceVersion:
+            if currentSource == 'electron':
+                shasums_url = "https://github.com/electron/electron/releases/download/v" + currentSourceVersion + "/SHASUMS256.txt"
+                f = urllib.request.urlopen(shasums_url)
+                shasums = {}
+                shasums_data = f.read().decode("utf8")
+                for cksumline in shasums_data.split('\n'):
+                    l = cksumline.split()
+                    if len(l) == 2:
+                        shasums[l[1][1:]] = l[0]
+                
+                mini_shasums = ""
+                for arch in electron_arches.keys():
+                    zipName = "electron-v" + currentSourceVersion + "-linux-" + arch + ".zip"
+                    source = {'type': 'file',
+                        'url': 'https://github.com/electron/electron/releases/download/v' + currentSourceVersion + '/' + zipName,
+                        'sha256': shasums[zipName],
+                        'dest': 'electron-cache',
+                        'only-arches': [electron_arches[arch]],
+                        'dest-filename': currentSource + '-v' + currentSourceVersion + '-linux-' + arch + '.zip'}
+                    sources.append(source)
+                    mini_shasums = mini_shasums + shasums[zipName] + " *" + zipName + "\n"
+                source = {"type": "file",
+                    "url": "data:" + urllib.parse.quote(mini_shasums.encode("utf8")),
+                    "dest": "electron-cache",
+                    "dest-filename": "SHASUMS256.txt-" + currentSourceVersion}
+                sources.append(source)
+            
             resolvedStrippedStr = re.split('resolved ', line)[1].strip('\n').strip('"')
             tempList = re.split('#', resolvedStrippedStr)
             source = {'type': 'file',
-                 'url': tempList[0],
-                 'sha1': tempList[1],
-                 'dest': 'yarn-mirror',
-                 'dest-filename': currentSource + '-' + currentSourceVersion + '.tgz'}
+                      'url': tempList[0],
+                      'sha1': tempList[1],
+                      'dest': 'yarn-mirror',
+                      'dest-filename': currentSource + '-' + currentSourceVersion + '.tgz'}
             currentSource = ''
             sources.append(source)
     
