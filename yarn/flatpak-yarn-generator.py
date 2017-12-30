@@ -6,6 +6,7 @@ import json
 import re
 import urllib.request
 import urllib.parse
+import hashlib 
 
 electron_arches = {
     "ia32": "i386",
@@ -22,12 +23,9 @@ def getModuleSources(lockfile, include_devel=True):
         if '# yarn lockfile' in line:
            yarnVersion = re.split('# yarn lockfile ', line)[1].strip('\n')
         if line.endswith(':\n') and 'dependencies' not in line and 'optionalDependencies' not in line:
-            destLocation = re.findall(r'[a-zA-Z0-9\-\/@_.]*@', line)[0][:-1]
-            if '/' in destLocation:
-                temp=re.split('/', destLocation)
-                currentSource = temp[0] + '-' + temp[1]
-            else:
-                currentSource = destLocation
+            listOfNames = re.split(',', line[:-1])
+            currentSource = re.split(r'\@[\^\>\=\<\~]*[\d\s\*]', listOfNames[0])[0]
+            currentSource = currentSource.strip('"').replace('/','-')
         if 'version ' in line and currentSource:
             currentSourceVersion = re.split('version ', line)[1].strip('\n').strip('"')
         if 'resolved ' in line and currentSource and currentSourceVersion:
@@ -61,13 +59,23 @@ def getModuleSources(lockfile, include_devel=True):
             resolvedStrippedStr = re.split('resolved ', line)[1].strip('\n').strip('"')
             tempList = re.split('#', resolvedStrippedStr)
             if len(tempList) == 1:
-                tempList.append(resolvedStrippedStr)
-                tempList = re.split('/',resolvedStrippedStr)[-1]
-            source = {'type': 'file',
+                filename = re.split('/', tempList[0])[-1].strip('\n')
+                shasum = hashlib.sha1()
+                with urllib.request.urlopen(tempList[0]) as f:
+                    buf = f.read()
+                    shasum.update(buf)
+                tempList.append(shasum.hexdigest())
+                source = {'type': 'file',
                       'url': tempList[0],
                       'sha1': tempList[1],
                       'dest': 'yarn-mirror',
-                      'dest-filename': currentSource + '-' + currentSourceVersion + '.tgz'}
+                      'dest-filename': filename}
+            else:
+                source = {'type': 'file',
+                        'url': tempList[0],
+                        'sha1': tempList[1],
+                        'dest': 'yarn-mirror',
+                        'dest-filename': currentSource + '-' + currentSourceVersion + '.tgz'}
             currentSource = ''
             sources.append(source)
     
