@@ -45,7 +45,7 @@ def get_file_hash(filename: str) -> str:
         return sha.hexdigest()
 
 main_module = {
-        'name': opts.package_name,
+        'name': opts.packages[0],
         'buildsystem': 'simple',
         'build-commands': [
             'pip3 install --no-index --find-links "file://${PWD}" --prefix=/app ' + ' '.join(opts.packages)
