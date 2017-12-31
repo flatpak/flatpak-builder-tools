@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+
+__license__ = 'GPL-3.0+'
+
+import argparse
+import json
+import hashlib
+import os
+import subprocess
+import urllib.request
+
+parser = argparse.ArgumentParser()
+parser.add_argument('packages', nargs='+')
+opts = parser.parse_args()
+
+subprocess.run([
+    'pip3', 'download',
+    '--no-binary', ':all:',
+    '--dest', '.tmp',
+] + opts.packages, check=True)
+
+
+def get_pypi_url(name: str, filename: str) -> str:
+    url = 'https://pypi.python.org/pypi/{}/json'.format(name)
+    print('Extracting download url for', name)
+    with urllib.request.urlopen(url) as response:
+        body = json.loads(response.read())
+        for release in body['releases'].values():
+            for source in release:
+                if source['filename'] == filename:
+                    return source['url']
+        else:
+            raise Exception('Failed to extract url from {}'.format(url))
+
+
+def get_file_hash(filename: str) -> str:
+    sha = hashlib.sha256()
+    print('Generating hash for', filename)
+    with open(os.path.join('.tmp', filename), 'rb') as f:
+        while True:
+            data = f.read(1024 * 1024 * 32)
+            if not data:
+                break
+            sha.update(data)
+        return sha.hexdigest()
+
+main_module = {
+        'name': opts.package_name,
+        'buildsystem': 'simple',
+        'build-commands': [
+            'pip3 install --no-index --find-links "file://${PWD}" --prefix=/app ' + ' '.join(packages)
+        ],
+        'sources': []
+}
+for filename in os.listdir('.tmp'):
+    name = filename.rsplit('-', 1)[0]
+    if name == 'setuptools':  # Already installed
+        continue
+    sha256 = get_file_hash(filename)
+    url = get_pypi_url(name, filename)
+    source = {
+        'type': 'file',
+        'url': url,
+        'sha256': sha256,
+    }
+    main_module['sources'].append(source)
+
+with open(opts.packages[0] + '.json', 'w') as output:
+    output.write(json.dumps(main_module, indent=4))
