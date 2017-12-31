@@ -48,7 +48,7 @@ main_module = {
         'name': opts.package_name,
         'buildsystem': 'simple',
         'build-commands': [
-            'pip3 install --no-index --find-links "file://${PWD}" --prefix=/app ' + ' '.join(packages)
+            'pip3 install --no-index --find-links "file://${PWD}" --prefix=/app ' + ' '.join(opts.packages)
         ],
         'sources': []
 }
