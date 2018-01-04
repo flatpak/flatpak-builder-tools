@@ -7,18 +7,12 @@ import json
 import hashlib
 import os
 import subprocess
+import tempfile
 import urllib.request
 
 parser = argparse.ArgumentParser()
 parser.add_argument('packages', nargs='+')
 opts = parser.parse_args()
-
-subprocess.run([
-    'pip3', 'download',
-    '--no-binary', ':all:',
-    '--dest', '.tmp',
-] + opts.packages, check=True)
-
 
 def get_pypi_url(name: str, filename: str) -> str:
     url = 'https://pypi.python.org/pypi/{}/json'.format(name)
@@ -36,7 +30,7 @@ def get_pypi_url(name: str, filename: str) -> str:
 def get_file_hash(filename: str) -> str:
     sha = hashlib.sha256()
     print('Generating hash for', filename)
-    with open(os.path.join('.tmp', filename), 'rb') as f:
+    with open(filename, 'rb') as f:
         while True:
             data = f.read(1024 * 1024 * 32)
             if not data:
@@ -44,26 +38,33 @@ def get_file_hash(filename: str) -> str:
             sha.update(data)
         return sha.hexdigest()
 
-main_module = {
-        'name': opts.packages[0],
-        'buildsystem': 'simple',
-        'build-commands': [
-            'pip3 install --no-index --find-links "file://${PWD}" --prefix=/app ' + ' '.join(opts.packages)
-        ],
-        'sources': []
-}
-for filename in os.listdir('.tmp'):
-    name = filename.rsplit('-', 1)[0]
-    if name == 'setuptools':  # Already installed
-        continue
-    sha256 = get_file_hash(filename)
-    url = get_pypi_url(name, filename)
-    source = {
-        'type': 'file',
-        'url': url,
-        'sha256': sha256,
+with tempfile.TemporaryDirectory(prefix='pip-generator-{}-'.format(opts.packages[0])) as tempdir:
+    subprocess.run([
+        'pip3', 'download',
+        '--no-binary', ':all:',
+        '--dest', tempdir,
+    ] + opts.packages, check=True)
+
+    main_module = {
+            'name': opts.packages[0],
+            'buildsystem': 'simple',
+            'build-commands': [
+                'pip3 install --no-index --find-links "file://${PWD}" --prefix=/app ' + ' '.join(opts.packages)
+            ],
+            'sources': []
     }
-    main_module['sources'].append(source)
+    for filename in os.listdir(tempdir):
+        name = filename.rsplit('-', 1)[0]
+        if name == 'setuptools':  # Already installed
+            continue
+        sha256 = get_file_hash(os.path.join(tempdir, filename))
+        url = get_pypi_url(name, filename)
+        source = {
+            'type': 'file',
+            'url': url,
+            'sha256': sha256,
+        }
+        main_module['sources'].append(source)
 
 with open(opts.packages[0] + '.json', 'w') as output:
     output.write(json.dumps(main_module, indent=4))
