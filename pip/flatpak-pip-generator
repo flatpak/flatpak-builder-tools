@@ -12,6 +12,9 @@ import urllib.request
 
 parser = argparse.ArgumentParser()
 parser.add_argument('packages', nargs='+')
+parser.add_argument('--runtime', action='store_true',
+                    help='Generate manifest for a runtime (install packages '
+                         'in /usr instead of /app)')
 opts = parser.parse_args()
 
 def get_pypi_url(name: str, filename: str) -> str:
@@ -45,11 +48,14 @@ with tempfile.TemporaryDirectory(prefix='pip-generator-{}-'.format(opts.packages
         '--dest', tempdir,
     ] + opts.packages, check=True)
 
+    prefix_option = '' if opts.runtime else '--prefix=/app '
     main_module = {
             'name': opts.packages[0],
             'buildsystem': 'simple',
             'build-commands': [
-                'pip3 install --no-index --find-links "file://${PWD}" --prefix=/app ' + ' '.join(opts.packages)
+                'pip3 install --no-index --find-links "file://${PWD}" ' + \
+                    prefix_option + \
+                    ' '.join(opts.packages)
             ],
             'sources': []
     }
