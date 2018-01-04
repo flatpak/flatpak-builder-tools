@@ -18,7 +18,7 @@ def get_pypi_url(name: str, filename: str) -> str:
     url = 'https://pypi.python.org/pypi/{}/json'.format(name)
     print('Extracting download url for', name)
     with urllib.request.urlopen(url) as response:
-        body = json.loads(response.read())
+        body = json.loads(response.read().decode('utf-8'))
         for release in body['releases'].values():
             for source in release:
                 if source['filename'] == filename:
