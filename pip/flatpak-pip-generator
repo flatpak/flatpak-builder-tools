@@ -43,6 +43,25 @@ def get_file_hash(filename: str) -> str:
             sha.update(data)
         return sha.hexdigest()
 
+
+def get_package_name(filename: str) -> str:
+    if filename.endswith('.whl'):
+        # {name}-{version}(-{build tag})?-{python tag}-{abi tag}-{platform tag}
+        # https://www.python.org/dev/peps/pep-0427/
+        components = filename.rsplit('-', 4)
+        if '-' not in components[0]:
+            return components[0]
+
+        # Figure out whether we had an extra hyphen because there was a build
+        # tag, or because the package name contained a hyphen
+        name_candidate, version_candidate = components[0].rsplit('-', 1)
+        if version_candidate[0] in '0123456789':
+            return name_candidate
+        return components[0]
+
+    # Otherwise, assume package is named like .tar.gz files usually are
+    return filename.rsplit('-', 1)[0]
+
 with tempfile.TemporaryDirectory(prefix='pip-generator-{}-'.format(opts.packages[0])) as tempdir:
     pip_download = ['pip3', 'download', '--dest', tempdir]
     if opts.python2:
@@ -65,7 +84,7 @@ with tempfile.TemporaryDirectory(prefix='pip-generator-{}-'.format(opts.packages
             'sources': []
     }
     for filename in os.listdir(tempdir):
-        name = filename.rsplit('-', 1)[0]
+        name = get_package_name(filename)
         if name == 'setuptools':  # Already installed
             continue
         sha256 = get_file_hash(os.path.join(tempdir, filename))
