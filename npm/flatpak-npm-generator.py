@@ -111,7 +111,7 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
             dest = "npm-cache/" + name + "/" + module["version"] + "/"
             destFilename = "package.tgz"
         else:
-            dest = "npm-cache/_cacache/content-v2/%s/%s/%s" % (integrity_type, hex[0:2], hex[2:4]),
+            dest = "npm-cache/_cacache/content-v2/%s/%s/%s" % (integrity_type, hex[0:2], hex[2:4])
             destFilename = hex[4:]
 
         if integrity not in seen:
