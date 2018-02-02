@@ -32,7 +32,7 @@ def parseGitUrl(url):
         parsedUrl["server"] = "https://github.com/"
         parsedUrl["url"] = parsedUrl["server"] + parsedUrl["path"]
         parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"github:" + parsedUrl["path"] + "#" + ".*\"^\"file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\"^g' package.json\n"
+        parsedUrl["sedCommand"] = "sed -i 's^\"github:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startswith("gitlab:"):
         prefixStrippedUrl = re.split("gitlab:", url)[1]
@@ -40,7 +40,7 @@ def parseGitUrl(url):
         parsedUrl["server"] = "https://gitlab.com/"
         parsedUrl["url"] = parsedUrl["server"] + parsedUrl["path"]
         parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"gitlab:" + parsedUrl["path"] + "#" + ".*\"^\"file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\"^g' package.json\n"
+        parsedUrl["sedCommand"] = "sed -i 's^\"gitlab:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startswith("bitbucket:"):
         prefixStrippedUrl = re.split("bitbucket:", url)[1]
@@ -48,7 +48,7 @@ def parseGitUrl(url):
         parsedUrl["server"] = "https://bitbucket.org/"
         parsedUrl["url"] = parsedUrl["server"] + parsedUrl["path"]
         parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"bitbucket:" + parsedUrl["path"] + "#" + ".*\"^\"file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\"^g' package.json\n"
+        parsedUrl["sedCommand"] = "sed -i 's^\"bitbucket:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startwith("git://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
@@ -57,7 +57,7 @@ def parseGitUrl(url):
         parsedUrl["protocol"] = "git://"
         parsedUrl["url"] = parsedUrl["protocol"] + parsedUrl["domain"] + parsedUrl["path"]
         parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"git://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\"^g' package.json\n"
+        parsedUrl["sedCommand"] = "sed -i 's^\"git://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startwith("git+https://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
@@ -66,7 +66,7 @@ def parseGitUrl(url):
         parsedUrl["protocol"] = "https://"
         parsedUrl["url"] = parsedUrl["protocol"] + parsedUrl["domain"] + parsedUrl["path"]
         parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"git+https://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\"^g' package.json\n"
+        parsedUrl["sedCommand"] = "sed -i 's^\"git+https://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startwith("git+http://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
@@ -75,7 +75,7 @@ def parseGitUrl(url):
         parsedUrl["protocol"] = "http://"
         parsedUrl["url"] = parsedUrl["protocol"] + parsedUrl["domain"] + parsedUrl["path"]
         parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"git+http://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\"^g' package.json\n"
+        parsedUrl["sedCommand"] = "sed -i 's^\"git+http://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startwith("git+ssh://"):
         print("ssh protocol not supported")
@@ -129,7 +129,7 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
                      "buildsystem": "simple",
                      "build-commands": [
                         "mkdir -p /app/npm-git-modules/" + parsedUrl["moduleName"],
-                        "cp -a * /app/npm-git-modules/" + parsedUrl["moduleName"]
+                        "cp -a . /app/npm-git-modules/" + parsedUrl["moduleName"] + "/"
                      ],
                      "sources": [
                         {
@@ -139,7 +139,7 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
                         }
                      ]}
         parsedUrl["name"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommandLock"] = "sed -i 's^" + module["version"] + "^file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "^g' package-lock.json"
+        parsedUrl["sedCommandLock"] = "sed -i 's^" + module["version"] + "^git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "#" + parsedUrl["commit"] + "^g' package-lock.json"
         modules.append(gitmodule)
         patches.append(parsedUrl["sedCommand"])
         patches.append(parsedUrl["sedCommandLock"])
