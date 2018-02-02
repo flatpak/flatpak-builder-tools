@@ -227,15 +227,6 @@ def main():
     print('%d total regular entries' % len(sources), file=sys.stderr)
     print('%d total git entries' % len(modules), file=sys.stderr)
 
-    print('Writing to "%s"' % sourcesOutFile)
-    with open(sourcesOutFile, 'w') as f:
-        f.write(json.dumps(sources, indent=4, sort_keys = True))
-
-    module_json = { "name": "generated-modules", "modules": modules}
-    print('Writing to "%s"' % modulesOutFile)
-    with open(modulesOutFile, 'w') as f:
-        f.write(json.dumps(module_json, indent=4, sort_keys = True))
-
     if len(patches) > 0:
         print('Writing to "%s"' % "package-lock-patch.sh")
         scriptFile = open("package-lock-patch.sh", 'w')
@@ -245,6 +236,26 @@ def main():
             scriptFile.write(patch + "\n")
 
         os.chmod("package-lock-patch.sh",0o755)
+
+        sources += [
+            {
+                "type": "file",
+                "path": "package-lock-patch.sh"
+            },
+            {
+                "type": "shell",
+                "commands": [ "./package-lock-patch.sh" ]
+            }
+        ]
+
+    print('Writing to "%s"' % sourcesOutFile)
+    with open(sourcesOutFile, 'w') as f:
+        f.write(json.dumps(sources, indent=4, sort_keys = True))
+
+    module_json = { "name": "generated-modules", "modules": modules}
+    print('Writing to "%s"' % modulesOutFile)
+    with open(modulesOutFile, 'w') as f:
+        f.write(json.dumps(module_json, indent=4, sort_keys = True))
 
 if __name__ == '__main__':
     main()
