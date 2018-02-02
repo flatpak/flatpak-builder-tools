@@ -177,7 +177,7 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
 
     if "dependencies" in module:
         deps = module["dependencies"]
-        for dep in deps:
+        for dep in sorted(deps):
             child_sources = getModuleSources(deps[dep], seen, include_devel=include_devel)
             sources += child_sources["sources"]
             modules += child_sources["modules"]
@@ -229,7 +229,7 @@ def main():
 
     print('Writing to "%s"' % sourcesOutFile)
     with open(sourcesOutFile, 'w') as f:
-        f.write(json.dumps(sources, indent=4))
+        f.write(json.dumps(sources, indent=4, sort_keys = True))
 
     os.makedirs(modulesOutDir, exist_ok=True)
 
@@ -237,7 +237,7 @@ def main():
         print('Writing to "%s"' % module["name"])
         moduleFile = module["name"] + ".json"
         with open(os.path.join(modulesOutDir,moduleFile), 'w') as f:
-            f.write(json.dumps(module, indent=4))
+            f.write(json.dumps(module, indent=4, sort_keys = True))
 
     scriptFile = open(os.path.join(modulesOutDir,"package-lock-patch.sh"), 'w')
     scriptFile.write("#!/bin/bash\n\n")
