@@ -50,7 +50,7 @@ def parseGitUrl(url):
         parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
         parsedUrl["sedCommand"] = "sed -i 's^\"bitbucket:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
-    elif url.startwith("git://"):
+    elif url.startswith("git://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         parsedUrl["domain"] = re.findall(r'\w+\.\w+\/',url)[0]
@@ -59,7 +59,7 @@ def parseGitUrl(url):
         parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
         parsedUrl["sedCommand"] = "sed -i 's^\"git://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
-    elif url.startwith("git+https://"):
+    elif url.startswith("git+https://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         parsedUrl["domain"] = re.findall(r'\w+\.\w+\/',url)[0]
@@ -68,7 +68,7 @@ def parseGitUrl(url):
         parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
         parsedUrl["sedCommand"] = "sed -i 's^\"git+https://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
-    elif url.startwith("git+http://"):
+    elif url.startswith("git+http://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         parsedUrl["domain"] = re.findall(r'\w+\.\w+\/',url)[0]
@@ -77,7 +77,7 @@ def parseGitUrl(url):
         parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
         parsedUrl["sedCommand"] = "sed -i 's^\"git+http://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
-    elif url.startwith("git+ssh://"):
+    elif url.startswith("git+ssh://"):
         print("ssh protocol not supported")
         print("Found url is: " + url)
 
