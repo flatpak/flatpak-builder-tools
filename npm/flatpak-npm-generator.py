@@ -192,14 +192,14 @@ def main():
     parser.add_argument('--production', action='store_true', default=False)
     parser.add_argument('--recursive', action='store_true', default=False)
     parser.add_argument('--npm3',action='store_true',default=False)
-    parser.add_argument('-mdir', type=str, dest='modulesOutDir', default='generated-modules')
+    parser.add_argument('-mo', type=str, dest='modulesOutFile', default='generated-modules.json')
     args = parser.parse_args()
 
     include_devel = not args.production
 
     npm3 =args.npm3
     sourcesOutFile = args.sourcesOutFile
-    modulesOutDir = args.modulesOutDir
+    modulesOutFile = args.modulesOutFile
 
     if args.recursive:
         import glob
@@ -231,21 +231,20 @@ def main():
     with open(sourcesOutFile, 'w') as f:
         f.write(json.dumps(sources, indent=4, sort_keys = True))
 
-    os.makedirs(modulesOutDir, exist_ok=True)
+    module_json = { "name": "generated-modules", "modules": modules}
+    print('Writing to "%s"' % modulesOutFile)
+    with open(modulesOutFile, 'w') as f:
+        f.write(json.dumps(module_json, indent=4, sort_keys = True))
 
-    for module in modules:
-        print('Writing to "%s"' % module["name"])
-        moduleFile = module["name"] + ".json"
-        with open(os.path.join(modulesOutDir,moduleFile), 'w') as f:
-            f.write(json.dumps(module, indent=4, sort_keys = True))
+    if len(patches) > 0:
+        print('Writing to "%s"' % "package-lock-patch.sh")
+        scriptFile = open("package-lock-patch.sh", 'w')
+        scriptFile.write("#!/bin/bash\n\n")
+        scriptFile.write("cd `dirname $0`\n")
+        for patch in patches:
+            scriptFile.write(patch + "\n")
 
-    scriptFile = open(os.path.join(modulesOutDir,"package-lock-patch.sh"), 'w')
-    scriptFile.write("#!/bin/bash\n\n")
-    scriptFile.write("cd `dirname $0`\n")
-    for patch in patches:
-        scriptFile.write(patch + "\n")
-
-    os.chmod(os.path.join(modulesOutDir,"package-lock-patch.sh"),0o755)
+        os.chmod("package-lock-patch.sh",0o755)
 
 if __name__ == '__main__':
     main()
