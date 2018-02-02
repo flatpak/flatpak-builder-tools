@@ -231,6 +231,8 @@ def main():
     with open(sourcesOutFile, 'w') as f:
         f.write(json.dumps(sources, indent=4))
 
+    os.makedirs(modulesOutDir, exist_ok=True)
+
     for module in modules:
         print('Writing to "%s"' % module["name"])
         moduleFile = module["name"] + ".json"
