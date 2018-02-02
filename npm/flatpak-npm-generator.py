@@ -104,6 +104,9 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
         added_url = url
         integrity = module["integrity"]
 
+        integrity_type, integrity_base64 = integrity.split("-", 2)
+        hex = binascii.hexlify(base64.b64decode(integrity_base64)).decode('utf8')
+
         if npm3:
             dest = "npm-cache/" + name + "/" + module["version"] + "/"
             destFilename = "package.tgz"
@@ -113,8 +116,6 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
 
         if integrity not in seen:
             seen[integrity] = True
-            integrity_type, integrity_base64 = integrity.split("-", 2)
-            hex = binascii.hexlify(base64.b64decode(integrity_base64)).decode('utf8')
             source = {"type": "file",
                       "url": url,
                       "dest": dest,
