@@ -218,7 +218,6 @@ def main():
             root = json.loads(f.read())
 
         s = getModuleSources(root, None, seen, include_devel=include_devel, npm3=npm3)
-        sources += s
         sources += s["sources"]
         modules += s["modules"]
         patches += s["patches"]
