@@ -23,69 +23,59 @@ def getPathandCommitInfo(strippedUrl):
     parsedUrl = {}
     parsedUrl["path"] = re.split(r'#[0-9a-fA-F]*', strippedUrl)[0]
     parsedUrl["commit"] = re.findall(r'#[0-9a-fA-F]*', strippedUrl)[0][1:]
+    parsedUrl["name"] = "-".join(re.findall(r'[0-9a-zA-Z_-]+',parsedUrl["path"]))
     return parsedUrl;
 
 def parseGitUrl(url):
     if url.startswith("github:"):
         prefixStrippedUrl = re.split("github:", url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
-        parsedUrl["server"] = "https://github.com/"
-        parsedUrl["url"] = parsedUrl["server"] + parsedUrl["path"]
-        parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"github:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
+        parsedUrl["url"] = "https://github.com/" + parsedUrl["path"]
+        parsedUrl["sedCommand"] = "sed -i 's^\"github:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startswith("gitlab:"):
         prefixStrippedUrl = re.split("gitlab:", url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
-        parsedUrl["server"] = "https://gitlab.com/"
-        parsedUrl["url"] = parsedUrl["server"] + parsedUrl["path"]
-        parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"gitlab:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
+        parsedUrl["url"] = "https://gitlab.com/" + parsedUrl["path"]
+        parsedUrl["sedCommand"] = "sed -i 's^\"gitlab:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startswith("bitbucket:"):
         prefixStrippedUrl = re.split("bitbucket:", url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
-        parsedUrl["server"] = "https://bitbucket.org/"
-        parsedUrl["url"] = parsedUrl["server"] + parsedUrl["path"]
-        parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"bitbucket:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
+        parsedUrl["url"] = "https://bitbucket.org/" + parsedUrl["path"]
+        parsedUrl["sedCommand"] = "sed -i 's^\"bitbucket:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startswith("git://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
-        parsedUrl["domain"] = re.findall(r'\w+\.\w+\/',url)[0]
-        parsedUrl["protocol"] = "git://"
-        parsedUrl["url"] = parsedUrl["protocol"] + parsedUrl["domain"] + parsedUrl["path"]
-        parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"git://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
+        domain = re.findall(r'\w+\.\w+\/',url)[0]
+        parsedUrl["url"] = "git://" + domain + parsedUrl["path"]
+        parsedUrl["sedCommand"] = "sed -i 's^\"git://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startswith("git+https://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
-        parsedUrl["domain"] = re.findall(r'\w+\.\w+\/',url)[0]
-        parsedUrl["protocol"] = "https://"
-        parsedUrl["url"] = parsedUrl["protocol"] + parsedUrl["domain"] + parsedUrl["path"]
-        parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"git+https://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
+        domain = re.findall(r'\w+\.\w+\/',url)[0]
+        parsedUrl["url"] = "https://" + domain + parsedUrl["path"]
+        parsedUrl["sedCommand"] = "sed -i 's^\"git+https://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startswith("git+http://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
-        parsedUrl["domain"] = re.findall(r'\w+\.\w+\/',url)[0]
-        parsedUrl["protocol"] = "http://"
-        parsedUrl["url"] = parsedUrl["protocol"] + parsedUrl["domain"] + parsedUrl["path"]
-        parsedUrl["moduleName"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommand"] = "sed -i 's^\"git+http://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
+        domain = re.findall(r'\w+\.\w+\/',url)[0]
+        parsedUrl["url"] = "http://" + domain + parsedUrl["path"]
+        parsedUrl["sedCommand"] = "sed -i 's^\"git+http://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json\n"
 
     elif url.startswith("git+ssh://"):
         print("ssh protocol not supported")
         print("Found url is: " + url)
+    else:
+        print("Unsupported git url type for " + url)
 
     return parsedUrl
 
 def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
     sources = []
-    modules = []
     patches = []
     seen = seen or {}
 
@@ -124,23 +114,15 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
             sources.append(source)
     elif isGitUrl(module["version"]):
         parsedUrl = parseGitUrl(module["version"])
-        gitmodule = {"name": parsedUrl["moduleName"],
-                     "cleanup": ["*"],
-                     "buildsystem": "simple",
-                     "build-commands": [
-                        "mkdir -p /app/npm-git-modules/" + parsedUrl["moduleName"],
-                        "cp -a . /app/npm-git-modules/" + parsedUrl["moduleName"] + "/"
-                     ],
-                     "sources": [
-                        {
-                            "type": "git",
-                            "url": parsedUrl["url"],
-                            "commit": parsedUrl["commit"]
-                        }
-                     ]}
-        parsedUrl["name"] = re.findall(r'\/[0-9a-zA-Z_-]*',parsedUrl["path"])[0][1:]
-        parsedUrl["sedCommandLock"] = "sed -i 's^" + module["version"] + "^git+file:/app/npm-git-modules/" + parsedUrl["moduleName"] + "#" + parsedUrl["commit"] + "^g' package-lock.json"
-        modules.append(gitmodule)
+        subdir = "npm-cache/git/" + parsedUrl["name"]
+        source = {
+            "type": "git",
+            "url": parsedUrl["url"],
+            "commit": parsedUrl["commit"],
+            "dest": subdir
+        }
+        sources.append(source)
+        parsedUrl["sedCommandLock"] = "sed -i 's^" + module["version"] + "^git+file:/var/tmp/build-dir/" + subdir + "#" + parsedUrl["commit"] + "^g' package-lock.json"
         patches.append(parsedUrl["sedCommand"])
         patches.append(parsedUrl["sedCommandLock"])
 
@@ -180,10 +162,9 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
         for dep in sorted(deps):
             child_sources = getModuleSources(deps[dep], seen, include_devel=include_devel)
             sources += child_sources["sources"]
-            modules += child_sources["modules"]
             patches += child_sources["patches"]
 
-    return {"sources": sources, "modules": modules, "patches": patches}
+    return {"sources": sources, "patches": patches}
 
 def main():
     parser = argparse.ArgumentParser(description='Flatpak NPM generator')
@@ -192,14 +173,12 @@ def main():
     parser.add_argument('--production', action='store_true', default=False)
     parser.add_argument('--recursive', action='store_true', default=False)
     parser.add_argument('--npm3',action='store_true',default=False)
-    parser.add_argument('-mo', type=str, dest='modulesOutFile', default='generated-modules.json')
     args = parser.parse_args()
 
     include_devel = not args.production
 
     npm3 =args.npm3
     sourcesOutFile = args.sourcesOutFile
-    modulesOutFile = args.modulesOutFile
 
     if args.recursive:
         import glob
@@ -208,9 +187,17 @@ def main():
         lockfiles = [args.lockfile]
 
     sources = []
-    modules = []
     patches = []
     seen = {}
+
+    # We add a symlink in /var/tmp with a fixed absolute pathname so we can use it in git file: uris
+    sources += [
+        {
+            "type": "shell",
+            "commands": [ "ln -fs `pwd` /var/tmp/build-dir" ]
+        }
+    ]
+
     for lockfile in lockfiles:
         print('Scanning "%s" ' % lockfile, file=sys.stderr)
 
@@ -219,13 +206,10 @@ def main():
 
         s = getModuleSources(root, None, seen, include_devel=include_devel, npm3=npm3)
         sources += s["sources"]
-        modules += s["modules"]
         patches += s["patches"]
-        print(' ... %d new regular entries' % len(s["sources"]), file=sys.stderr)
-        print(' ... %d new git entries' % len(s["modules"]), file=sys.stderr)
+        print(' ... %d new sources' % len(s["sources"]), file=sys.stderr)
 
-    print('%d total regular entries' % len(sources), file=sys.stderr)
-    print('%d total git entries' % len(modules), file=sys.stderr)
+    print('%d total sources' % len(sources), file=sys.stderr)
 
     if len(patches) > 0:
         print('Writing to "%s"' % "package-lock-patch.sh")
@@ -251,11 +235,6 @@ def main():
     print('Writing to "%s"' % sourcesOutFile)
     with open(sourcesOutFile, 'w') as f:
         f.write(json.dumps(sources, indent=4, sort_keys = True))
-
-    module_json = { "name": "generated-modules", "modules": modules}
-    print('Writing to "%s"' % modulesOutFile)
-    with open(modulesOutFile, 'w') as f:
-        f.write(json.dumps(module_json, indent=4, sort_keys = True))
 
 if __name__ == '__main__':
     main()
