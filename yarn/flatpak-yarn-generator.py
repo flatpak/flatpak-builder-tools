@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+__license__ = "MIT"
+
 import argparse
 import sys
 import json
