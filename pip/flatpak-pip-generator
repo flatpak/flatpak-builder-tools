@@ -43,7 +43,10 @@ def get_file_hash(filename: str) -> str:
             sha.update(data)
         return sha.hexdigest()
 
-with tempfile.TemporaryDirectory(prefix='pip-generator-{}-'.format(opts.packages[0])) as tempdir:
+
+package_name = 'python{}-{}'.format('2' if opts.python2 else '3', opts.packages[0])
+
+with tempfile.TemporaryDirectory(prefix='pip-generator-{}-'.format(package_name)) as tempdir:
     pip_download = ['pip3', 'download', '--dest', tempdir]
     if opts.python2:
         pip_download = ['pip2', 'install', '--download', tempdir, '--no-cache-dir']
@@ -54,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix='pip-generator-{}-'.format(opts.packages
     pip_command = 'pip2' if opts.python2 else 'pip3'
     prefix_option = '' if opts.runtime else '--prefix=/app '
     main_module = {
-            'name': opts.packages[0],
+            'name': package_name,
             'buildsystem': 'simple',
             'build-commands': [
                 pip_command + \
@@ -77,5 +80,5 @@ with tempfile.TemporaryDirectory(prefix='pip-generator-{}-'.format(opts.packages
         }
         main_module['sources'].append(source)
 
-with open(opts.packages[0] + '.json', 'w') as output:
+with open(package_name + '.json', 'w') as output:
     output.write(json.dumps(main_module, indent=4))
