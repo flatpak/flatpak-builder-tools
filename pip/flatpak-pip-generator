@@ -9,6 +9,8 @@ import os
 import subprocess
 import tempfile
 import urllib.request
+from collections import OrderedDict
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('packages', nargs='+')
@@ -64,12 +66,12 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         '--prefix=${FLATPAK_DEST}',
     ] + opts.packages
 
-    main_module = {
-        'name': package_name,
-        'buildsystem': 'simple',
-        'build-commands': [' '.join(pip_command)],
-        'sources': []
-    }
+    main_module = OrderedDict([
+        ('name', package_name),
+        ('buildsystem', 'simple'),
+        ('build-commands', [' '.join(pip_command)]),
+        ('sources', []),
+    ])
 
     if opts.build_only:
         main_module['cleanup'] = ['*']
@@ -80,11 +82,11 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             continue
         sha256 = get_file_hash(os.path.join(tempdir, filename))
         url = get_pypi_url(name, filename)
-        source = {
-            'type': 'file',
-            'url': url,
-            'sha256': sha256,
-        }
+        source = OrderedDict([
+            ('type', 'file'),
+            ('url', url),
+            ('sha256', sha256),
+        ])
         main_module['sources'].append(source)
 
 with open(package_name + '.json', 'w') as output:
