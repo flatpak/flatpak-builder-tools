@@ -17,6 +17,8 @@ parser.add_argument('--runtime', action='store_true',
                          'in /usr instead of /app)')
 parser.add_argument('--python2', action='store_true',
                     help='Look for a Python 2 package')
+parser.add_argument('--build-only', action='store_true',
+                    help='Cleanup files after build')
 opts = parser.parse_args()
 
 def get_pypi_url(name: str, filename: str) -> str:
@@ -67,6 +69,10 @@ with tempfile.TemporaryDirectory(prefix='pip-generator-{}-'.format(package_name)
             ],
             'sources': []
     }
+
+    if opts.build_only:
+        main_module['cleanup'] = ['*']
+
     for filename in os.listdir(tempdir):
         name = filename.rsplit('-', 1)[0]
         if name == 'setuptools':  # Already installed
