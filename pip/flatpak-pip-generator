@@ -59,17 +59,18 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         '--no-binary', ':all:',
     ] + opts.packages, check=True)
 
-    pip_command = 'pip2' if opts.python2 else 'pip3'
-    prefix_option = '' if opts.runtime else '--prefix=/app '
+    pip_command = [
+        'pip2' if opts.python2 else 'pip3',
+        'install',
+        '--no-index',
+        '--find-links="file://${PWD}"',
+        '--prefix=${FLATPAK_DEST}',
+    ] + opts.packages
+
     main_module = {
         'name': package_name,
         'buildsystem': 'simple',
-        'build-commands': [
-            pip_command +
-            ' install --no-index --find-links "file://${PWD}" ' +
-            prefix_option +
-            ' '.join(opts.packages)
-        ],
+        'build-commands': [' '.join(pip_command)],
         'sources': []
     }
 
