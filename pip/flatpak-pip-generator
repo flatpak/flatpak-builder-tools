@@ -46,12 +46,15 @@ def get_file_hash(filename: str) -> str:
         return sha.hexdigest()
 
 
-package_name = 'python{}-{}'.format('2' if opts.python2 else '3', opts.packages[0])
+package_name = 'python{}-{}'.format('2' if opts.python2 else '3',
+                                    opts.packages[0])
+tempdir_prefix = 'pip-generator-{}-'.format(package_name)
 
-with tempfile.TemporaryDirectory(prefix='pip-generator-{}-'.format(package_name)) as tempdir:
+with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     pip_download = ['pip3', 'download', '--dest', tempdir]
     if opts.python2:
-        pip_download = ['pip2', 'install', '--download', tempdir, '--no-cache-dir']
+        pip_download = ['pip2', 'install', '--download', tempdir,
+                        '--no-cache-dir']
     subprocess.run(pip_download + [
         '--no-binary', ':all:',
     ] + opts.packages, check=True)
@@ -59,15 +62,15 @@ with tempfile.TemporaryDirectory(prefix='pip-generator-{}-'.format(package_name)
     pip_command = 'pip2' if opts.python2 else 'pip3'
     prefix_option = '' if opts.runtime else '--prefix=/app '
     main_module = {
-            'name': package_name,
-            'buildsystem': 'simple',
-            'build-commands': [
-                pip_command + \
-                    ' install --no-index --find-links "file://${PWD}" ' + \
-                    prefix_option + \
-                    ' '.join(opts.packages)
-            ],
-            'sources': []
+        'name': package_name,
+        'buildsystem': 'simple',
+        'build-commands': [
+            pip_command +
+            ' install --no-index --find-links "file://${PWD}" ' +
+            prefix_option +
+            ' '.join(opts.packages)
+        ],
+        'sources': []
     }
 
     if opts.build_only:
