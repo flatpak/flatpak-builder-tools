@@ -13,7 +13,8 @@ import os
 electron_arches = {
     "ia32": "i386",
     "x64": "x86_64",
-    "arm": "arm"
+    "arm": "arm",
+    "arm64": "aarch64",
 }
 
 def isGitUrl(url):
