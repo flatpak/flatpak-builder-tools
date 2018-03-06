@@ -111,7 +111,8 @@ def main():
 
         print(' ... %d new entries' % len(s), file=sys.stderr)
 
-    print('%d total entries' % len(sources), file=sys.stderr)
+    sources = list(set(sources))
+    print('%d total entries after removing duplicates' % len(sources), file=sys.stderr)
 
     print('Writing to "%s"' % outfile)
     with open(outfile, 'w') as f:
