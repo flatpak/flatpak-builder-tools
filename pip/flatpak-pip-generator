@@ -16,8 +16,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('packages', nargs='+')
 parser.add_argument('--python2', action='store_true',
                     help='Look for a Python 2 package')
-parser.add_argument('--build-only', action='store_true',
-                    help='Cleanup files after build')
+parser.add_argument('--cleanup', choices=['scripts', 'all'],
+                    help='Select what to clean up after build')
+parser.add_argument('--build-only', action='store_const',
+                    dest='cleanup', const='all',
+                    help='Clean up all files after build')
 opts = parser.parse_args()
 
 def get_pypi_url(name: str, filename: str) -> str:
@@ -73,8 +76,10 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         ('sources', []),
     ])
 
-    if opts.build_only:
+    if opts.cleanup == 'all':
         main_module['cleanup'] = ['*']
+    elif opts.cleanup == 'scripts':
+        main_module['cleanup'] = ['/bin/*']
 
     for filename in os.listdir(tempdir):
         name = filename.rsplit('-', 1)[0]
