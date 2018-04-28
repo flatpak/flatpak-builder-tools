@@ -21,6 +21,8 @@ parser.add_argument('--cleanup', choices=['scripts', 'all'],
 parser.add_argument('--build-only', action='store_const',
                     dest='cleanup', const='all',
                     help='Clean up all files after build')
+parser.add_argument('--output',
+                    help='Specify output file name')
 opts = parser.parse_args()
 
 def get_pypi_url(name: str, filename: str) -> str:
@@ -94,5 +96,6 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         ])
         main_module['sources'].append(source)
 
-with open(package_name + '.json', 'w') as output:
+output_filename = opts.output or package_name + '.json'
+with open(output_filename, 'w') as output:
     output.write(json.dumps(main_module, indent=4))
