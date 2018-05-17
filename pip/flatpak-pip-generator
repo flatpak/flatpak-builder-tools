@@ -81,7 +81,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     if opts.cleanup == 'all':
         main_module['cleanup'] = ['*']
     elif opts.cleanup == 'scripts':
-        main_module['cleanup'] = ['/bin/*']
+        main_module['cleanup'] = ['/bin', '/share/man/man1']
 
     for filename in os.listdir(tempdir):
         name = filename.rsplit('-', 1)[0]
