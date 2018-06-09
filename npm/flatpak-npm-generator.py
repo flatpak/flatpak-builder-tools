@@ -33,8 +33,8 @@ def parseGitUrl(url):
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         parsedUrl["url"] = "https://github.com/" + parsedUrl["path"]
         parsedUrl["sedCommand"] = (
-            "sed -i 's^\"github:" + parsedUrl["path"] +
-            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            "sed -r -i 's^\"github:" + parsedUrl["path"] +
+            "(#.*)?\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
             "\"^g' package.json")
 
@@ -43,8 +43,8 @@ def parseGitUrl(url):
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         parsedUrl["url"] = "https://gitlab.com/" + parsedUrl["path"]
         parsedUrl["sedCommand"] = (
-            "sed -i 's^\"gitlab:" + parsedUrl["path"] +
-            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            "sed -r -i 's^\"gitlab:" + parsedUrl["path"] +
+            "(#.*)?\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
             "\"^g' package.json")
 
@@ -53,8 +53,8 @@ def parseGitUrl(url):
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         parsedUrl["url"] = "https://bitbucket.org/" + parsedUrl["path"]
         parsedUrl["sedCommand"] = (
-            "sed -i 's^\"bitbucket:" + parsedUrl["path"] +
-            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            "sed -r -i 's^\"bitbucket:" + parsedUrl["path"] +
+            "(#.*)?\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
             "\"^g' package.json")
 
@@ -64,8 +64,8 @@ def parseGitUrl(url):
         domain = re.findall(r'\w+\.\w+\/',url)[0]
         parsedUrl["url"] = "git://" + domain + parsedUrl["path"]
         parsedUrl["sedCommand"] = (
-            "sed -i 's^\"git://" + domain + parsedUrl["path"] +
-            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            "sed -r -i 's^\"git://" + domain + parsedUrl["path"] +
+            "(#.*)?\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
             "\"^g' package.json")
 
@@ -75,8 +75,8 @@ def parseGitUrl(url):
         domain = re.findall(r'\w+\.\w+\/',url)[0]
         parsedUrl["url"] = "https://" + domain + parsedUrl["path"]
         parsedUrl["sedCommand"] = (
-            "sed -i 's^\"git+https://" + domain + parsedUrl["path"] +
-            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            "sed -r -i 's^\"git+https://" + domain + parsedUrl["path"] +
+            "(#.*)?\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
             "\"^g' package.json")
 
@@ -86,8 +86,8 @@ def parseGitUrl(url):
         domain = re.findall(r'\w+\.\w+\/',url)[0]
         parsedUrl["url"] = "http://" + domain + parsedUrl["path"]
         parsedUrl["sedCommand"] = (
-            "sed -i 's^\"git+http://" + domain + parsedUrl["path"] +
-            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            "sed -r -i 's^\"git+http://" + domain + parsedUrl["path"] +
+            "(#.*)?\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
             "\"^g' package.json")
 
