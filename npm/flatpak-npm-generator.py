@@ -36,7 +36,7 @@ def parseGitUrl(url):
             "sed -i 's^\"github:" + parsedUrl["path"] +
             "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
-            "^g' package.json")
+            "\"^g' package.json")
 
     elif url.startswith("gitlab:"):
         prefixStrippedUrl = re.split("gitlab:", url)[1]
@@ -46,7 +46,7 @@ def parseGitUrl(url):
             "sed -i 's^\"gitlab:" + parsedUrl["path"] +
             "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
-            "^g' package.json")
+            "\"^g' package.json")
 
     elif url.startswith("bitbucket:"):
         prefixStrippedUrl = re.split("bitbucket:", url)[1]
@@ -56,7 +56,7 @@ def parseGitUrl(url):
             "sed -i 's^\"bitbucket:" + parsedUrl["path"] +
             "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
-            "^g' package.json")
+            "\"^g' package.json")
 
     elif url.startswith("git://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
@@ -67,7 +67,7 @@ def parseGitUrl(url):
             "sed -i 's^\"git://" + domain + parsedUrl["path"] +
             "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
-            "^g' package.json")
+            "\"^g' package.json")
 
     elif url.startswith("git+https://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
@@ -78,7 +78,7 @@ def parseGitUrl(url):
             "sed -i 's^\"git+https://" + domain + parsedUrl["path"] +
             "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
-            "^g' package.json")
+            "\"^g' package.json")
 
     elif url.startswith("git+http://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
@@ -89,7 +89,7 @@ def parseGitUrl(url):
             "sed -i 's^\"git+http://" + domain + parsedUrl["path"] +
             "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
             parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
-            "^g' package.json")
+            "\"^g' package.json")
 
     elif url.startswith("git+ssh://"):
         print("ssh protocol not supported")
