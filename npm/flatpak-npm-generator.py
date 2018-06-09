@@ -32,40 +32,66 @@ def parseGitUrl(url):
         prefixStrippedUrl = re.split("github:", url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         parsedUrl["url"] = "https://github.com/" + parsedUrl["path"]
-        parsedUrl["sedCommand"] = "sed -i 's^\"github:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json"
+        parsedUrl["sedCommand"] = (
+            "sed -i 's^\"github:" + parsedUrl["path"] +
+            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
+            "^g' package.json")
 
     elif url.startswith("gitlab:"):
         prefixStrippedUrl = re.split("gitlab:", url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         parsedUrl["url"] = "https://gitlab.com/" + parsedUrl["path"]
-        parsedUrl["sedCommand"] = "sed -i 's^\"gitlab:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json"
+        parsedUrl["sedCommand"] = (
+            "sed -i 's^\"gitlab:" + parsedUrl["path"] +
+            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
+            "^g' package.json")
 
     elif url.startswith("bitbucket:"):
         prefixStrippedUrl = re.split("bitbucket:", url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         parsedUrl["url"] = "https://bitbucket.org/" + parsedUrl["path"]
-        parsedUrl["sedCommand"] = "sed -i 's^\"bitbucket:" + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json"
+        parsedUrl["sedCommand"] = (
+            "sed -i 's^\"bitbucket:" + parsedUrl["path"] +
+            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
+            "^g' package.json")
 
     elif url.startswith("git://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         domain = re.findall(r'\w+\.\w+\/',url)[0]
         parsedUrl["url"] = "git://" + domain + parsedUrl["path"]
-        parsedUrl["sedCommand"] = "sed -i 's^\"git://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json"
+        parsedUrl["sedCommand"] = (
+            "sed -i 's^\"git://" + parsedUrl["domain"] + parsedUrl["path"] +
+            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
+            "^g' package.json")
 
     elif url.startswith("git+https://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         domain = re.findall(r'\w+\.\w+\/',url)[0]
         parsedUrl["url"] = "https://" + domain + parsedUrl["path"]
-        parsedUrl["sedCommand"] = "sed -i 's^\"git+https://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json"
+        parsedUrl["sedCommand"] = (
+            "sed -i 's^\"git+https://" + parsedUrl["domain"] +
+            parsedUrl["path"] +
+            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
+            "^g' package.json")
 
     elif url.startswith("git+http://"):
         prefixStrippedUrl = re.split(r'\w+\.\w+\/',url)[1]
         parsedUrl = getPathandCommitInfo(prefixStrippedUrl)
         domain = re.findall(r'\w+\.\w+\/',url)[0]
         parsedUrl["url"] = "http://" + domain + parsedUrl["path"]
-        parsedUrl["sedCommand"] = "sed -i 's^\"git+http://" + parsedUrl["domain"] + parsedUrl["path"] + "#" + ".*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" + parsedUrl["name"] + "\#"+parsedUrl["commit"]+"^g' package.json"
+        parsedUrl["sedCommand"] = (
+            "sed -i 's^\"git+http://" + parsedUrl["domain"] +
+            parsedUrl["path"] +
+            "#.*\"^\"git+file:/var/tmp/build-dir/npm-cache/git/" +
+            parsedUrl["name"] + "\\#" + parsedUrl["commit"] +
+            "^g' package.json")
 
     elif url.startswith("git+ssh://"):
         print("ssh protocol not supported")
