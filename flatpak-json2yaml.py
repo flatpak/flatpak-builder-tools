@@ -21,15 +21,39 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import os
+import re
+import sys
 import argparse
 import json
 import yaml
 from collections import OrderedDict
 
 
+def json_remove_comments(json_data):
+
+    def repl_func(match):
+        comment = match.group(1).decode("utf-8")
+        line = match.string[:match.start()].count(b"\n") + 1
+        print("Removed comment in line {}: {}".format(line, repr(comment)),
+              file=sys.stderr)
+        return b""
+
+    return re.sub(br"^\s*(/\*.*?\*/)\s*$", repl_func, json_data,
+                  flags=re.MULTILINE | re.DOTALL)
+
+
+def test_json_remove_comments():
+    assert json_remove_comments(b"") == b""
+    assert json_remove_comments(b"\"/tmp/*.txt\"") == b"\"/tmp/*.txt\""
+    assert json_remove_comments(b"/*foo*/\nbar") == b"\nbar"
+    assert json_remove_comments(b"  /*fo\no*/   \nbar") == b"\nbar"
+    assert json_remove_comments(b"/*foo*/\nquux\n/*bar*/") == b"\nquux\n"
+
+
 def json_to_yaml(json_data):
     """Takes encoded json and returns encoded yaml"""
 
+    json_data = json_remove_comments(json_data)
     data = json.loads(json_data, object_pairs_hook=OrderedDict)
 
     class OrderedDumper(yaml.Dumper):
