@@ -61,7 +61,7 @@ def main():
     with open(args.json_file, "rb") as h:
         out_file = args.out_file
         if out_file is None:
-            out_file = os.path.splitext(args.json_file)[0] + '.yaml'
+            out_file = os.path.splitext(args.json_file)[0] + '.yml'
 
         yaml_data = json_to_yaml(h.read())
 
