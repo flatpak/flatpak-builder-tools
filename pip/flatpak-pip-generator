@@ -55,7 +55,12 @@ package_name = 'python{}-{}'.format('2' if opts.python2 else '3',
 tempdir_prefix = 'pip-generator-{}-'.format(package_name)
 
 with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
-    pip_executable = 'pip2' if opts.python2 else 'pip3'
+    if opts.python2:
+        pip_executable = 'pip2'
+        pip_install_prefix = '--install-option="--prefix=${FLATPAK_DEST}"'
+    else:
+        pip_executable = 'pip3'
+        pip_install_prefix = '--prefix=${FLATPAK_DEST}'
 
     pip_download = [
         pip_executable,
@@ -73,7 +78,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         'install',
         '--no-index',
         '--find-links="file://${PWD}"',
-        '--prefix=${FLATPAK_DEST}',
+        pip_install_prefix,
     ] + opts.packages
 
     main_module = OrderedDict([
