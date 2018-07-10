@@ -55,16 +55,21 @@ package_name = 'python{}-{}'.format('2' if opts.python2 else '3',
 tempdir_prefix = 'pip-generator-{}-'.format(package_name)
 
 with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
-    pip_download = ['pip3', 'download', '--dest', tempdir]
-    if opts.python2:
-        pip_download = ['pip2', 'install', '--download', tempdir,
-                        '--no-cache-dir']
+    pip_executable = 'pip2' if opts.python2 else 'pip3'
+
+    pip_download = [
+        pip_executable,
+        'download',
+        '--dest',
+        tempdir
+    ]
+
     subprocess.run(pip_download + [
         '--no-binary', ':all:',
     ] + opts.packages, check=True)
 
     pip_command = [
-        'pip2' if opts.python2 else 'pip3',
+        pip_executable,
         'install',
         '--no-index',
         '--find-links="file://${PWD}"',
