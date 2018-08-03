@@ -9,7 +9,7 @@ that will let `npm install --offline` work.
 The included `io.atom.electron.ElectronQuickStart.json` sample shows how to use this
 and can be built with:
 
-	./flatpak-npm-generator.py electron-quick-start-package-lock.json generated-sources.json
+	./flatpak-npm-generator.py electron-quick-start-package-lock.json -o generated-sources.json
 	flatpak-builder --force-clean --repo=repo app io.atom.electron.ElectronQuickStart.json
 
 Note that this requires `io.atom.electron.BaseApp` installed. It is available on flathub.
