@@ -111,12 +111,19 @@ def main():
 
         print(' ... %d new entries' % len(s), file=sys.stderr)
 
-    sources = list(set(sources))
+    sources = remove_duplicates(sources)
     print('%d total entries after removing duplicates' % len(sources), file=sys.stderr)
 
     print('Writing to "%s"' % outfile)
     with open(outfile, 'w') as f:
         f.write(json.dumps(sources, indent=4))
+
+def remove_duplicates(items):
+    new_list = []
+    for obj in items:
+        if obj not in new_list:
+            new_list.append(obj)
+    return new_list
 
 
 if __name__ == '__main__':
