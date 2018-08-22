@@ -148,8 +148,15 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
         }
         sources.append(source)
         parsedUrl["sedCommandLock"] = "sed -i 's^" + module["version"] + "^git+file:/var/tmp/build-dir/" + subdir + "#" + parsedUrl["commit"] + "^g' package-lock.json"
+
+        parsedFromUrl = getPathandCommitInfo(module["version"])
+        parsedUrl["sedCommandFrom"] = (
+            "sed -i 's^\"from\": \"" + parsedFromUrl["path"] +
+            "\",^^g' package-lock.json")
+
         patches.append(parsedUrl["sedCommand"])
         patches.append(parsedUrl["sedCommandLock"])
+        patches.append(parsedUrl["sedCommandFrom"])
 
     if added_url:
         # Special case electron, adding sources for the electron binaries
