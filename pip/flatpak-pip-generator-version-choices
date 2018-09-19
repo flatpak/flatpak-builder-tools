@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+
+__license__ = 'MIT'
+
+import argparse
+import json
+import urllib.request
+from collections import OrderedDict
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('packages', nargs='+')
+parser.add_argument('--python2', action='store_true',
+                    help='Look for a Python 2 package')
+parser.add_argument('--cleanup', choices=['scripts', 'all'],
+                    help='Select what to clean up after build')
+parser.add_argument('--build-only', action='store_const',
+                    dest='cleanup', const='all',
+                    help='Clean up all files after build')
+parser.add_argument('--output',
+                    help='Specify output file name')
+opts = parser.parse_args()
+
+
+def get_info(name: str) -> tuple:
+    url = 'https://pypi.python.org/pypi/{}/json'.format(name)
+    try:
+        with urllib.request.urlopen(url) as response:
+            body     = json.loads(response.read().decode('utf-8'))
+            releases = [release for release in body['releases']]
+            choices  = OrderedDict(zip(map(str,range(1,len(releases)+1)),releases))
+            while True:
+                print("\nChoice Release || q to quit : \n")
+                for k,v in choices.items():
+                    print("{}-Release {}".format(k,v))
+                answer = input("\n- ").strip()
+                if answer=="q" or answer=="Q":
+                    return False
+                elif answer in choices.keys():
+                    release_ = choices[answer]
+                    sha256   = body['releases'][release_][0]["digests"]["sha256"]
+                    url      = body['releases'][release_][0]["url"]
+                    filename = body['releases'][release_][0]["filename"]
+                    return (release_,filename,sha256,url)
+    except Exception as e:
+        print(e)
+
+info = get_info(opts.packages[0])
+if not info:
+    exit()
+    
+release_,filename,sha256,url = info
+package_name = 'python{}-{}-{}'.format('2' if opts.python2 else '3',
+                                    opts.packages[0],release_)
+
+
+if opts.python2:
+    pip_executable = 'pip2'
+    pip_install_prefix = '--install-option="--prefix=${FLATPAK_DEST}"'
+else:
+    pip_executable = 'pip3'
+    pip_install_prefix = '--prefix=${FLATPAK_DEST}'
+
+
+pip_command = [
+    pip_executable,
+    'install',
+    '--no-index',
+    '--find-links="file://${PWD}"',
+    pip_install_prefix,
+] + opts.packages
+
+main_module = OrderedDict([
+    ('name', package_name),
+    ('buildsystem', 'simple'),
+    ('build-commands', [' '.join(pip_command)]),
+    ('sources', []),
+])
+
+if opts.cleanup == 'all':
+    main_module['cleanup'] = ['*']
+elif opts.cleanup == 'scripts':
+    main_module['cleanup'] = ['/bin', '/share/man/man1']
+
+
+source = OrderedDict([
+    ('type', 'file'),
+    ('url', url),
+    ('sha256', sha256),
+])
+main_module['sources'].append(source)
+
+output_filename = opts.output or package_name + '.json'
+with open(output_filename, 'w') as output:
+    output.write(json.dumps(main_module, indent=4))
+
+print("Save file to >>>> {}\n".format(output_filename))
