@@ -44,8 +44,10 @@ def repo_source(repo_path: Path) -> Dict[str, str]:
 
     def remote_url(repo_path: Path) -> str:
         return subprocess.run(['git', 'remote', 'get-url', 'origin'], capture_output=True, cwd=repo_path, text=True).stdout.strip()
-
-    source_object = {'type': 'git', 'url': remote_url(repo_path), 'commit': current_commit(repo_path), 'dest': str(repo_path.relative_to(build_dir))}
+    
+    repo_path_str = str(repo_path)
+    dest_path = repo_path_str[repo_path_str.rfind('src/'):]
+    source_object = {'type': 'git', 'url': remote_url(repo_path), 'commit': current_commit(repo_path), 'dest': dest_path}
     return source_object
 
 def sources(build_dir: Path) -> List[Dict[str, str]]:
@@ -62,10 +64,7 @@ def main():
     parser = argparse.ArgumentParser(description='For a Go module’s dependencies, output array of sources in flatpak-manifest format.')
     parser.add_argument('build_dir', help='Build directory of the module in .flatpak-builder/build', type=directory)
     args = parser.parse_args()
-
-    global build_dir
-    build_dir = args.build_dir
-    source_list = sources(build_dir)
+    source_list = sources(args.build_dir)
 
     print(json.dumps(source_list, indent=2))
 
