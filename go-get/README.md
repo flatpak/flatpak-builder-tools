@@ -7,18 +7,22 @@ The script does not require Go in the host system.
 1. In the manifest, give the Go module network access and set GOPATH to $PWD.
 
   Example:
-```yaml
-  - name: writeas-cli
-    buildsystem: simple
-    build-options:
-      env:
-        GOBIN: /app/bin/
-      build-args:
-        - '--share=network'
-    build-commands:
-      - . /usr/lib/sdk/golang/enable.sh;
-        export GOPATH=$PWD;
-        go get github.com/writeas/writeas-cli/cmd/writeas
+```json
+{
+  "name": "writeas-cli",
+  "buildsystem": "simple",
+  "build-options": {
+    "env": {
+      "GOBIN": "/app/bin/"
+    },
+    "build-args": [
+      "--share=network"
+    ]
+  },
+  "build-commands": [
+    ". /usr/lib/sdk/golang/enable.sh; export GOPATH=$PWD; go get github.com/writeas/writeas-cli/cmd/writeas"
+  ]
+}
 ```
 
 2. Run flatpak-builder with `--keep-build-dirs`.
@@ -31,21 +35,27 @@ The script does not require Go in the host system.
 **The script assumes the networked built was run with `GOPATH=$PWD`.**
 
 ## Example final module
-```yaml
-  - name: writeas-cli
-    buildsystem: simple
-    build-options:
-      env:
-        GOBIN: /app/bin/
-    build-commands:
-      - . /usr/lib/sdk/golang/enable.sh;
-        export GOPATH=$PWD;
-        go install github.com/writeas/writeas-cli/cmd/writeas
-    sources:
-      - type: git
-        url: https://github.com/atotto/clipboard
-        commit: aa9549103943c05f3e8951009cdb6a0bec2c8949
-        dest: src/github.com/atotto/clipboard
-    ...
+```json
+{
+      "name": "writeas-cli",
+      "buildsystem": "simple",
+      "build-options": {
+        "env": {
+          "GOBIN": "/app/bin/"
+        }
+      },
+      "build-commands": [
+        ". /usr/lib/sdk/golang/enable.sh; export GOPATH=$PWD; go install github.com/writeas/writeas-cli/cmd/writeas"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/atotto/clipboard",
+          "commit": "aa9549103943c05f3e8951009cdb6a0bec2c8949",
+          "dest": "src/github.com/atotto/clipboard"
+        },
+        ...
+      ]
+    }
 ```
 
