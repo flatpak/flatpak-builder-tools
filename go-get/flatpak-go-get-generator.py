@@ -22,6 +22,9 @@
 
 from pathlib import Path
 from typing import List, Dict
+import subprocess
+import argparse
+import json
 
 def repo_paths(build_dir: Path) -> List[Path]:
     src_dir = build_dir / 'src'
@@ -36,7 +39,6 @@ def repo_paths(build_dir: Path) -> List[Path]:
     return repo_paths
 
 def repo_source(repo_path: Path) -> Dict[str, str]:
-    import subprocess
     def current_commit(repo_path: Path) -> str:
         return subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, cwd=repo_path, text=True).stdout.strip()
 
@@ -57,7 +59,6 @@ def main():
             raise argparse.ArgumentTypeError(msg)
         return path
 
-    import argparse
     parser = argparse.ArgumentParser(description='For a Go module’s dependencies, output array of sources in flatpak-manifest format.')
     parser.add_argument('build_dir', help='Build directory of the module in .flatpak-builder/build', type=directory)
     args = parser.parse_args()
@@ -66,7 +67,6 @@ def main():
     build_dir = args.build_dir
     source_list = sources(build_dir)
 
-    import json
     print(json.dumps(source_list, indent=2))
 
 if __name__ == '__main__':
