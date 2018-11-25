@@ -4,7 +4,7 @@ Tool to automatically create the source list for a Go module.
 The script does not require Go in the host system.
 
 ## Usage
-1. Build the Go module with network shared and GOPATH set to $PWD.
+1. In the manifest, give the Go module network access and set GOPATH to $PWD.
 
   Example:
 ```yaml
@@ -21,11 +21,12 @@ The script does not require Go in the host system.
         go get github.com/writeas/writeas-cli/cmd/writeas
 ```
 
-2. Run `go-get/flatpak-go-get-generator.py <build-dir>` with build-dir pointing the the build directory in `.flatpak-builder/build`.
-3. Convert the source list to YAML if necessary.
-4. Add the list to the sources field of the Go module in the manifest.
-5. Change build command from `go get` to `go install`.
-6. Remove network access.
+2. Run flatpak-builder with `--keep-build-dirs`.
+3. Run `go-get/flatpak-go-get-generator.py <build-dir>` with build-dir pointing the the build directory in `.flatpak-builder/build`.
+4. Convert the source list to YAML if necessary.
+5. Add the list to the sources field of the Go module in the manifest.
+6. Change build command from `go get` to `go install`.
+7. Remove network access.
 
 **The script assumes the networked built was run with `GOPATH=$PWD`.**
 
