@@ -63,10 +63,16 @@ def main():
 
     parser = argparse.ArgumentParser(description='For a Go module’s dependencies, output array of sources in flatpak-manifest format.')
     parser.add_argument('build_dir', help='Build directory of the module in .flatpak-builder/build', type=directory)
+    parser.add_argument('-o', '--output', dest='output_file', help='The file to write the source list to. Default is <module-name>-sources.json', type=str)
     args = parser.parse_args()
     source_list = sources(args.build_dir)
 
-    print(json.dumps(source_list, indent=2))
+    output_file = args.output_file
+    if output_file is None:
+        output_file = args.build_dir.absolute().name + '-sources.json'
+        
+    with open(output_file, 'w') as out:
+        json.dump(source_list, out, indent=2)
 
 if __name__ == '__main__':
     main()
