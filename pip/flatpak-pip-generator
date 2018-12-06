@@ -9,6 +9,7 @@ import os
 import subprocess
 import tempfile
 import urllib.request
+import shlex
 from collections import OrderedDict
 
 
@@ -79,7 +80,10 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         '--no-index',
         '--find-links="file://${PWD}"',
         pip_install_prefix,
-    ] + opts.packages
+    ] + [
+        shlex.quote(package)
+        for package in opts.packages
+    ]
 
     main_module = OrderedDict([
         ('name', package_name),
