@@ -13,7 +13,7 @@ import os
 electron_arches = {
     "ia32": "i386",
     "x64": "x86_64",
-    "arm": "arm",
+    "armv7l": "arm",
     "arm64": "aarch64",
 }
 
