@@ -176,6 +176,8 @@ def getModuleSources(module, name, seen=None, include_devel=True, npm3=False):
             mini_shasums = ""
             for arch in electron_arches.keys():
                 basename = "electron-v" + electron_version + "-linux-" + arch + ".zip"
+                if not basename in shasums:
+                      continue
                 source = {"type": "file",
                           "only-arches": [electron_arches[arch]],
                           "url": "https://github.com/electron/electron/releases/download/v" + electron_version + "/" + basename,
