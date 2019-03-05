@@ -7,11 +7,22 @@ import json
 import sys
 import urllib.parse
 import urllib.request
+from collections import OrderedDict
 
 import toml
 
 
 def get_pypi_source(name: str, version: str, hashes: list) -> tuple:
+    """Get the source information for a dependency.
+
+    Args:
+        name (str): The package name.
+        version (str): The package version.
+        hashes (list): The list of hashes for the package version.
+
+    Returns (tuple): The url and sha256 hash.
+
+    """
     url = "https://pypi.python.org/pypi/{}/json".format(name)
     print("Extracting download url and hash for {}, version {}".format(name, version))
     with urllib.request.urlopen(url) as response:
@@ -36,11 +47,19 @@ def get_pypi_source(name: str, version: str, hashes: list) -> tuple:
             raise Exception("Failed to extract url and hash from {}".format(url))
 
 
-def get_module_sources(lockfile, include_devel=True):
+def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> list:
+    """Gets the list of sources from a toml parsed lockfile.
+
+    Args:
+        parsed_lockfile (dict): The dictionary of the parsed lockfile.
+        include_devel (bool): Include dev dependencies, defaults to True.
+
+    Returns (list): The sources.
+
+    """
     sources = []
-    parsed_toml = toml.load(lockfile)
-    all_hashes = parsed_toml["metadata"]["hashes"]
-    for section, packages in parsed_toml.items():
+    all_hashes = parsed_lockfile["metadata"]["hashes"]
+    for section, packages in parsed_lockfile.items():
         if section == "package":
             for package in packages:
                 if (
@@ -57,6 +76,29 @@ def get_module_sources(lockfile, include_devel=True):
     return sources
 
 
+def get_dep_names(parsed_lockfile: dict, include_devel: bool = True) -> list:
+    """Gets the list of dependency names.
+
+    Args:
+        parsed_lockfile (dict): The dictionary of the parsed lockfile.
+        include_devel (bool): Include dev dependencies, defaults to True.
+
+    Returns (list): The dependency names.
+
+    """
+    dep_names = []
+    for section, packages in parsed_lockfile.items():
+        if section == "package":
+            for package in packages:
+                if (
+                    package["category"] == "dev"
+                    and include_devel
+                    or package["category"] == "main"
+                ):
+                    dep_names.append(package["name"])
+    return dep_names
+
+
 def main():
     parser = argparse.ArgumentParser(description="Flatpak Poetry generator")
     parser.add_argument("lockfile", type=str)
@@ -64,33 +106,40 @@ def main():
         "-o", type=str, dest="outfile", default="generated-poetry-sources.json"
     )
     parser.add_argument("--production", action="store_true", default=False)
-    parser.add_argument("--recursive", action="store_true", default=False)
     args = parser.parse_args()
 
     include_devel = not args.production
-
     outfile = args.outfile
+    lockfile = args.lockfile
 
-    if args.recursive:
-        import glob
+    print('Scanning "%s" ' % lockfile, file=sys.stderr)
 
-        lockfiles = glob.iglob("**/%s" % args.lockfile, recursive=True)
-    else:
-        lockfiles = [args.lockfile]
+    with open(lockfile, "r") as f:
+        parsed_lockfile = toml.load(f)
+        dep_names = get_dep_names(parsed_lockfile, include_devel=include_devel)
+        pip_command = [
+            "pip3",
+            "install",
+            "--no-index",
+            '--find-links="file://${PWD}"',
+            "--prefix=${FLATPAK_DEST}",
+            " ".join(dep_names),
+        ]
+        main_module = OrderedDict(
+            [
+                ("name", "poetry-deps"),
+                ("buildsystem", "simple"),
+                ("build-commands", [" ".join(pip_command)]),
+            ]
+        )
+        sources = get_module_sources(parsed_lockfile, include_devel=include_devel)
+        main_module["sources"] = sources
 
-    sources = []
-    for lockfile in lockfiles:
-        print('Scanning "%s" ' % lockfile, file=sys.stderr)
-
-        with open(lockfile, "r") as f:
-            s = get_module_sources(f, include_devel=include_devel)
-            sources += s
-
-        print(" ... %d new entries" % len(s), file=sys.stderr)
+    print(" ... %d new entries" % len(sources), file=sys.stderr)
 
     print('Writing to "%s"' % outfile)
     with open(outfile, "w") as f:
-        f.write(json.dumps(sources, indent=4))
+        f.write(json.dumps(main_module, indent=4))
 
 
 if __name__ == "__main__":
