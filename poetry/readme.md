@@ -16,3 +16,8 @@ Tool to automatically generate `flatpak-builder` manifest json from a poetry.loc
 ]
 ```
 
+## Optional Arguments
+- `--production` does not include development dependencies
+- `-o outputfile` to output to a different filename
+
+
