@@ -12,14 +12,6 @@ CRATES_IO = 'https://static.crates.io/crates'
 CARGO_HOME = 'cargo'
 CARGO_CRATES = f'{CARGO_HOME}/vendor'
 
-CARGO_CONFIG = f"""\
-[source.crates-io]
-replace-with = "vendored-sources"
-
-[source.vendored-sources]
-directory = "{CARGO_CRATES}"
-"""
-
 def load_cargo_lock(lockfile='Cargo.lock'):
     with open(lockfile, 'r') as f:
         cargo_lock = pytoml.load(f)
@@ -28,7 +20,12 @@ def load_cargo_lock(lockfile='Cargo.lock'):
 def generate_sources(cargo_lock):
     sources = [{
         'type': 'file',
-        'url': 'data:' + urlquote(CARGO_CONFIG),
+        'url': 'data:' + urlquote(pytoml.dumps({
+            'source': {
+                'crates-io': {'replace-with': 'vendored-sources'},
+                'vendored-sources': {'directory': f'{CARGO_CRATES}'}
+            }
+        })),
         'dest': CARGO_HOME,
         'dest-filename': 'config'
     }]
