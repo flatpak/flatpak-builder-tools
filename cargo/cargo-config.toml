@@ -1,0 +1,8 @@
+# Cargo config file for flatpak-builder
+# place this file under path $CARGO_HOME/config
+
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "cargo/vendor"
