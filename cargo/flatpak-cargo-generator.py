@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-__license__ = 'WTFPL'
+__license__ = 'MIT'
 
-import pytoml
+import toml
 import json
 from urllib.parse import quote as urlquote
 import sys
@@ -14,13 +14,13 @@ CARGO_CRATES = f'{CARGO_HOME}/vendor'
 
 def load_cargo_lock(lockfile='Cargo.lock'):
     with open(lockfile, 'r') as f:
-        cargo_lock = pytoml.load(f)
+        cargo_lock = toml.load(f)
     return cargo_lock
 
 def generate_sources(cargo_lock):
     sources = [{
         'type': 'file',
-        'url': 'data:' + urlquote(pytoml.dumps({
+        'url': 'data:' + urlquote(toml.dumps({
             'source': {
                 'crates-io': {'replace-with': 'vendored-sources'},
                 'vendored-sources': {'directory': f'{CARGO_CRATES}'}
