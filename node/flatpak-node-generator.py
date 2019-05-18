@@ -17,6 +17,7 @@ import io
 import itertools
 import json
 import os
+import re
 import shlex
 import shutil
 import sys
@@ -220,6 +221,10 @@ class ManifestGenerator(contextlib.AbstractContextManager):
         return Path('flatpak-node')
 
     @property
+    def tmp_root(self) -> Path:
+        return self.data_root / 'tmp'
+
+    @property
     def sources(self) -> List[Dict]:
         return list(map(dict, self._sources.keys()))  # type: ignore
 
@@ -276,7 +281,7 @@ class ModuleProvider(contextlib.AbstractContextManager):
         raise NotImplementedError()
 
 
-class ElectronModuleProviderMixin:
+class SpecialSourceProviderMixin:
     async def _parse_electron_asset_integrities(self, data: str) -> Dict[str, Integrity]:
         result: Dict[str, Integrity] = {}
 
@@ -287,11 +292,7 @@ class ElectronModuleProviderMixin:
 
         return result
 
-    async def generate_electron_modules(self, gen: ManifestGenerator, package: Package) -> None:
-        if isinstance(Requests.instance, StubRequests):
-            # This is going to crash and burn.
-            return
-
+    async def _handle_electron(self, gen: ManifestGenerator, package: Package) -> None:
         base_url = f'https://github.com/electron/electron/releases/download/v{package.version}'
         integrity_url = f'{base_url}/SHASUMS256.txt'
         integrity_data = (await Requests.instance.read_all(integrity_url)).decode()
@@ -317,6 +318,46 @@ class ElectronModuleProviderMixin:
         integrity = Integrity.generate(integrity_data)
         destination = electron_cache_dir / f'SHASUMS256.txt-{package.version}'
         gen.add_url_source(integrity_url, integrity, destination)
+
+    async def _get_chromedriver_binary_version(self, package: Package) -> str:
+        # Note: Chromedriver seems to not have tagged all releases on GitHub, so just use
+        # unpkg instead.
+        url = f'https://unpkg.com/chromedriver@{package.version}/lib/chromedriver'
+        js = await Requests.instance.read_all(url)
+        # XXX: a tad ugly
+        match = re.search(r"exports\.version = '([^']+)'", js.decode())
+        assert match is not None, f'Failed to get Chromedriver binary version from {url}'
+        return match.group(1)
+
+    def _get_chromedriver_binary_dir(self, gen: ManifestGenerator, chromedriver_version: str,
+                                     package: Package) -> Path:
+        major, minor, _ = package.version.split('.')
+        tmp_root = gen.tmp_root
+        if int(major) > 2 or int(minor) >= 46:
+            tmp_root /= chromedriver_version
+
+        return tmp_root / 'chromedriver'
+
+    async def _handle_chromedriver(self, gen: ManifestGenerator, package: Package) -> None:
+        version = await self._get_chromedriver_binary_version(package)
+        url = f'https://chromedriver.storage.googleapis.com/{version}/chromedriver_linux64.zip'
+        metadata = await RemoteUrlMetadata.get(url)
+
+        destination = gen.data_root / 'chromedriver.zip'
+        gen.add_url_source(url, metadata.integrity, destination, only_arches=['x86_64'])
+
+        binary_dir = self._get_chromedriver_binary_dir(gen, version, package)
+        gen.add_command(f'mkdir -p {binary_dir} && unzip -d {binary_dir} {destination}')
+
+    async def generate_special_sources(self, gen: ManifestGenerator, package: Package) -> None:
+        if isinstance(Requests.instance, StubRequests):
+            # This is going to crash and burn.
+            return
+
+        if package.name == 'electron':
+            await self._handle_electron(gen, package)
+        elif package.name == 'chromedriver':
+            await self._handle_chromedriver(gen, package)
 
 
 class NpmLockfileProvider(LockfileProvider):
@@ -380,7 +421,7 @@ class NpmLockfileProvider(LockfileProvider):
         yield from self.process_dependencies(lockfile, data['dependencies'])
 
 
-class NpmModuleProvider(ModuleProvider, ElectronModuleProviderMixin):
+class NpmModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
     def __init__(self, gen: ManifestGenerator, lockfile_root: Path, no_index: bool):
         self.gen = gen
         self.lockfile_root = lockfile_root
@@ -459,8 +500,7 @@ class NpmModuleProvider(ModuleProvider, ElectronModuleProviderMixin):
             if 'registry.npmjs.org' in source.resolved:
                 await self.add_npm_registry_data(source.resolved)
 
-            if package.name == 'electron':
-                await self.generate_electron_modules(self.gen, package)
+            await self.generate_special_sources(self.gen, package)
 
         elif isinstance(source, GitSource):
             # Get a unique name to use for the Git repository folder.
@@ -631,7 +671,7 @@ class YarnLockfileProvider(LockfileProvider):
             yield self.parse_package_section(lockfile, section)
 
 
-class YarnModuleProvider(ModuleProvider, ElectronModuleProviderMixin):
+class YarnModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
     def __init__(self, gen: ManifestGenerator) -> None:
         self.gen = gen
         self.mirror_dir = self.gen.data_root / 'yarn-mirror'
@@ -650,8 +690,7 @@ class YarnModuleProvider(ModuleProvider, ElectronModuleProviderMixin):
 
         self.gen.add_url_source(source.resolved, integrity, destination)
 
-        if package.name == 'electron':
-            await self.generate_electron_modules(self.gen, package)
+        await self.generate_special_sources(self.gen, package)
 
 
 class ProviderFactory:
