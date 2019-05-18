@@ -199,6 +199,17 @@ class RemoteUrlMetadata(NamedTuple):
         return size
 
 
+class Semver(NamedTuple):
+    major: int
+    minor: int
+    patch: int
+
+    @staticmethod
+    def parse(version: str) -> 'Semver':
+        major, minor, patch = map(int, version.split('.'))
+        return Semver(major, minor, patch)
+
+
 class ResolvedSource(NamedTuple):
     resolved: str
     integrity: Optional[Integrity]
@@ -355,9 +366,8 @@ class SpecialSourceProviderMixin:
 
     def _get_chromedriver_binary_dir(self, gen: ManifestGenerator, chromedriver_version: str,
                                      package: Package) -> Path:
-        major, minor, _ = package.version.split('.')
         tmp_root = gen.tmp_root
-        if int(major) > 2 or int(minor) >= 46:
+        if Semver.parse(package.version) >= Semver(2, 46, 0):
             tmp_root /= chromedriver_version
 
         return tmp_root / 'chromedriver'
