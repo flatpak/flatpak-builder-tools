@@ -456,10 +456,10 @@ class NpmLockfileProvider(LockfileProvider):
 
 
 class NpmModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
-    def __init__(self, gen: ManifestGenerator, lockfile_root: Path, no_index: bool):
+    def __init__(self, gen: ManifestGenerator, lockfile_root: Path, no_autopatch: bool):
         self.gen = gen
         self.lockfile_root = lockfile_root
-        self.no_index = no_index
+        self.no_autopatch = no_autopatch
         self.npm_cache_dir = self.gen.data_root / 'npm-cache'
         self.cacache_dir = self.npm_cache_dir / '_cacache'
         self.seen_registry_data: Set[str] = set()
@@ -484,26 +484,25 @@ class NpmModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
                 self.get_cacache_integrity_path(integrity))
 
     def add_index_entry(self, url: str, metadata: RemoteUrlMetadata) -> None:
-        if not self.no_index:
-            key = f'make-fetch-happen:request-cache:{url}'
-            index_json = json.dumps({
-                'key': key,
-                'integrity': f'{metadata.integrity.algorithm}-{metadata.integrity.to_base64()}',
-                'time': 0,
-                'size': metadata.size,
-                'metadata': {
-                    'url': url,
-                    'reqHeaders': {},
-                    'resHeaders': {},
-                },
-            })
+        key = f'make-fetch-happen:request-cache:{url}'
+        index_json = json.dumps({
+            'key': key,
+            'integrity': f'{metadata.integrity.algorithm}-{metadata.integrity.to_base64()}',
+            'time': 0,
+            'size': metadata.size,
+            'metadata': {
+                'url': url,
+                'reqHeaders': {},
+                'resHeaders': {},
+            },
+        })
 
-            content_integrity = Integrity.generate(index_json, algorithm='sha1')
-            index = '\t'.join((content_integrity.digest, index_json))
+        content_integrity = Integrity.generate(index_json, algorithm='sha1')
+        index = '\t'.join((content_integrity.digest, index_json))
 
-            key_integrity = Integrity.generate(key)
-            index_path = self.get_cacache_index_path(key_integrity)
-            self.index_entries[index_path] = index
+        key_integrity = Integrity.generate(key)
+        index_path = self.get_cacache_index_path(key_integrity)
+        self.index_entries[index_path] = index
 
     async def add_npm_registry_data(self, package_url: str) -> None:
         data_url = package_url.split('/-/')[0]
@@ -547,7 +546,7 @@ class NpmModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
         return lockfile.parent.relative_to(self.lockfile_root)
 
     def _finalize(self) -> None:
-        init_commands: DefaultDict[Path, List[str]] = collections.defaultdict(lambda: [])
+        patch_commands: DefaultDict[Path, List[str]] = collections.defaultdict(lambda: [])
 
         if self.git_sources:
             # Generate jq scripts to patch the package*.json files.
@@ -594,23 +593,27 @@ class NpmModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
                     target = Path('$FLATPAK_BUILDER_BUILDDIR') / prefix / filename
                     script =  textwrap.dedent(script.lstrip('\n')).strip().replace('\n', '')
                     json_data = json.dumps(data[filename])
-                    init_commands[lockfile].append('jq'
+                    patch_commands[lockfile].append('jq'
                                                    ' --arg buildroot "$FLATPAK_BUILDER_BUILDDIR"'
                                                    f' --argjson data {shlex.quote(json_data)}'
                                                    f' {shlex.quote(script)} {target}'
                                                    f' > {target}.new')
-                    init_commands[lockfile].append(f'mv {target}{{.new,}}')
+                    patch_commands[lockfile].append(f'mv {target}{{.new,}}')
 
-        init_all_commands: List[str] = []
+        patch_all_commands: List[str] = []
         for lockfile in self.all_lockfiles:
-            init_dest = self.gen.data_root / 'init' / self.relative_lockfile_dir(lockfile)
+            patch_dest = self.gen.data_root / 'patch' / self.relative_lockfile_dir(lockfile)
             # Don't use with_extension to avoid problems if the package has a . in its name.
-            init_dest = init_dest.with_name(init_dest.name + '.sh')
+            patch_dest = patch_dest.with_name(patch_dest.name + '.sh')
 
-            self.gen.add_script_source(init_commands[lockfile], init_dest)
-            init_all_commands.append(f'$FLATPAK_BUILDER_BUILDDIR/{init_dest}')
+            self.gen.add_script_source(patch_commands[lockfile], patch_dest)
+            patch_all_commands.append(f'$FLATPAK_BUILDER_BUILDDIR/{patch_dest}')
 
-        self.gen.add_script_source(init_all_commands, self.gen.data_root / 'init-all.sh')
+        patch_all_dest = self.gen.data_root / 'patch-all.sh'
+        self.gen.add_script_source(patch_all_commands, patch_all_dest)
+
+        if not self.no_autopatch:
+            self.gen.add_command(f'bash {patch_all_dest}')
 
         if self.index_entries:
             # (ab-)use a "script" module to generate the index.
@@ -736,16 +739,16 @@ class ProviderFactory:
 
 
 class NpmProviderFactory(ProviderFactory):
-    def __init__(self, lockfile_root: Path, no_devel: bool, no_index: bool) -> None:
-        self.no_devel = no_devel
-        self.no_index = no_index
+    def __init__(self, lockfile_root: Path, no_devel: bool, no_autopatch: bool) -> None:
         self.lockfile_root = lockfile_root
+        self.no_devel = no_devel
+        self.no_autopatch = no_autopatch
 
     def create_lockfile_provider(self) -> NpmLockfileProvider:
         return NpmLockfileProvider(self.no_devel)
 
     def create_module_provider(self, gen: ManifestGenerator) -> NpmModuleProvider:
-        return NpmModuleProvider(gen, self.lockfile_root, self.no_index)
+        return NpmModuleProvider(gen, self.lockfile_root, self.no_autopatch)
 
 
 class YarnProviderFactory(ProviderFactory):
@@ -831,6 +834,8 @@ async def main() -> None:
                         help="Don't use aiohttp, and silence any warnings related to it")
     parser.add_argument('--retries', type=int, help='Number of retries of failed requests',
                         default=Requests.DEFAULT_RETRIES)
+    parser.add_argument('-P', '--no-autopatch', action='store_true',
+                        help="Don't automatically patch Git sources from package*.json")
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
 
@@ -838,7 +843,7 @@ async def main() -> None:
 
     Requests.retries = args.retries
 
-    if args.type == 'yarn' and (args.no_devel or args.no_devel):
+    if args.type == 'yarn' and (args.no_devel or args.no_autopatch):
         sys.exit('--no-devel and --no-index do not apply to Yarn.')
 
     if args.stub_requests:
@@ -863,7 +868,7 @@ async def main() -> None:
 
     provider_factory: ProviderFactory
     if args.type == 'npm':
-        provider_factory = NpmProviderFactory(lockfile_root, args.no_devel, args.no_index)
+        provider_factory = NpmProviderFactory(lockfile_root, args.no_devel, args.no_autopatch)
     elif args.type == 'yarn':
         provider_factory = YarnProviderFactory()
     else:
