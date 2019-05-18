@@ -13,8 +13,6 @@ import binascii
 import collections
 import contextlib
 import hashlib
-import io
-import itertools
 import json
 import os
 import re
@@ -52,7 +50,7 @@ class Requests:
                     yield part
 
                 return
-            except:
+            except Exception:
                 if i == Requests.retries:
                     raise
 
@@ -60,7 +58,7 @@ class Requests:
         for i in range(1, Requests.retries + 1):
             try:
                 return await self._read_all(url)
-            except:
+            except Exception:
                 if i == Requests.retries:
                     raise
 
