@@ -30,17 +30,41 @@ class Requests:
     instance: 'Requests'
 
     DEFAULT_PART_SIZE = 4096
+    DEFAULT_RETRIES = 5
+
+    retries: ClassVar[int] = DEFAULT_RETRIES
 
     @property
     def is_async(self) -> bool:
         raise NotImplementedError
 
-    async def read_parts(self, url: str, size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+    async def _read_parts(self, url: str, size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
         raise NotImplementedError
         yield b''  # Silence mypy.
 
-    async def read_all(self, url: str) -> bytes:
+    async def _read_all(self, url: str) -> bytes:
         raise NotImplementedError
+
+    async def read_parts(self, url: str, size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+        for i in range(1, Requests.retries + 1):
+            try:
+                async for part in self._read_parts(url, size):
+                    yield part
+
+                return
+            except:
+                if i == Requests.retries:
+                    raise
+
+    async def read_all(self, url: str) -> bytes:
+        for i in range(1, Requests.retries + 1):
+            try:
+                return await self._read_all(url)
+            except:
+                if i == Requests.retries:
+                    raise
+
+        assert False
 
 
 class UrllibRequests(Requests):
@@ -48,8 +72,8 @@ class UrllibRequests(Requests):
     def is_async(self) -> bool:
         return False
 
-    async def read_parts(self, url: str,
-                         size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+    async def _read_parts(self, url: str,
+                          size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
         with urllib.request.urlopen(url) as response:
             while True:
                 data = response.read(size)
@@ -58,7 +82,7 @@ class UrllibRequests(Requests):
 
                 yield data
 
-    async def read_all(self, url: str) -> bytes:
+    async def _read_all(self, url: str) -> bytes:
         with urllib.request.urlopen(url) as response:
             return response.read()
 
@@ -68,11 +92,11 @@ class StubRequests(Requests):
     def is_async(self) -> bool:
         return True
 
-    async def read_parts(self, url: str,
-                         size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+    async def _read_parts(self, url: str,
+                          size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
         yield b''
 
-    async def read_all(self, url: str) -> bytes:
+    async def _read_all(self, url: str) -> bytes:
         return b''
 
 
@@ -93,8 +117,8 @@ try:
                 async with session.get(url) as response:
                     yield response.content
 
-        async def read_parts(self, url: str,
-                             size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+        async def _read_parts(self, url: str,
+                              size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
             async with self._open_stream(url) as stream:
                 while True:
                     data = await stream.read(size)
@@ -103,7 +127,7 @@ try:
 
                     yield data
 
-        async def read_all(self, url: str) -> bytes:
+        async def _read_all(self, url: str) -> bytes:
             async with self._open_stream(url) as stream:
                 return await stream.read()
 
@@ -794,11 +818,15 @@ async def main() -> None:
     parser.add_argument('--no-index', action='store_true',
                         help='Skip building the cacache index (npm only)')
     parser.add_argument('--no-aiohttp', action='store_true',
-                        help="Dont' use aiohttp, and silence any warnings related to it")
+                        help="Don't use aiohttp, and silence any warnings related to it")
+    parser.add_argument('--retries', type=int, help='Number of retries of failed requests',
+                        default=Requests.DEFAULT_RETRIES)
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
 
     args = parser.parse_args()
+
+    Requests.retries = args.retries
 
     if args.type == 'yarn' and (args.no_devel or args.no_devel):
         sys.exit('--no-devel and --no-index do not apply to Yarn.')
