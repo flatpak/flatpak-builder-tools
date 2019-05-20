@@ -721,8 +721,12 @@ class YarnModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
         assert isinstance(source, ResolvedSource)
 
         integrity = await source.retrieve_integrity()
+
         url_parts = urllib.parse.urlparse(source.resolved)
-        destination = self.mirror_dir / os.path.basename(url_parts.path)
+        extension = os.path.splitext(url_parts.path)[1]
+
+        escaped_name = package.name.replace('/', '-')
+        destination = self.mirror_dir / f'{escaped_name}-{package.version}{extension}'
 
         self.gen.add_url_source(source.resolved, integrity, destination)
 
