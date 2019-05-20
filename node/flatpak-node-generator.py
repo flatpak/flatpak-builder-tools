@@ -831,8 +831,6 @@ async def main() -> None:
                         help='Given -r, restrict files to those matching the given pattern.')
     parser.add_argument('--no-devel', action='store_true',
                         help="Don't include devel dependencies (npm only)")
-    parser.add_argument('--no-index', action='store_true',
-                        help='Skip building the cacache index (npm only)')
     parser.add_argument('--no-aiohttp', action='store_true',
                         help="Don't use aiohttp, and silence any warnings related to it")
     parser.add_argument('--retries', type=int, help='Number of retries of failed requests',
@@ -847,7 +845,7 @@ async def main() -> None:
     Requests.retries = args.retries
 
     if args.type == 'yarn' and (args.no_devel or args.no_autopatch):
-        sys.exit('--no-devel and --no-index do not apply to Yarn.')
+        sys.exit('--no-devel and --no-autopatch do not apply to Yarn.')
 
     if args.stub_requests:
         Requests.instance = StubRequests()
