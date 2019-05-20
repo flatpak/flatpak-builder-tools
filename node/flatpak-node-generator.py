@@ -611,7 +611,8 @@ class NpmModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
         self.gen.add_script_source(patch_all_commands, patch_all_dest)
 
         if not self.no_autopatch:
-            self.gen.add_command(f'bash {patch_all_dest}')
+            # FLATPAK_BUILDER_BUILDDIR isn't defined yet for script sources.
+            self.gen.add_command(f'FLATPAK_BUILDER_BUILDDIR=$PWD {patch_all_dest}')
 
         if self.index_entries:
             # (ab-)use a "script" module to generate the index.
