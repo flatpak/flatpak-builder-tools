@@ -1,6 +1,7 @@
 # flatpak-node-generator
 
-A more modern successor for flatpak-npm-generator and flatpak-yarn-generator.
+A more modern successor for flatpak-npm-generator and flatpak-yarn-generator, for Node 10+ only.
+(For Node 8, use flatpak-npm-generator and flatpak-yarn-generator.)
 
 ## Requirements
 
