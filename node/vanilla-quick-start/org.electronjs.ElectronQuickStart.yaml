@@ -39,10 +39,12 @@ modules:
     build-options:
       # Add the node bin directory.
       append-path: /usr/lib/sdk/node10/bin
-      # Set the Electron cache directory.
-      # (The directory format is: /run/build/MODULE_NAME/flatpak-node/electron-cache)
       env:
+        # Set the Electron cache directory.
+        # (The directory format is: /run/build/MODULE_NAME/flatpak-node/electron-cache)
         ELECTRON_CACHE: '/run/build/electron-quick-start/flatpak-node/electron-cache'
+        # Sets the directory where Node is located so way npm won't download the headers.
+        npm_config_nodedir: '/usr/lib/sdk/node10'
     build-commands:
       # Install the packages from our offline cache.
       # --prefix= is the path to our subdirectory (see the electron-quick-start source below).

@@ -45,10 +45,12 @@ modules:
     build-options:
       # Add the node bin directory & yarn directory.
       append-path: '/usr/lib/sdk/node10/bin:/app/yarn/bin'
-      # Set the Electron cache directory.
-      # (The directory format is: /run/build/MODULE_NAME/flatpak-node/electron-cache)
       env:
+        # Set the Electron cache directory.
+        # (The directory format is: /run/build/MODULE_NAME/flatpak-node/electron-cache)
         ELECTRON_CACHE: '/run/build/electron-webpack-quick-start/flatpak-node/electron-cache'
+        # Sets the directory where Node is located so way npm won't download the headers.
+        npm_config_nodedir: '/usr/lib/sdk/node10'
     build-commands:
       # Have Yarn use the offline mirror.
       - 'HOME=$PWD yarn config --offline set yarn-offline-mirror $FLATPAK_BUILDER_BUILDDIR/flatpak-node/yarn-mirror'
