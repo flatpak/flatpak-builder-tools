@@ -70,6 +70,16 @@ may be larger than GitHub's maximum size. In order to circumvent this, you can p
 will write multiple files (generated-sources.0.json, generated-sources.1.json, etc) instead of
 one, each smaller than the GitHub limit.
 
+### Chromedriver support
+
+If your app depends on Chromedriver, then you need to prepend:
+
+```
+TMPDIR=$FLATPAK_BUILDER_BUILDDIR/flatpak-node/tmp
+```
+
+to `npm install` or `yarn` in order to use the predownloaded Chromedriver binary.
+
 ### Recursive mode
 
 Sometimes you might have multiple lockfiles in a single source tree that need to have sources
