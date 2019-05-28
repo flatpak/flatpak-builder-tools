@@ -1,3 +1,5 @@
+**NOTE:** For Node 10+, use [flatpak-node-generator](../flatpak-node-generator/README.md) instead.
+
 This is a tool to take npm5 `package-lock.json` lock files and generate flatpak-builder
 sources for this that let you build the npm-using app in flatpak-builder without
 network access.
