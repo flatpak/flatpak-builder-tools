@@ -28,8 +28,8 @@ get npm with electron-builder.
 
 ```
 usage: flatpak-node-generator.py [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN]
-                                 [--no-devel] [--no-index] [--no-aiohttp]
-                                 [--retries RETRIES] [-P]
+                                 [--no-devel] [--no-aiohttp]
+                                 [--retries RETRIES] [-P] [-s]
                                  {npm,yarn} lockfile
 
 Flatpak Node generator
@@ -53,6 +53,7 @@ optional arguments:
   --retries RETRIES     Number of retries of failed requests
   -P, --no-autopatch    Don't automatically patch Git sources from
                         package*.json
+  -s, --split           Split the sources file to fit onto GitHub.
 ```
 
 flatpak-node-generator.py takes the package manager (npm or yarn), and a path to a lockfile for
@@ -61,6 +62,13 @@ containing all the sources set up like needed for the given package manager.
 
 If you're on npm and you don't want to include devel dependencies, pass --no-devel, and pass
 --production to `npm install` itself when you call.
+
+### Splitting mode
+
+If your Node app has too many dependencies (particularly with npm), the generated-sources.json
+may be larger than GitHub's maximum size. In order to circumvent this, you can pass `-s`, which
+will write multiple files (generated-sources.0.json, generated-sources.1.json, etc) instead of
+one, each smaller than the GitHub limit.
 
 ### Recursive mode
 

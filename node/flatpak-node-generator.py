@@ -238,6 +238,9 @@ class Package(NamedTuple):
 
 
 class ManifestGenerator(contextlib.AbstractContextManager):
+    MAX_GITHUB_SIZE = 49 * 1000 * 1000
+    JSON_INDENT = 4
+
     def __init__(self) -> None:
         # Store the dicts as a "set" of tuples, then rebuild the dict when returning it.
         # That way, we ensure uniqueness.
@@ -260,6 +263,26 @@ class ManifestGenerator(contextlib.AbstractContextManager):
     @property
     def sources(self) -> List[Dict]:
         return list(map(dict, self._sources.keys()))  # type: ignore
+
+    def split_sources(self) -> Iterator[List[Dict]]:
+        BASE_CURRENT_SIZE = len('[\n]')
+        current_size = BASE_CURRENT_SIZE
+        current: List[Dict] = []
+
+        for source in self.sources:
+            # Generate one source by itself, then check the length without the closing and
+            # opening brackets.
+            source_json = json.dumps([source], indent=ManifestGenerator.JSON_INDENT)
+            source_json_len = len('\n'.join(source_json.splitlines()[1:-1]))
+            if current_size + source_json_len >= ManifestGenerator.MAX_GITHUB_SIZE:
+                yield current
+                current = []
+                current_size = BASE_CURRENT_SIZE
+            current.append(source)
+            current_size += source_json_len
+
+        if current:
+            yield current
 
     def _add_source(self, source: Dict[str, Any]) -> None:
         self._sources[tuple(source.items())] = None
@@ -305,7 +328,7 @@ class ManifestGenerator(contextlib.AbstractContextManager):
 
 
 class LockfileProvider:
-    def process_lockfile(self, lockfile: Path) -> Iterable[Package]:
+    def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
         raise NotImplementedError()
 
 
@@ -421,7 +444,7 @@ class NpmLockfileProvider(LockfileProvider):
         return GitSource(original=original, url=url, commit=commit, from_=from_)
 
     def process_dependencies(self, lockfile: Path,
-                             dependencies: Dict[str, Dict]) -> Iterable[Package]:
+                             dependencies: Dict[str, Dict]) -> Iterator[Package]:
         for name, info in dependencies.items():
             if info.get('dev') and self.no_devel:
                 continue
@@ -444,7 +467,7 @@ class NpmLockfileProvider(LockfileProvider):
             if 'dependencies' in info:
                 yield from self.process_dependencies(lockfile, info['dependencies'])
 
-    def process_lockfile(self, lockfile: Path) -> Iterable[Package]:
+    def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
         with open(lockfile) as fp:
             data = json.load(fp)
 
@@ -688,7 +711,7 @@ class YarnLockfileProvider(LockfileProvider):
         source = ResolvedSource(resolved=resolved, integrity=integrity)
         return Package(name=name, version=version, source=source, lockfile=lockfile)
 
-    def process_lockfile(self, lockfile: Path) -> Iterable[Package]:
+    def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
         section: List[str] = []
 
         with open(lockfile) as fp:
@@ -837,6 +860,8 @@ async def main() -> None:
                         default=Requests.DEFAULT_RETRIES)
     parser.add_argument('-P', '--no-autopatch', action='store_true',
                         help="Don't automatically patch Git sources from package*.json")
+    parser.add_argument('-s', '--split', action='store_true',
+                        help='Split the sources file to fit onto GitHub.')
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
 
@@ -890,10 +915,24 @@ async def main() -> None:
             with GeneratorProgress(packages, module_provider) as progress:
                 await progress.run()
 
-    with open(args.output, 'w') as fp:
-        json.dump(gen.sources, fp, indent=4)
+    if args.split:
+        for i, part in enumerate(gen.split_sources()):
+            output = Path(args.output)
+            output = output.with_suffix(f'.{i}{output.suffix}')
+            with open(output, 'w') as fp:
+                json.dump(part, fp, indent=ManifestGenerator.JSON_INDENT)
 
-    print(f'Wrote {len(gen.sources)} sources.')
+        print(f'Wrote {len(gen.sources)} to {i + 1} file(s).')
+    else:
+        with open(args.output, 'w') as fp:
+            json.dump(gen.sources, fp, indent=ManifestGenerator.JSON_INDENT)
+
+            if fp.tell() >= ManifestGenerator.MAX_GITHUB_SIZE:
+                print('WARNING: generated-sources.json is too large for GitHub.',
+                      file=sys.stderr)
+                print('  (Pass -s to enable splitting.)')
+
+        print(f'Wrote {len(gen.sources)} source(s).')
 
 
 if __name__ == '__main__':
