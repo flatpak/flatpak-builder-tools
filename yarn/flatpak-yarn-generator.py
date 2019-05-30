@@ -11,9 +11,10 @@ import urllib.parse
 import hashlib 
 
 electron_arches = {
+    "armv7l": "arm",
+    "arm64": "aarch64",
     "ia32": "i386",
-    "x64": "x86_64",
-    "arm": "arm"
+    "x64": "x86_64"
 }
 
 def getModuleSources(lockfile, include_devel=True):
