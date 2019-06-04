@@ -14,11 +14,13 @@ from collections import OrderedDict
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('packages', nargs='+')
+parser.add_argument('packages', nargs='*')
 parser.add_argument('--python2', action='store_true',
                     help='Look for a Python 2 package')
 parser.add_argument('--cleanup', choices=['scripts', 'all'],
                     help='Select what to clean up after build')
+parser.add_argument('--requirements-file', 
+                    help='Specify requirements.txt file')
 parser.add_argument('--build-only', action='store_const',
                     dest='cleanup', const='all',
                     help='Clean up all files after build')
@@ -50,66 +52,81 @@ def get_file_hash(filename: str) -> str:
             sha.update(data)
         return sha.hexdigest()
 
+if not opts.packages and not opts.requirements_file:
+    exit("Please specifiy either packages or requirements file argument")
 
-package_name = 'python{}-{}'.format('2' if opts.python2 else '3',
-                                    opts.packages[0])
-tempdir_prefix = 'pip-generator-{}-'.format(package_name)
+packages = []
+if opts.requirements_file and os.path.exists(opts.requirements_file):
+    with open(opts.requirements_file, 'r') as req_file:
+        packages = [package.strip() for package in req_file.readlines()]
+else:
+    packages = opts.packages
+   
 
-with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
-    if opts.python2:
-        pip_executable = 'pip2'
-        pip_install_prefix = '--install-option="--prefix=${FLATPAK_DEST}"'
-    else:
-        pip_executable = 'pip3'
-        pip_install_prefix = '--prefix=${FLATPAK_DEST}'
+if opts.python2:
+    pip_executable = 'pip2'
+    pip_install_prefix = '--install-option="--prefix=${FLATPAK_DEST}"'
+else:
+    pip_executable = 'pip3'
+    pip_install_prefix = '--prefix=${FLATPAK_DEST}'
 
-    pip_download = [
-        pip_executable,
-        'download',
-        '--dest',
-        tempdir
-    ]
+modules = []
 
-    subprocess.run(pip_download + [
-        '--no-binary', ':all:',
-    ] + opts.packages, check=True)
+for package in packages:
+    package_name = 'python{}-{}'.format('2' if opts.python2 else '3',
+                                        package.split("=")[0])
+    tempdir_prefix = 'pip-generator-{}-'.format(package_name)
+    with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
 
-    pip_command = [
-        pip_executable,
-        'install',
-        '--no-index',
-        '--find-links="file://${PWD}"',
-        pip_install_prefix,
-    ] + [
-        shlex.quote(package)
-        for package in opts.packages
-    ]
+        pip_download = [
+            pip_executable,
+            'download',
+            '--dest',
+            tempdir
+        ]
 
-    main_module = OrderedDict([
-        ('name', package_name),
-        ('buildsystem', 'simple'),
-        ('build-commands', [' '.join(pip_command)]),
-        ('sources', []),
-    ])
+        subprocess.run(pip_download + [
+            '--no-binary', ':all:', package
+        ], check=True)
 
-    if opts.cleanup == 'all':
-        main_module['cleanup'] = ['*']
-    elif opts.cleanup == 'scripts':
-        main_module['cleanup'] = ['/bin', '/share/man/man1']
-
-    for filename in os.listdir(tempdir):
-        name = filename.rsplit('-', 1)[0]
-        if name == 'setuptools':  # Already installed
-            continue
-        sha256 = get_file_hash(os.path.join(tempdir, filename))
-        url = get_pypi_url(name, filename)
-        source = OrderedDict([
-            ('type', 'file'),
-            ('url', url),
-            ('sha256', sha256),
+        pip_command = [
+            pip_executable,
+            'install',
+            '--no-index',
+            '--find-links="file://${PWD}"',
+            pip_install_prefix,
+            shlex.quote(package)
+        ]
+        module = OrderedDict([
+            ('name', package_name),
+            ('buildsystem', 'simple'),
+            ('build-commands', [' '.join(pip_command)]),
+            ('sources', []),
         ])
-        main_module['sources'].append(source)
 
-output_filename = opts.output or package_name + '.json'
+        if opts.cleanup == 'all':
+            module['cleanup'] = ['*']
+        elif opts.cleanup == 'scripts':
+            module['cleanup'] = ['/bin', '/share/man/man1']
+
+        for filename in os.listdir(tempdir):
+            name = filename.rsplit('-', 1)[0]
+            if name == 'setuptools':  # Already installed
+                continue
+            sha256 = get_file_hash(os.path.join(tempdir, filename))
+            url = get_pypi_url(name, filename)
+            source = OrderedDict([
+                ('type', 'file'),
+                ('url', url),
+                ('sha256', sha256),
+            ])
+            module['sources'].append(source)
+        modules.append(module)
+
+if opts.requirements_file:
+    output_filename = opts.output  + '.json'
+else:
+    output_filename = opts.output or package_name + '.json'
+
 with open(output_filename, 'w') as output:
-    output.write(json.dumps(main_module, indent=4))
+    output.write(json.dumps(modules, indent=4))
