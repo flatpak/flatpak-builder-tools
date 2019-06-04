@@ -93,11 +93,6 @@ for package in packages:
             '--dest',
             tempdir
         ]
-
-        subprocess.run(pip_download + [
-            '--no-binary', ':all:', package
-        ], check=True)
-
         pip_command = [
             pip_executable,
             'install',
@@ -118,18 +113,25 @@ for package in packages:
         elif opts.cleanup == 'scripts':
             module['cleanup'] = ['/bin', '/share/man/man1']
 
-        for filename in os.listdir(tempdir):
-            name = get_package_name(filename)
-            if name == 'setuptools':  # Already installed
-                continue
-            sha256 = get_file_hash(os.path.join(tempdir, filename))
-            url = get_pypi_url(name, filename)
-            source = OrderedDict([
-                ('type', 'file'),
-                ('url', url),
-                ('sha256', sha256),
-            ])
-            module['sources'].append(source)
+        try:
+            subprocess.run(pip_download + [
+                '--no-binary', ':all:', package
+            ], check=True)
+            for filename in os.listdir(tempdir):
+                name = get_package_name(filename)
+                if name == 'setuptools':  # Already installed
+                    continue
+                sha256 = get_file_hash(os.path.join(tempdir, filename))
+                url = get_pypi_url(name, filename)
+                source = OrderedDict([
+                    ('type', 'file'),
+                    ('url', url),
+                    ('sha256', sha256),
+                ])
+                module['sources'].append(source)
+        except subprocess.CalledProcessError:
+            print("Failed to download {}".format(package))
+            print("Please fix the module manually in the generated file")           
         modules.append(module)
 
 if opts.requirements_file:
