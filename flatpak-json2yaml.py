@@ -78,6 +78,9 @@ def main():
         description='Flatpak JSON to YAML converter')
     parser.add_argument('json_file', type=str,
                         help='The flatpak JSON file to convert')
+    parser.add_argument('-f', '--force', dest='force',
+                        default=False, action='store_true',
+                        help='Overwrite existing file')
     parser.add_argument('-o', '--output', type=str, dest='out_file',
                         help='The yaml target path')
     args = parser.parse_args()
@@ -89,7 +92,12 @@ def main():
 
         yaml_data = json_to_yaml(h.read())
 
-        with open(out_file, 'wb') as out:
+        if args.force:
+            flags = "wb"
+        else:
+            flags = "xb"
+
+        with open(out_file, flags) as out:
             out.write(yaml_data)
 
 
