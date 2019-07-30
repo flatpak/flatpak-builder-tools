@@ -23,7 +23,7 @@ def get_pypi_source(name: str, version: str, hashes: list) -> tuple:
     Returns (tuple): The url and sha256 hash.
 
     """
-    url = "https://pypi.python.org/pypi/{}/json".format(name)
+    url = "https://pypi.org/pypi/{}/json".format(name)
     print("Extracting download url and hash for {}, version {}".format(name, version))
     with urllib.request.urlopen(url) as response:
         body = json.loads(response.read().decode("utf-8"))
