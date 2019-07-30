@@ -30,7 +30,7 @@ opts = parser.parse_args()
 
 
 def get_pypi_url(name: str, filename: str) -> str:
-    url = 'https://pypi.python.org/pypi/{}/json'.format(name)
+    url = 'https://pypi.org/pypi/{}/json'.format(name)
     print('Extracting download url for', name)
     with urllib.request.urlopen(url) as response:
         body = json.loads(response.read().decode('utf-8'))
