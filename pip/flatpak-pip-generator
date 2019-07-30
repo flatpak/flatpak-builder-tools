@@ -43,10 +43,16 @@ def get_pypi_url(name: str, filename: str) -> str:
 
 
 def get_package_name(filename: str) -> str:
-    segments = filename.split("-")
-    if len(segments) == 2:
-        return segments[0]
-    return "-".join(segments[:len(segments) - 1])
+    if filename.rsplit('.', 1)[1] == 'gz':
+        segments = filename.split("-")
+        if len(segments) == 2:
+            return segments[0]
+        return "-".join(segments[:len(segments) - 1])
+    elif filename.rsplit('-', 1)[1] == 'any.whl':
+        segments = filename.split("-")
+        if len(segments) == 5:
+            return segments[0]
+        return "-".join(segments[:len(segments) - 4])
 
 
 def get_file_hash(filename: str) -> str:
@@ -114,9 +120,21 @@ for package in packages:
             module['cleanup'] = ['/bin', '/share/man/man1']
 
         try:
-            subprocess.run(pip_download + [
-                '--no-binary', ':all:', package
-            ], check=True)
+            sdist_package = None
+            subprocess.run(pip_download + [package], check=True)
+            for filename in os.listdir(tempdir):
+                if filename.rsplit('.', 1)[1] != 'gz' and filename.rsplit('-', 1)[1] != 'any.whl':
+                    cwd = os.getcwd()
+                    os.chdir(tempdir)
+                    os.remove(filename)
+                    os.chdir(cwd)
+                    name = filename.split('-', 1)[0]
+                    sdist_package = name
+
+            if sdist_package:
+                subprocess.run(pip_download + [
+                    '--no-binary', ':all:', sdist_package
+                ], check=True)
             for filename in os.listdir(tempdir):
                 name = get_package_name(filename)
                 if name == 'setuptools':  # Already installed
