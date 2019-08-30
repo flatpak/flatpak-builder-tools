@@ -35,7 +35,11 @@ def generate_sources(cargo_lock):
         version = package['version']
         if 'source' in package:
             source = package['source']
-            checksum = metadata[f'checksum {name} {version} ({source})']
+            key = f'checksum {name} {version} ({source})'
+            if key not in metadata:
+                print(f'{key} not in metadata', file=sys.stderr)
+                continue
+            checksum = metadata[key]
         else:
             print(f'{name} has no source', file=sys.stderr)
             continue
