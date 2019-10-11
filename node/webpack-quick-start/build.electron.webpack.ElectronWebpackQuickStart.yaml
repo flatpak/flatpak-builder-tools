@@ -1,11 +1,11 @@
 app-id: build.electron.webpack.ElectronWebpackQuickStart
 branch: stable
 runtime: org.freedesktop.Platform
-runtime-version: '18.08'
+runtime-version: '19.08'
 sdk: org.freedesktop.Sdk
 # Use the Electron 2 BaseApp, which adds several common libraries we'll need.
 base: org.electronjs.Electron2.BaseApp
-base-version: stable
+base-version: '19.08'
 # Add the Node 10 SDK extension.
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.node10
@@ -37,8 +37,8 @@ modules:
       - '*'
     sources:
       - type: archive
-        url: https://github.com/yarnpkg/yarn/releases/download/v1.16.0/yarn-v1.16.0.tar.gz
-        sha256: df202627d9a70cf09ef2fb11cb298cb619db1b958590959d6f6e571b50656029
+        url: https://github.com/yarnpkg/yarn/releases/download/v1.19.1/yarn-v1.19.1.tar.gz
+        sha256: 34293da6266f2aae9690d59c2d764056053ff7eebc56b80b8df05010c3da9343
 
   - name: electron-webpack-quick-start
     buildsystem: simple

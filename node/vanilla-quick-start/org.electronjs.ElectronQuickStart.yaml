@@ -1,11 +1,11 @@
 app-id: org.electronjs.ElectronQuickStart
 branch: stable
 runtime: org.freedesktop.Platform
-runtime-version: '18.08'
+runtime-version: '19.08'
 sdk: org.freedesktop.Sdk
 # Use the Electron 2 BaseApp, which adds several common libraries we'll need.
 base: org.electronjs.Electron2.BaseApp
-base-version: stable
+base-version: '19.08'
 # Add the Node 10 SDK extension.
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.node10
@@ -24,14 +24,14 @@ finish-args:
   # - '--filesystem=home'
 modules:
   # First step is to install Node to /app/node, that way it can be accessible outside of the sdk
-  # environment.
+  # environment. install-sdk.sh is used because install.sh omits npm.
   # (This does not need to be done for electron-builder, see
   # electron-webpack-quick-start's build.electron.webpack.ElectronWebpackQuickStart.yaml for an
   # explanation.)
   - name: node
     buildsystem: simple
     build-commands:
-      - '/usr/lib/sdk/node10/install.sh'
+      - '/usr/lib/sdk/node10/install-sdk.sh'
 
   # Now is the quickstart module.
   - name: electron-quick-start
