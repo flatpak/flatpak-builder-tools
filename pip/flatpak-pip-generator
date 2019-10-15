@@ -24,6 +24,8 @@ parser.add_argument('--requirements-file',
 parser.add_argument('--build-only', action='store_const',
                     dest='cleanup', const='all',
                     help='Clean up all files after build')
+parser.add_argument('--no-build-isolation',
+                    help='https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support')
 parser.add_argument('--output',
                     help='Specify output file name')
 opts = parser.parse_args()
@@ -110,6 +112,8 @@ for package in packages:
             pip_install_prefix,
             shlex.quote(package)
         ]
+        if opts.no_build_isolation:
+            pip_command.append('--no-build-isolation')
         module = OrderedDict([
             ('name', package_name),
             ('buildsystem', 'simple'),
