@@ -1,16 +1,57 @@
 #!/usr/bin/env python3
 
 __license__ = 'MIT'
-
+import base64
 import toml
 import json
 from urllib.parse import quote as urlquote
+from urllib.parse import urlparse, ParseResult
 import sys
 import argparse
+import logging
+
+
+key = b'\x00' * 16
+try:
+    # this is siphash-cffi
+    from siphash import siphash_64
+    siphasher = lambda b: base64.b16encode(siphash_64(key, b))
+
+except ImportError:
+    # this is siphash
+    from siphash import SipHash_2_4
+    siphasher = lambda b: SipHash_2_4(key, b).hexdigest()
+
+
 
 CRATES_IO = 'https://static.crates.io/crates'
 CARGO_HOME = 'cargo'
 CARGO_CRATES = f'{CARGO_HOME}/vendor'
+
+
+def rust_digest(b):
+    # The 0xff suffix matches Rust's behaviour
+    # https://doc.rust-lang.org/src/core/hash/mod.rs.html#611-616
+    digest = siphasher(b.encode() + b'\xff').decode('ascii').lower()
+    logging.debug("Hashing %r to %r", b, digest)
+    return digest
+
+
+def canonical_url(url):
+    "Converts a string to a Cargo Canonical URL, as per https://github.com/rust-lang/cargo/blob/35c55a93200c84a4de4627f1770f76a8ad268a39/src/cargo/util/canonical_url.rs#L19"
+    u = urlparse(url)
+    # It seems cargo drops query and fragment
+    u = ParseResult(u.scheme, u.netloc, u.path, None, None, None)
+    u = u._replace(path = u.path.rstrip('/'))
+
+    if u.netloc == "github.com":
+        u = u._replace(scheme = "https")
+        u = u._replace(path = u.path.lower())
+
+    if u.path.endswith(".git"):
+        u.path = u.path[:-len(".git")]
+
+    return u
 
 def load_cargo_lock(lockfile='Cargo.lock'):
     with open(lockfile, 'r') as f:
@@ -35,11 +76,29 @@ def generate_sources(cargo_lock):
         version = package['version']
         if 'source' in package:
             source = package['source']
-            key = f'checksum {name} {version} ({source})'
-            if key not in metadata:
-                print(f'{key} not in metadata', file=sys.stderr)
+            if source.startswith("git+"):
+                revision = urlparse(source).fragment
+                assert revision, "The commit needs to be indicated in the fragement part"
+                canonical = canonical_url(source)
+                reponame = canonical.path.rsplit('/', 1)[1]
+                hash = rust_digest(canonical.geturl())
+                git_sources = [
+                    {
+                        "type": "git",
+                        "url": canonical.geturl(),
+                        "commit": revision,
+                        "dest": f"cargo/git/db/{reponame}-{hash}"
+                    },
+                ]
+                sources += git_sources
                 continue
-            checksum = metadata[key]
+
+            else:
+                key = f'checksum {name} {version} ({source})'
+                if key not in metadata:
+                    print(f'{key} ({source}) not in metadata', file=sys.stderr)
+                    continue
+                checksum = metadata[key]
         else:
             print(f'{name} has no source', file=sys.stderr)
             continue
