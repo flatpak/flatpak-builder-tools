@@ -65,7 +65,9 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
                 if (
                     package["category"] == "dev"
                     and include_devel
+                    and not package["optional"]
                     or package["category"] == "main"
+                    and not package["optional"]
                 ):
                     hashes = all_hashes[package["name"]]
                     url, hash = get_pypi_source(
@@ -93,7 +95,9 @@ def get_dep_names(parsed_lockfile: dict, include_devel: bool = True) -> list:
                 if (
                     package["category"] == "dev"
                     and include_devel
+                    and not package["optional"]
                     or package["category"] == "main"
+                    and not package["optional"]
                 ):
                     dep_names.append(package["name"])
     return dep_names
