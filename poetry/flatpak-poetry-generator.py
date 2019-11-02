@@ -4,6 +4,7 @@ __license__ = "MIT"
 
 import argparse
 import json
+import re
 import sys
 import urllib.parse
 import urllib.request
@@ -58,7 +59,7 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
 
     """
     sources = []
-    all_hashes = parsed_lockfile["metadata"]["hashes"]
+    hash_re = re.compile(r"(sha1|sha224|sha384|sha256|sha512|md5):([a-f0-9]+)")
     for section, packages in parsed_lockfile.items():
         if section == "package":
             for package in packages:
@@ -69,7 +70,20 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
                     or package["category"] == "main"
                     and not package["optional"]
                 ):
-                    hashes = all_hashes[package["name"]]
+                    # Check for old metadata format (poetry version < 1.0.0b2)
+                    if "hashes" in parsed_lockfile["metadata"]:
+                        hashes = parsed_lockfile["metadata"]["hashes"][package["name"]]
+                    # Else new metadata format
+                    else:
+                        hashes = []
+                        for package_name in parsed_lockfile['metadata']['files']:
+                            if package_name == package["name"]:
+                                package_files = parsed_lockfile['metadata']['files'][package["name"]]
+                                num_files = len(package_files)
+                                for num in range(num_files):
+                                    match = hash_re.search(package_files[num]['hash'])
+                                    if match:
+                                        hashes.append(match.group(2))
                     url, hash = get_pypi_source(
                         package["name"], package["version"], hashes
                     )
