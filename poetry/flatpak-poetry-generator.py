@@ -76,12 +76,14 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
                     # Else new metadata format
                     else:
                         hashes = []
-                        for package_name in parsed_lockfile['metadata']['files']:
+                        for package_name in parsed_lockfile["metadata"]["files"]:
                             if package_name == package["name"]:
-                                package_files = parsed_lockfile['metadata']['files'][package["name"]]
+                                package_files = parsed_lockfile["metadata"]["files"][
+                                    package["name"]
+                                ]
                                 num_files = len(package_files)
                                 for num in range(num_files):
-                                    match = hash_re.search(package_files[num]['hash'])
+                                    match = hash_re.search(package_files[num]["hash"])
                                     if match:
                                         hashes.append(match.group(2))
                     url, hash = get_pypi_source(
