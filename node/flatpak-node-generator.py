@@ -148,6 +148,11 @@ class Integrity(NamedTuple):
         return Integrity(algorithm, digest)
 
     @staticmethod
+    def from_sha1(sha1: str) -> 'Integrity':
+        assert len(sha1) == 40, f'Invalid length of sha1: {sha1}'
+        return Integrity('sha1', sha1)
+
+    @staticmethod
     def generate(data: AnyStr, *, algorithm: str = 'sha256') -> 'Integrity':
         builder = IntegrityBuilder(algorithm)
         builder.update(data)
@@ -216,8 +221,13 @@ class ResolvedSource(NamedTuple):
         if self.integrity is not None:
             return self.integrity
         else:
-            metadata = await RemoteUrlMetadata.get(self.resolved)
+            url = self.resolved
+            assert url is not None, 'registry source has no resolved URL'
+            metadata = await RemoteUrlMetadata.get(url)
             return metadata.integrity
+
+
+class UnresolvedRegistrySource: pass
 
 
 class GitSource(NamedTuple):
@@ -227,7 +237,7 @@ class GitSource(NamedTuple):
     from_: str
 
 
-PackageSource = Union[ResolvedSource, GitSource]
+PackageSource = Union[ResolvedSource, UnresolvedRegistrySource, GitSource]
 
 
 class Package(NamedTuple):
@@ -454,13 +464,14 @@ class NpmLockfileProvider(LockfileProvider):
             version: str = info['version']
 
             source: PackageSource
-            if info.get('resolved'):
-                source = ResolvedSource(resolved=info['resolved'],
-                                        integrity=Integrity.parse(info['integrity']))
-            else:
+            if info.get('from'):
                 git_source = self.parse_git_source(version, info['from'])
-                assert git_source is not None, f'{name} is neither resolved nor a git version'
+                assert git_source is not None, f'{name} is not a valid Git source'
                 source = git_source
+            else:
+                # NOTE: npm ignores the resolved field and just uses the provided
+                # registry instead. We follow the same behavior here.
+                source = UnresolvedRegistrySource()
 
             yield Package(name=name, version=version, source=source, lockfile=lockfile)
 
@@ -477,13 +488,15 @@ class NpmLockfileProvider(LockfileProvider):
 
 
 class NpmModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
-    def __init__(self, gen: ManifestGenerator, lockfile_root: Path, no_autopatch: bool):
+    def __init__(self, gen: ManifestGenerator, lockfile_root: Path, registry: str,
+                 no_autopatch: bool):
         self.gen = gen
         self.lockfile_root = lockfile_root
+        self.registry = registry
         self.no_autopatch = no_autopatch
         self.npm_cache_dir = self.gen.data_root / 'npm-cache'
         self.cacache_dir = self.npm_cache_dir / '_cacache'
-        self.seen_registry_data: Set[str] = set()
+        self.cached_registry_data: Dict[str, Awaitable[dict]] = {}
         self.index_entries: Dict[Path, str] = {}
         self.all_lockfiles: Set[Path] = set()
         # Mapping of lockfiles to a dict of the Git source target paths and GitSource objects.
@@ -525,34 +538,59 @@ class NpmModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
         index_path = self.get_cacache_index_path(key_integrity)
         self.index_entries[index_path] = index
 
-    async def add_npm_registry_data(self, package_url: str) -> None:
-        data_url = package_url.split('/-/')[0]
-        if data_url in self.seen_registry_data:
-            # These results are going to be the same each time.
-            return
+    async def resolve_source(self, package: Package) -> ResolvedSource:
+        # These results are going to be the same each time.
+        if package.name not in self.cached_registry_data:
+            cache_future = asyncio.get_event_loop().create_future()
+            self.cached_registry_data[package.name] = cache_future
 
-        data = await Requests.instance.read_all(data_url)
-        metadata = RemoteUrlMetadata(integrity=Integrity.generate(data), size=len(data))
-        content_path = self.get_cacache_content_path(metadata.integrity)
-        self.gen.add_data_source(data, content_path)
-        self.add_index_entry(data_url, metadata)
-        self.seen_registry_data.add(data_url)
+            data_url = f'{self.registry}/{package.name}'
+            data = await Requests.instance.read_all(data_url)
+            index = json.loads(data)
+
+            assert 'versions' in index, f'{data_url} returned an invalid package index'
+            cache_future.set_result(index['versions'])
+
+            metadata = RemoteUrlMetadata(integrity=Integrity.generate(data), size=len(data))
+            content_path = self.get_cacache_content_path(metadata.integrity)
+            self.gen.add_data_source(data, content_path)
+            self.add_index_entry(data_url, metadata)
+
+        versions = await self.cached_registry_data[package.name]
+        assert package.version in versions, \
+            f'{package.name} versions available are {", ".join(versions)}, not {package.version}'
+
+        dist = versions[package.version]['dist']
+
+        assert 'tarball' in dist, f'{package.name}@{package.version} has no tarball in dist'
+
+        integrity: Integrity
+        if 'integrity' in dist:
+            integrity = Integrity.parse(dist['integrity'])
+        elif 'shasum' in dist:
+            integrity = Integrity.from_sha1(dist['shasum'])
+        else:
+            assert False, f'{package.name}@{package.version} has no integrity in dist'
+
+        return ResolvedSource(resolved=dist['tarball'], integrity=integrity)
 
     async def generate_package(self, package: Package) -> None:
         self.all_lockfiles.add(package.lockfile)
         source = package.source
 
-        if isinstance(source, ResolvedSource):
+        assert not isinstance(source, ResolvedSource)
+
+        if isinstance(source, UnresolvedRegistrySource):
+            source = await self.resolve_source(package)
+            assert source.resolved is not None
+            assert source.integrity is not None
+
             integrity = await source.retrieve_integrity()
             size = await RemoteUrlMetadata.get_size(source.resolved)
             metadata = RemoteUrlMetadata(integrity=integrity, size=size)
             content_path = self.get_cacache_content_path(integrity)
             self.gen.add_url_source(source.resolved, integrity, content_path)
             self.add_index_entry(source.resolved, metadata)
-
-            # XXX: This probably is not generic enough.
-            if 'registry.npmjs.org' in source.resolved:
-                await self.add_npm_registry_data(source.resolved)
 
             await self.generate_special_sources(self.gen, package)
 
@@ -765,8 +803,10 @@ class ProviderFactory:
 
 
 class NpmProviderFactory(ProviderFactory):
-    def __init__(self, lockfile_root: Path, no_devel: bool, no_autopatch: bool) -> None:
+    def __init__(self, lockfile_root: Path, registry: str, no_devel: bool,
+                 no_autopatch: bool) -> None:
         self.lockfile_root = lockfile_root
+        self.registry = registry
         self.no_devel = no_devel
         self.no_autopatch = no_autopatch
 
@@ -774,7 +814,7 @@ class NpmProviderFactory(ProviderFactory):
         return NpmLockfileProvider(self.no_devel)
 
     def create_module_provider(self, gen: ManifestGenerator) -> NpmModuleProvider:
-        return NpmModuleProvider(gen, self.lockfile_root, self.no_autopatch)
+        return NpmModuleProvider(gen, self.lockfile_root, self.registry, self.no_autopatch)
 
 
 class YarnProviderFactory(ProviderFactory):
@@ -852,6 +892,8 @@ async def main() -> None:
                              'the lockfile basename')
     parser.add_argument('-R', '--recursive-pattern', action='append',
                         help='Given -r, restrict files to those matching the given pattern.')
+    parser.add_argument('--registry', help='The registry to use (npm only)',
+                       default='https://registry.npmjs.org')
     parser.add_argument('--no-devel', action='store_true',
                         help="Don't include devel dependencies (npm only)")
     parser.add_argument('--no-aiohttp', action='store_true',
@@ -894,7 +936,8 @@ async def main() -> None:
 
     provider_factory: ProviderFactory
     if args.type == 'npm':
-        provider_factory = NpmProviderFactory(lockfile_root, args.no_devel, args.no_autopatch)
+        provider_factory = NpmProviderFactory(lockfile_root, args.registry, args.no_devel,
+                                              args.no_autopatch)
     elif args.type == 'yarn':
         provider_factory = YarnProviderFactory()
     else:
