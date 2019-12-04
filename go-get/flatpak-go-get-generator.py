@@ -40,10 +40,15 @@ def repo_paths(build_dir: Path) -> List[Path]:
 
 def repo_source(repo_path: Path) -> Dict[str, str]:
     def current_commit(repo_path: Path) -> str:
-        return subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, cwd=repo_path, text=True).stdout.strip()
+        output = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+            cwd=repo_path).decode('ascii').strip()
+        return output
 
     def remote_url(repo_path: Path) -> str:
-        return subprocess.run(['git', 'remote', 'get-url', 'origin'], capture_output=True, cwd=repo_path, text=True).stdout.strip()
+        output = subprocess.check_output(
+            ['git', 'remote', 'get-url', 'origin'],
+            cwd=repo_path).decode('ascii').strip()
+        return output
     
     repo_path_str = str(repo_path)
     dest_path = repo_path_str[repo_path_str.rfind('src/'):]
