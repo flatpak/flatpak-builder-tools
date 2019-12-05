@@ -26,6 +26,10 @@ import subprocess
 import argparse
 import json
 
+def is_git_repository(p):
+    is_git_repo = p.is_dir() and (p / ".git").is_dir()
+    return is_git_repo
+
 def repo_paths(build_dir: Path) -> List[Path]:
     src_dir = build_dir / 'src'
     repo_paths: List[Path] = []
@@ -34,8 +38,13 @@ def repo_paths(build_dir: Path) -> List[Path]:
     for domain in domains:
         domain_users = domain.iterdir()
         for user in domain_users:
-            user_repos = user.iterdir()
-            repo_paths += list(user_repos)
+            if is_git_repository(user):
+                repo_paths.append(user)
+            else:
+                user_repos = user.iterdir()
+                for ur in user_repos:
+                    if is_git_repository(ur):
+                        repo_paths.append(ur)
     return repo_paths
 
 def repo_source(repo_path: Path) -> Dict[str, str]:
