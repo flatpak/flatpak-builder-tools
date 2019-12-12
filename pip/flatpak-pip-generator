@@ -133,11 +133,10 @@ for package in packages:
             # the --no-binary option).
             subprocess.run(pip_download + [package], check=True)
             for filename in os.listdir(tempdir):
-                name = get_package_name(filename)
                 if not filename.endswith(('gz', 'any.whl')):
                     os.remove(os.path.join(tempdir, filename))
                     subprocess.run(pip_download + [
-                        '--no-binary', ':all:', name
+                        '--no-binary', ':all:', package
                     ], check=True)
             for filename in os.listdir(tempdir):
                 name = get_package_name(filename)
