@@ -82,7 +82,7 @@ class UrllibRequests(Requests):
 
     async def _read_all(self, url: str) -> bytes:
         with urllib.request.urlopen(url) as response:
-            return response.read()
+            return cast(bytes, response.read())
 
 
 class StubRequests(Requests):
