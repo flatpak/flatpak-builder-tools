@@ -85,10 +85,8 @@ else:
 
 if opts.python2:
     pip_executable = 'pip2'
-    pip_install_prefix = '--install-option="--prefix=${FLATPAK_DEST}"'
 else:
     pip_executable = 'pip3'
-    pip_install_prefix = '--prefix=${FLATPAK_DEST}'
 
 modules = []
 
@@ -109,7 +107,7 @@ for package in packages:
             'install',
             '--no-index',
             '--find-links="file://${PWD}"',
-            pip_install_prefix,
+            '--prefix=${FLATPAK_DEST}',
             shlex.quote(package)
         ]
         if opts.no_build_isolation:
