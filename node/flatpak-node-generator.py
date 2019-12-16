@@ -347,7 +347,10 @@ class ModuleProvider(contextlib.AbstractContextManager):
         raise NotImplementedError()
 
 
-class SpecialSourceProviderMixin:
+class SpecialSourceProvider:
+    def __init__(self, gen: ManifestGenerator):
+        self.gen = gen
+
     async def _parse_electron_asset_integrities(self, data: str) -> Dict[str, Integrity]:
         result: Dict[str, Integrity] = {}
 
@@ -358,13 +361,13 @@ class SpecialSourceProviderMixin:
 
         return result
 
-    async def _handle_electron(self, gen: ManifestGenerator, package: Package) -> None:
+    async def _handle_electron(self, package: Package) -> None:
         base_url = f'https://github.com/electron/electron/releases/download/v{package.version}'
         integrity_url = f'{base_url}/SHASUMS256.txt'
         integrity_data = (await Requests.instance.read_all(integrity_url)).decode()
         integrities = await self._parse_electron_asset_integrities(integrity_data)
 
-        electron_cache_dir = gen.data_root / 'electron-cache'
+        electron_cache_dir = self.gen.data_root / 'electron-cache'
 
         electron_arches_to_flatpak = {
             'ia32': 'i386',
@@ -379,11 +382,11 @@ class SpecialSourceProviderMixin:
             integrity = integrities[binary_filename]
             destination = electron_cache_dir / binary_filename
 
-            gen.add_url_source(binary_url, integrity, destination, only_arches=[flatpak_arch])
+            self.gen.add_url_source(binary_url, integrity, destination, only_arches=[flatpak_arch])
 
         integrity = Integrity.generate(integrity_data)
         destination = electron_cache_dir / f'SHASUMS256.txt-{package.version}'
-        gen.add_url_source(integrity_url, integrity, destination)
+        self.gen.add_url_source(integrity_url, integrity, destination)
 
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
         # Note: Chromedriver seems to not have tagged all releases on GitHub, so just use
@@ -395,34 +398,33 @@ class SpecialSourceProviderMixin:
         assert match is not None, f'Failed to get Chromedriver binary version from {url}'
         return match.group(1)
 
-    def _get_chromedriver_binary_dir(self, gen: ManifestGenerator, chromedriver_version: str,
-                                     package: Package) -> Path:
-        tmp_root = gen.tmp_root
+    def _get_chromedriver_binary_dir(self, chromedriver_version: str, package: Package) -> Path:
+        tmp_root = self.gen.tmp_root
         if Semver.parse(package.version) >= Semver(2, 46, 0):
             tmp_root /= chromedriver_version
 
         return tmp_root / 'chromedriver'
 
-    async def _handle_chromedriver(self, gen: ManifestGenerator, package: Package) -> None:
+    async def _handle_chromedriver(self, package: Package) -> None:
         version = await self._get_chromedriver_binary_version(package)
         url = f'https://chromedriver.storage.googleapis.com/{version}/chromedriver_linux64.zip'
         metadata = await RemoteUrlMetadata.get(url)
 
-        destination = gen.data_root / 'chromedriver.zip'
-        gen.add_url_source(url, metadata.integrity, destination, only_arches=['x86_64'])
+        destination = self.gen.data_root / 'chromedriver.zip'
+        self.gen.add_url_source(url, metadata.integrity, destination, only_arches=['x86_64'])
 
-        binary_dir = self._get_chromedriver_binary_dir(gen, version, package)
-        gen.add_command(f'mkdir -p {binary_dir} && unzip -d {binary_dir} {destination}')
+        binary_dir = self._get_chromedriver_binary_dir(version, package)
+        self.gen.add_command(f'mkdir -p {binary_dir} && unzip -d {binary_dir} {destination}')
 
-    async def generate_special_sources(self, gen: ManifestGenerator, package: Package) -> None:
+    async def generate_special_sources(self, package: Package) -> None:
         if isinstance(Requests.instance, StubRequests):
             # This is going to crash and burn.
             return
 
         if package.name == 'electron':
-            await self._handle_electron(gen, package)
+            await self._handle_electron(package)
         elif package.name == 'chromedriver':
-            await self._handle_chromedriver(gen, package)
+            await self._handle_chromedriver(package)
 
 
 class NpmLockfileProvider(LockfileProvider):
@@ -487,10 +489,11 @@ class NpmLockfileProvider(LockfileProvider):
         yield from self.process_dependencies(lockfile, data['dependencies'])
 
 
-class NpmModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
+class NpmModuleProvider(ModuleProvider):
     def __init__(self, gen: ManifestGenerator, lockfile_root: Path, registry: str,
                  no_autopatch: bool):
         self.gen = gen
+        self.special_source_provider = SpecialSourceProvider(gen)
         self.lockfile_root = lockfile_root
         self.registry = registry
         self.no_autopatch = no_autopatch
@@ -592,7 +595,7 @@ class NpmModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
             self.gen.add_url_source(source.resolved, integrity, content_path)
             self.add_index_entry(source.resolved, metadata)
 
-            await self.generate_special_sources(self.gen, package)
+            await self.special_source_provider.generate_special_sources(package)
 
         elif isinstance(source, GitSource):
             # Get a unique name to use for the Git repository folder.
@@ -768,9 +771,10 @@ class YarnLockfileProvider(LockfileProvider):
             yield self.parse_package_section(lockfile, section)
 
 
-class YarnModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
+class YarnModuleProvider(ModuleProvider):
     def __init__(self, gen: ManifestGenerator) -> None:
         self.gen = gen
+        self.special_source_provider = SpecialSourceProvider(self.gen)
         self.mirror_dir = self.gen.data_root / 'yarn-mirror'
 
     def __exit__(self, *_: Any) -> None:
@@ -791,7 +795,7 @@ class YarnModuleProvider(ModuleProvider, SpecialSourceProviderMixin):
 
         self.gen.add_url_source(source.resolved, integrity, destination)
 
-        await self.generate_special_sources(self.gen, package)
+        await self.special_source_provider.generate_special_sources(package)
 
 
 class ProviderFactory:
