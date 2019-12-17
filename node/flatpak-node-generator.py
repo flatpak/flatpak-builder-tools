@@ -298,7 +298,8 @@ class ManifestGenerator(contextlib.AbstractContextManager):
         self._sources[tuple(source.items())] = None
 
     def _add_source_with_destination(self, source: Dict[str, Any],
-                                     destination: Optional[Path], *, is_dir: bool) -> None:
+                                     destination: Optional[Path], *, is_dir: bool,
+                                     only_arches: Optional[List[str]] = None) -> None:
         if destination is not None:
             if is_dir:
                 source['dest'] = str(destination)
@@ -307,15 +308,26 @@ class ManifestGenerator(contextlib.AbstractContextManager):
                 if len(destination.parts) > 1:
                     source['dest'] = str(destination.parent)
 
+        if only_arches:
+            source['only-arches'] = tuple(only_arches)
+
         self._add_source(source)
 
     def add_url_source(self, url: str, integrity: Integrity, destination: Optional[Path] = None,
                        *, only_arches: Optional[List[str]] = None) -> None:
         source: Dict[str, Any] = {'type': 'file', 'url': url,
                                   integrity.algorithm: integrity.digest}
-        if only_arches:
-            source['only-arches'] = tuple(only_arches)
-        self._add_source_with_destination(source, destination, is_dir=False)
+        self._add_source_with_destination(source, destination, is_dir=False,
+                                          only_arches=only_arches)
+
+    def add_archive_source(self, url: str, integrity: Integrity,
+                           destination: Optional[Path] = None,
+                           only_arches: Optional[List[str]] = None,
+                           strip_components: int = 1) -> None:
+        source: Dict[str, Any] = {'type': 'archive', 'url': url, 'strip-components': 1,
+                                  integrity.algorithm: integrity.digest}
+        self._add_source_with_destination(source, destination, is_dir=True,
+                                          only_arches=only_arches)
 
     def add_data_source(self, data: AnyStr, destination: Path) -> None:
         source = {'type': 'file', 'url': 'data:' + urllib.parse.quote(data)}
@@ -347,74 +359,120 @@ class ModuleProvider(contextlib.AbstractContextManager):
         raise NotImplementedError()
 
 
-class SpecialSourceProvider:
-    def __init__(self, gen: ManifestGenerator):
-        self.gen = gen
+class ElectronBinaryManager:
+    class Arch(NamedTuple):
+        electron: str
+        flatpak: str
 
-    async def _parse_electron_asset_integrities(self, data: str) -> Dict[str, Integrity]:
-        result: Dict[str, Integrity] = {}
+    class Binary(NamedTuple):
+        filename: str
+        url: str
+        integrity: Integrity
 
-        for line in data.splitlines():
+        arch: Optional['ElectronBinaryManager.Arch'] = None
+
+    ELECTRON_ARCHES_TO_FLATPAK = {
+        'ia32': 'i386',
+        'x64': 'x86_64',
+        'armv7l': 'arm',
+        'arm64': 'aarch64',
+    }
+
+    INTEGRITY_BASE_FILENAME = 'SHASUMS256.txt'
+
+    def __init__(self, version: str, base_url: str, integrities: Dict[str, Integrity]) -> None:
+        self.version = version
+        self.base_url = base_url
+        self.integrities = integrities
+
+    def child_url(self, child: str) -> str:
+        return f'{self.base_url}/{child}'
+
+    def find_binaries(self, binary: str) -> Iterator['ElectronBinaryManager.Binary']:
+        for electron_arch, flatpak_arch in self.ELECTRON_ARCHES_TO_FLATPAK.items():
+            binary_filename = f'{binary}-v{self.version}-linux-{electron_arch}.zip'
+            binary_url = self.child_url(binary_filename)
+
+            arch = ElectronBinaryManager.Arch(electron=electron_arch, flatpak=flatpak_arch)
+            yield ElectronBinaryManager.Binary(filename=binary_filename, url=binary_url,
+                                               integrity=self.integrities[binary_filename],
+                                               arch=arch)
+
+    @property
+    def integrity_file(self) -> 'ElectronBinaryManager.Binary':
+        return ElectronBinaryManager.Binary(
+            filename=f'SHASUMS256.txt-{self.version}',
+            url=self.child_url(self.INTEGRITY_BASE_FILENAME),
+            integrity=self.integrities[self.INTEGRITY_BASE_FILENAME])
+
+    @staticmethod
+    async def for_version(version: str) -> 'ElectronBinaryManager':
+        base_url = f'https://github.com/electron/electron/releases/download/v{version}'
+        integrity_url = f'{base_url}/{ElectronBinaryManager.INTEGRITY_BASE_FILENAME}'
+        integrity_data = (await Requests.instance.read_all(integrity_url)).decode()
+
+        integrities: Dict[str, Integrity] = {}
+        for line in integrity_data.splitlines():
             digest, star_filename = line.split()
             filename = star_filename.strip('*')
-            result[filename] = Integrity(algorithm='sha256', digest=digest)
+            integrities[filename] = Integrity(algorithm='sha256', digest=digest)
 
-        return result
+        integrities[ElectronBinaryManager.INTEGRITY_BASE_FILENAME] = (
+            Integrity.generate(integrity_data))
+
+        return ElectronBinaryManager(version=version, base_url=base_url,
+                                     integrities=integrities)
+
+
+class SpecialSourceProvider:
+    def __init__(self, gen: ManifestGenerator, electron_chromedriver: str):
+        self.gen = gen
+        self.electron_chromedriver = electron_chromedriver
 
     async def _handle_electron(self, package: Package) -> None:
-        base_url = f'https://github.com/electron/electron/releases/download/v{package.version}'
-        integrity_url = f'{base_url}/SHASUMS256.txt'
-        integrity_data = (await Requests.instance.read_all(integrity_url)).decode()
-        integrities = await self._parse_electron_asset_integrities(integrity_data)
+        manager = await ElectronBinaryManager.for_version(package.version)
 
         electron_cache_dir = self.gen.data_root / 'electron-cache'
 
-        electron_arches_to_flatpak = {
-            'ia32': 'i386',
-            'x64': 'x86_64',
-            'armv7l': 'arm',
-            'arm64': 'aarch64',
-        }
+        for binary in manager.find_binaries('electron'):
+            assert binary.arch is not None
+            self.gen.add_url_source(binary.url, binary.integrity,
+                                    electron_cache_dir / binary.filename,
+                                    only_arches=[binary.arch.flatpak])
 
-        for electron_arch, flatpak_arch in electron_arches_to_flatpak.items():
-            binary_filename = f'electron-v{package.version}-linux-{electron_arch}.zip'
-            binary_url = f'{base_url}/{binary_filename}'
-            integrity = integrities[binary_filename]
-            destination = electron_cache_dir / binary_filename
-
-            self.gen.add_url_source(binary_url, integrity, destination, only_arches=[flatpak_arch])
-
-        integrity = Integrity.generate(integrity_data)
-        destination = electron_cache_dir / f'SHASUMS256.txt-{package.version}'
-        self.gen.add_url_source(integrity_url, integrity, destination)
+        integrity_file = manager.integrity_file
+        self.gen.add_url_source(integrity_file.url, integrity_file.integrity,
+                                electron_cache_dir / integrity_file.filename)
 
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
-        # Note: Chromedriver seems to not have tagged all releases on GitHub, so just use
-        # unpkg instead.
+        # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
+        # just use unpkg instead.
         url = f'https://unpkg.com/chromedriver@{package.version}/lib/chromedriver'
         js = await Requests.instance.read_all(url)
         # XXX: a tad ugly
         match = re.search(r"exports\.version = '([^']+)'", js.decode())
-        assert match is not None, f'Failed to get Chromedriver binary version from {url}'
+        assert match is not None, f'Failed to get ChromeDriver binary version from {url}'
         return match.group(1)
-
-    def _get_chromedriver_binary_dir(self, chromedriver_version: str, package: Package) -> Path:
-        tmp_root = self.gen.tmp_root
-        if Semver.parse(package.version) >= Semver(2, 46, 0):
-            tmp_root /= chromedriver_version
-
-        return tmp_root / 'chromedriver'
 
     async def _handle_chromedriver(self, package: Package) -> None:
         version = await self._get_chromedriver_binary_version(package)
-        url = f'https://chromedriver.storage.googleapis.com/{version}/chromedriver_linux64.zip'
-        metadata = await RemoteUrlMetadata.get(url)
+        destination = self.gen.data_root / 'chromedriver'
 
-        destination = self.gen.data_root / 'chromedriver.zip'
-        self.gen.add_url_source(url, metadata.integrity, destination, only_arches=['x86_64'])
+        if self.electron_chromedriver is not None:
+            manager = await ElectronBinaryManager.for_version(self.electron_chromedriver)
 
-        binary_dir = self._get_chromedriver_binary_dir(version, package)
-        self.gen.add_command(f'mkdir -p {binary_dir} && unzip -d {binary_dir} {destination}')
+            for binary in manager.find_binaries('chromedriver'):
+                assert binary.arch is not None
+                self.gen.add_archive_source(binary.url, binary.integrity,
+                                            destination=destination,
+                                            only_arches=[binary.arch.flatpak])
+        else:
+            url = (f'https://chromedriver.storage.googleapis.com/{version}/'
+                    'chromedriver_linux64.zip')
+            metadata = await RemoteUrlMetadata.get(url)
+
+            self.gen.add_archive_source(url, metadata.integrity, destination=destination,
+                                        only_arches=['x86_64'])
 
     async def generate_special_sources(self, package: Package) -> None:
         if isinstance(Requests.instance, StubRequests):
@@ -491,9 +549,9 @@ class NpmLockfileProvider(LockfileProvider):
 
 class NpmModuleProvider(ModuleProvider):
     def __init__(self, gen: ManifestGenerator, lockfile_root: Path, registry: str,
-                 no_autopatch: bool):
+                 no_autopatch: bool, electron_chromedriver: str):
         self.gen = gen
-        self.special_source_provider = SpecialSourceProvider(gen)
+        self.special_source_provider = SpecialSourceProvider(gen, electron_chromedriver)
         self.lockfile_root = lockfile_root
         self.registry = registry
         self.no_autopatch = no_autopatch
@@ -772,9 +830,9 @@ class YarnLockfileProvider(LockfileProvider):
 
 
 class YarnModuleProvider(ModuleProvider):
-    def __init__(self, gen: ManifestGenerator) -> None:
+    def __init__(self, gen: ManifestGenerator, electron_chromedriver: str) -> None:
         self.gen = gen
-        self.special_source_provider = SpecialSourceProvider(self.gen)
+        self.special_source_provider = SpecialSourceProvider(gen, electron_chromedriver)
         self.mirror_dir = self.gen.data_root / 'yarn-mirror'
 
     def __exit__(self, *_: Any) -> None:
@@ -808,25 +866,30 @@ class ProviderFactory:
 
 class NpmProviderFactory(ProviderFactory):
     def __init__(self, lockfile_root: Path, registry: str, no_devel: bool,
-                 no_autopatch: bool) -> None:
+                 no_autopatch: bool, electron_chromedriver: str) -> None:
         self.lockfile_root = lockfile_root
         self.registry = registry
         self.no_devel = no_devel
         self.no_autopatch = no_autopatch
+        self.electron_chromedriver = electron_chromedriver
 
     def create_lockfile_provider(self) -> NpmLockfileProvider:
         return NpmLockfileProvider(self.no_devel)
 
     def create_module_provider(self, gen: ManifestGenerator) -> NpmModuleProvider:
-        return NpmModuleProvider(gen, self.lockfile_root, self.registry, self.no_autopatch)
+        return NpmModuleProvider(gen, self.lockfile_root, self.registry, self.no_autopatch,
+                                 self.electron_chromedriver)
 
 
 class YarnProviderFactory(ProviderFactory):
+    def __init__(self, electron_chromedriver: str) -> None:
+        self.electron_chromedriver = electron_chromedriver
+
     def create_lockfile_provider(self) -> YarnLockfileProvider:
         return YarnLockfileProvider()
 
     def create_module_provider(self, gen: ManifestGenerator) -> YarnModuleProvider:
-        return YarnModuleProvider(gen)
+        return YarnModuleProvider(gen, self.electron_chromedriver)
 
 
 class GeneratorProgress(contextlib.AbstractContextManager):
@@ -908,6 +971,9 @@ async def main() -> None:
                         help="Don't automatically patch Git sources from package*.json")
     parser.add_argument('-s', '--split', action='store_true',
                         help='Split the sources file to fit onto GitHub.')
+    parser.add_argument('--electron-chromedriver',
+                        help='Use the ChromeDriver version associated with the given '
+                             'Electron version')
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
 
@@ -941,9 +1007,9 @@ async def main() -> None:
     provider_factory: ProviderFactory
     if args.type == 'npm':
         provider_factory = NpmProviderFactory(lockfile_root, args.registry, args.no_devel,
-                                              args.no_autopatch)
+                                              args.no_autopatch, args.electron_chromedriver)
     elif args.type == 'yarn':
-        provider_factory = YarnProviderFactory()
+        provider_factory = YarnProviderFactory(args.electron_chromedriver)
     else:
         assert False, args.type
 

@@ -28,8 +28,9 @@ get npm with electron-builder.
 
 ```
 usage: flatpak-node-generator.py [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN]
-                                 [--no-devel] [--no-aiohttp]
-                                 [--retries RETRIES] [-P] [-s]
+                                 [--registry REGISTRY] [--no-devel]
+                                 [--no-aiohttp] [--retries RETRIES] [-P] [-s]
+                                 [--electron-chromedriver ELECTRON_CHROMEDRIVER]
                                  {npm,yarn} lockfile
 
 Flatpak Node generator
@@ -47,6 +48,7 @@ optional arguments:
   -R RECURSIVE_PATTERN, --recursive-pattern RECURSIVE_PATTERN
                         Given -r, restrict files to those matching the given
                         pattern.
+  --registry REGISTRY   The registry to use (npm only)
   --no-devel            Don't include devel dependencies (npm only)
   --no-aiohttp          Don't use aiohttp, and silence any warnings related to
                         it
@@ -54,6 +56,9 @@ optional arguments:
   -P, --no-autopatch    Don't automatically patch Git sources from
                         package*.json
   -s, --split           Split the sources file to fit onto GitHub.
+  --electron-chromedriver ELECTRON_CHROMEDRIVER
+                        Use the ChromeDriver version associated with the given
+                        Electron version
 ```
 
 flatpak-node-generator.py takes the package manager (npm or yarn), and a path to a lockfile for
@@ -70,15 +75,32 @@ may be larger than GitHub's maximum size. In order to circumvent this, you can p
 will write multiple files (generated-sources.0.json, generated-sources.1.json, etc) instead of
 one, each smaller than the GitHub limit.
 
-### Chromedriver support
+### ChromeDriver support
 
-If your app depends on Chromedriver, then you need to prepend:
+If your app depends on node-chromedriver, then flatpak-node-generator will download it
+to the directory `$FLATPAK_BUILDER_BUILDDIR/flatpak-node/chromedriver`. You need to
+do two things in order to utilize this:
 
+- Add `CHROMEDRIVER_SKIP_DOWNLOAD=true` to your environment variables.
+- Add `$FLATPAK_BUILDER_BUILDDIR/flatpak-node/chromedriver` to your PATH.
+
+It might look like this:
+
+```yaml
+build-options:
+  append-path: '/usr/lib/sdk/node10/bin:/run/build/MY-MODULE/flatpak-node/chromedriver'
+  env:
+    CHROMEDRIVER_SKIP_DOWNLOAD: 'true'
+    # ...
 ```
-TMPDIR=$FLATPAK_BUILDER_BUILDDIR/flatpak-node/tmp
-```
 
-to `npm install` or `yarn` in order to use the predownloaded Chromedriver binary.
+In addition, the default ChromeDriver only is available for x64. If you need to build
+on other platforms, you can use the ChromeDriver binaries that are compiled by Electron
+and distributed with their releases. To do this, pass
+`--electron-chromedriver AN_ELECTRON_VERSION` to use the ChromeDriver given with that
+Electron version. Note that you may not necessarily want to use a version here that
+corresponds to the Electron version your app is using; many apps stay on older Electron
+versions but may use newer ChromeDriver functionality.
 
 ### Recursive mode
 
