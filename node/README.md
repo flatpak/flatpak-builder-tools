@@ -169,3 +169,19 @@ that the files that need to be patched will already exist.
 
 (In addition, flatpak-node-generator will generate `flatpak-node/patch-all.sh`, which is what is
 automatically run by default when you *don't* pass `-P`.)
+
+### electron-builder and ARM architectures
+
+If you want to build for ARM or ARM64 with electron-builder, there are two important
+things to note:
+
+- For ARM in particular, electron-builder will misdetect the architecture and give
+  an error about it being unsupported. To work around this, you have to pass the
+  architecture manually to electron-builder. flatpak-node-generator will write
+  a shell script at `flatpak-node/electron-builder-arch-args.sh` that can be sourced
+  to set the `$ELECTRON_BUILDER_ARCH_ARGS` environment variable. Then, this variable
+  can be passed to the electron-builder command.
+- For both ARM and ARM64, the electron-builder output directory will contain the
+  architecture in its name.
+
+Both of these cases are handled by the electron-webpack-quick-start example.
