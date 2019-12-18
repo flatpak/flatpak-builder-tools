@@ -202,17 +202,6 @@ class RemoteUrlMetadata(NamedTuple):
         return size
 
 
-class Semver(NamedTuple):
-    major: int
-    minor: int
-    patch: int
-
-    @staticmethod
-    def parse(version: str) -> 'Semver':
-        major, minor, patch = map(int, version.split('.'))
-        return Semver(major, minor, patch)
-
-
 class ResolvedSource(NamedTuple):
     resolved: str
     integrity: Optional[Integrity]
@@ -474,6 +463,22 @@ class SpecialSourceProvider:
             self.gen.add_archive_source(url, metadata.integrity, destination=destination,
                                         only_arches=['x86_64'])
 
+    def _handle_electron_builder(self, package: Package) -> None:
+        destination = self.gen.data_root / 'electron-builder-arch-args.sh'
+
+        script = []
+        script.append('case "$FLATPAK_ARCH" in')
+
+        for electron_arch, flatpak_arch in (
+                ElectronBinaryManager.ELECTRON_ARCHES_TO_FLATPAK.items()):
+            script.append(f'"{flatpak_arch}")')
+            script.append(f'  export ELECTRON_BUILDER_ARCH_ARGS="--{electron_arch}"')
+            script.append('  ;;')
+
+        script.append('esac')
+
+        self.gen.add_script_source(script, destination)
+
     async def generate_special_sources(self, package: Package) -> None:
         if isinstance(Requests.instance, StubRequests):
             # This is going to crash and burn.
@@ -483,6 +488,8 @@ class SpecialSourceProvider:
             await self._handle_electron(package)
         elif package.name == 'chromedriver':
             await self._handle_chromedriver(package)
+        elif package.name == 'electron-builder':
+            self._handle_electron_builder(package)
 
 
 class NpmLockfileProvider(LockfileProvider):
