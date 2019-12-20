@@ -565,12 +565,10 @@ class NpmLockfileProvider(LockfileProvider):
 
 
 class NpmModuleProvider(ModuleProvider):
-    def __init__(self, gen: ManifestGenerator, lockfile_root: Path, registry: str,
-                 no_autopatch: bool, electron_chromedriver: str,
-                 electron_non_patented_ffmpeg: bool) -> None:
+    def __init__(self, gen: ManifestGenerator, special: SpecialSourceProvider,
+                 lockfile_root: Path, registry: str, no_autopatch: bool) -> None:
         self.gen = gen
-        self.special_source_provider = SpecialSourceProvider(gen, electron_chromedriver,
-                                                             electron_non_patented_ffmpeg)
+        self.special_source_provider = special
         self.lockfile_root = lockfile_root
         self.registry = registry
         self.no_autopatch = no_autopatch
@@ -849,11 +847,9 @@ class YarnLockfileProvider(LockfileProvider):
 
 
 class YarnModuleProvider(ModuleProvider):
-    def __init__(self, gen: ManifestGenerator, electron_chromedriver: str,
-                 electron_non_patented_ffmpeg: bool) -> None:
+    def __init__(self, gen: ManifestGenerator, special: SpecialSourceProvider) -> None:
         self.gen = gen
-        self.special_source_provider = SpecialSourceProvider(gen, electron_chromedriver,
-                                                             electron_non_patented_ffmpeg)
+        self.special_source_provider = special
         self.mirror_dir = self.gen.data_root / 'yarn-mirror'
 
     def __exit__(self, *_: Any) -> None:
@@ -881,42 +877,38 @@ class ProviderFactory:
     def create_lockfile_provider(self) -> LockfileProvider:
         raise NotImplementedError()
 
-    def create_module_provider(self, gen: ManifestGenerator) -> ModuleProvider:
+    def create_module_provider(self, gen: ManifestGenerator,
+                               special: SpecialSourceProvider) -> ModuleProvider:
         raise NotImplementedError()
 
 
 class NpmProviderFactory(ProviderFactory):
     def __init__(self, lockfile_root: Path, registry: str, no_devel: bool,
-                 no_autopatch: bool, electron_chromedriver: str,
-                 electron_non_patented_ffmpeg: bool) -> None:
+                 no_autopatch: bool) -> None:
         self.lockfile_root = lockfile_root
         self.registry = registry
         self.no_devel = no_devel
         self.no_autopatch = no_autopatch
-        self.electron_chromedriver = electron_chromedriver
-        self.electron_non_patented_ffmpeg = electron_non_patented_ffmpeg
 
     def create_lockfile_provider(self) -> NpmLockfileProvider:
         return NpmLockfileProvider(self.no_devel)
 
-    def create_module_provider(self, gen: ManifestGenerator) -> NpmModuleProvider:
-        return NpmModuleProvider(gen, self.lockfile_root, self.registry, self.no_autopatch,
-                                 self.electron_chromedriver,
-                                 self.electron_non_patented_ffmpeg)
+    def create_module_provider(self, gen: ManifestGenerator,
+                               special: SpecialSourceProvider) -> NpmModuleProvider:
+        return NpmModuleProvider(gen, special, self.lockfile_root, self.registry,
+                                 self.no_autopatch)
 
 
 class YarnProviderFactory(ProviderFactory):
-    def __init__(self, electron_chromedriver: str,
-                 electron_non_patented_ffmpeg: bool) -> None:
-        self.electron_chromedriver = electron_chromedriver
-        self.electron_non_patented_ffmpeg = electron_non_patented_ffmpeg
+    def __init__(self) -> None:
+        pass
 
     def create_lockfile_provider(self) -> YarnLockfileProvider:
         return YarnLockfileProvider()
 
-    def create_module_provider(self, gen: ManifestGenerator) -> YarnModuleProvider:
-        return YarnModuleProvider(gen, self.electron_chromedriver,
-                                  self.electron_non_patented_ffmpeg)
+    def create_module_provider(self, gen: ManifestGenerator,
+                               special: SpecialSourceProvider) -> YarnModuleProvider:
+        return YarnModuleProvider(gen, special)
 
 
 class GeneratorProgress(contextlib.AbstractContextManager):
@@ -1036,11 +1028,9 @@ async def main() -> None:
     provider_factory: ProviderFactory
     if args.type == 'npm':
         provider_factory = NpmProviderFactory(lockfile_root, args.registry, args.no_devel,
-                                              args.no_autopatch, args.electron_chromedriver,
-                                              args.electron_non_patented_ffmpeg)
+                                              args.no_autopatch)
     elif args.type == 'yarn':
-        provider_factory = YarnProviderFactory(args.electron_chromedriver,
-                                               args.electron_non_patented_ffmpeg)
+        provider_factory = YarnProviderFactory()
     else:
         assert False, args.type
 
@@ -1055,7 +1045,10 @@ async def main() -> None:
 
     gen = ManifestGenerator()
     with gen:
-        with provider_factory.create_module_provider(gen) as module_provider:
+        special = SpecialSourceProvider(gen, args.electron_chromedriver,
+                                        args.electron_non_patented_ffmpeg)
+
+        with provider_factory.create_module_provider(gen, special) as module_provider:
             with GeneratorProgress(packages, module_provider) as progress:
                 await progress.run()
 
