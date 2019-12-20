@@ -241,11 +241,9 @@ class ManifestGenerator(contextlib.AbstractContextManager):
     JSON_INDENT = 4
 
     def __init__(self) -> None:
-        # Store the dicts as a "set" of tuples, then rebuild the dict when returning it.
+        # Store the dicts as a set of tuples, then rebuild the dict when returning it.
         # That way, we ensure uniqueness.
-        # We can't actually use a set because it loses insertion order though, so we use a
-        # dict (which preserves the order on Python 3.6+).
-        self._sources: Dict[Tuple[Tuple[str, Any], ...], None] = {}
+        self._sources: Set[Tuple[Tuple[str, Any], ...]] = set()
         self._commands: List[str] = []
 
     def __exit__(self, *_: Any) -> None:
@@ -260,15 +258,18 @@ class ManifestGenerator(contextlib.AbstractContextManager):
         return self.data_root / 'tmp'
 
     @property
-    def sources(self) -> List[Dict]:
-        return list(map(dict, self._sources.keys()))  # type: ignore
+    def source_count(self) -> int:
+        return len(self._sources)
+
+    def ordered_sources(self) -> Iterator[Dict]:
+        return map(dict, sorted(self._sources))  # type: ignore
 
     def split_sources(self) -> Iterator[List[Dict]]:
         BASE_CURRENT_SIZE = len('[\n]')
         current_size = BASE_CURRENT_SIZE
         current: List[Dict] = []
 
-        for source in self.sources:
+        for source in self.ordered_sources():
             # Generate one source by itself, then check the length without the closing and
             # opening brackets.
             source_json = json.dumps([source], indent=ManifestGenerator.JSON_INDENT)
@@ -284,7 +285,7 @@ class ManifestGenerator(contextlib.AbstractContextManager):
             yield current
 
     def _add_source(self, source: Dict[str, Any]) -> None:
-        self._sources[tuple(source.items())] = None
+        self._sources.add(tuple(source.items()))
 
     def _add_source_with_destination(self, source: Dict[str, Any],
                                      destination: Optional[Path], *, is_dir: bool,
@@ -1042,17 +1043,18 @@ async def main() -> None:
             with open(output, 'w') as fp:
                 json.dump(part, fp, indent=ManifestGenerator.JSON_INDENT)
 
-        print(f'Wrote {len(gen.sources)} to {i + 1} file(s).')
+        print(f'Wrote {gen.source_count} to {i + 1} file(s).')
     else:
         with open(args.output, 'w') as fp:
-            json.dump(gen.sources, fp, indent=ManifestGenerator.JSON_INDENT)
+            json.dump(list(gen.ordered_sources()),
+                      fp, indent=ManifestGenerator.JSON_INDENT)
 
             if fp.tell() >= ManifestGenerator.MAX_GITHUB_SIZE:
                 print('WARNING: generated-sources.json is too large for GitHub.',
                       file=sys.stderr)
                 print('  (Pass -s to enable splitting.)')
 
-        print(f'Wrote {len(gen.sources)} source(s).')
+        print(f'Wrote {gen.source_count} source(s).')
 
 
 if __name__ == '__main__':
