@@ -67,6 +67,8 @@ modules:
       # Copy the resulting, unpacked directory to /app.
       # (A glob is used because the directory name may contain the current arch.)
       - 'cp -r dist/linux*unpacked /app/electron-webpack-quick-start'
+      # If you passed --electron-non-patented-ffmpeg, you could install it like this:
+      # - 'install -Dm 755 flatpak-node/libffmpeg.so -t /app/electron-webpack-quick-start'
       # Install the wrapper script to start it.
       - 'install -Dm 755 start-electron-webpack-quick-start.sh /app/bin/start-electron-webpack-quick-start'
     sources:

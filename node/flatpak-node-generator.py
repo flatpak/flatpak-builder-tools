@@ -415,9 +415,11 @@ class ElectronBinaryManager:
 
 
 class SpecialSourceProvider:
-    def __init__(self, gen: ManifestGenerator, electron_chromedriver: str):
+    def __init__(self, gen: ManifestGenerator, electron_chromedriver: str,
+                 electron_non_patented_ffmpeg: bool):
         self.gen = gen
         self.electron_chromedriver = electron_chromedriver
+        self.electron_non_patented_ffmpeg = electron_non_patented_ffmpeg
 
     async def _handle_electron(self, package: Package) -> None:
         manager = await ElectronBinaryManager.for_version(package.version)
@@ -433,6 +435,13 @@ class SpecialSourceProvider:
         integrity_file = manager.integrity_file
         self.gen.add_url_source(integrity_file.url, integrity_file.integrity,
                                 electron_cache_dir / integrity_file.filename)
+
+        if self.electron_non_patented_ffmpeg:
+            for binary in manager.find_binaries('ffmpeg'):
+                assert binary.arch is not None
+                self.gen.add_archive_source(binary.url, binary.integrity,
+                                            destination=self.gen.data_root,
+                                            only_arches=[binary.arch.flatpak])
 
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
         # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
@@ -557,9 +566,11 @@ class NpmLockfileProvider(LockfileProvider):
 
 class NpmModuleProvider(ModuleProvider):
     def __init__(self, gen: ManifestGenerator, lockfile_root: Path, registry: str,
-                 no_autopatch: bool, electron_chromedriver: str):
+                 no_autopatch: bool, electron_chromedriver: str,
+                 electron_non_patented_ffmpeg: bool) -> None:
         self.gen = gen
-        self.special_source_provider = SpecialSourceProvider(gen, electron_chromedriver)
+        self.special_source_provider = SpecialSourceProvider(gen, electron_chromedriver,
+                                                             electron_non_patented_ffmpeg)
         self.lockfile_root = lockfile_root
         self.registry = registry
         self.no_autopatch = no_autopatch
@@ -838,9 +849,11 @@ class YarnLockfileProvider(LockfileProvider):
 
 
 class YarnModuleProvider(ModuleProvider):
-    def __init__(self, gen: ManifestGenerator, electron_chromedriver: str) -> None:
+    def __init__(self, gen: ManifestGenerator, electron_chromedriver: str,
+                 electron_non_patented_ffmpeg: bool) -> None:
         self.gen = gen
-        self.special_source_provider = SpecialSourceProvider(gen, electron_chromedriver)
+        self.special_source_provider = SpecialSourceProvider(gen, electron_chromedriver,
+                                                             electron_non_patented_ffmpeg)
         self.mirror_dir = self.gen.data_root / 'yarn-mirror'
 
     def __exit__(self, *_: Any) -> None:
@@ -874,30 +887,36 @@ class ProviderFactory:
 
 class NpmProviderFactory(ProviderFactory):
     def __init__(self, lockfile_root: Path, registry: str, no_devel: bool,
-                 no_autopatch: bool, electron_chromedriver: str) -> None:
+                 no_autopatch: bool, electron_chromedriver: str,
+                 electron_non_patented_ffmpeg: bool) -> None:
         self.lockfile_root = lockfile_root
         self.registry = registry
         self.no_devel = no_devel
         self.no_autopatch = no_autopatch
         self.electron_chromedriver = electron_chromedriver
+        self.electron_non_patented_ffmpeg = electron_non_patented_ffmpeg
 
     def create_lockfile_provider(self) -> NpmLockfileProvider:
         return NpmLockfileProvider(self.no_devel)
 
     def create_module_provider(self, gen: ManifestGenerator) -> NpmModuleProvider:
         return NpmModuleProvider(gen, self.lockfile_root, self.registry, self.no_autopatch,
-                                 self.electron_chromedriver)
+                                 self.electron_chromedriver,
+                                 self.electron_non_patented_ffmpeg)
 
 
 class YarnProviderFactory(ProviderFactory):
-    def __init__(self, electron_chromedriver: str) -> None:
+    def __init__(self, electron_chromedriver: str,
+                 electron_non_patented_ffmpeg: bool) -> None:
         self.electron_chromedriver = electron_chromedriver
+        self.electron_non_patented_ffmpeg = electron_non_patented_ffmpeg
 
     def create_lockfile_provider(self) -> YarnLockfileProvider:
         return YarnLockfileProvider()
 
     def create_module_provider(self, gen: ManifestGenerator) -> YarnModuleProvider:
-        return YarnModuleProvider(gen, self.electron_chromedriver)
+        return YarnModuleProvider(gen, self.electron_chromedriver,
+                                  self.electron_non_patented_ffmpeg)
 
 
 class GeneratorProgress(contextlib.AbstractContextManager):
@@ -982,6 +1001,8 @@ async def main() -> None:
     parser.add_argument('--electron-chromedriver',
                         help='Use the ChromeDriver version associated with the given '
                              'Electron version')
+    parser.add_argument('--electron-non-patented-ffmpeg', action='store_true',
+                        help='Download the non-patented ffmpeg binaries')
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
 
@@ -1015,9 +1036,11 @@ async def main() -> None:
     provider_factory: ProviderFactory
     if args.type == 'npm':
         provider_factory = NpmProviderFactory(lockfile_root, args.registry, args.no_devel,
-                                              args.no_autopatch, args.electron_chromedriver)
+                                              args.no_autopatch, args.electron_chromedriver,
+                                              args.electron_non_patented_ffmpeg)
     elif args.type == 'yarn':
-        provider_factory = YarnProviderFactory(args.electron_chromedriver)
+        provider_factory = YarnProviderFactory(args.electron_chromedriver,
+                                               args.electron_non_patented_ffmpeg)
     else:
         assert False, args.type
 

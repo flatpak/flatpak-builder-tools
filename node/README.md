@@ -31,6 +31,7 @@ usage: flatpak-node-generator.py [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN]
                                  [--registry REGISTRY] [--no-devel]
                                  [--no-aiohttp] [--retries RETRIES] [-P] [-s]
                                  [--electron-chromedriver ELECTRON_CHROMEDRIVER]
+                                 [--electron-non-patented-ffmpeg]
                                  {npm,yarn} lockfile
 
 Flatpak Node generator
@@ -59,6 +60,8 @@ optional arguments:
   --electron-chromedriver ELECTRON_CHROMEDRIVER
                         Use the ChromeDriver version associated with the given
                         Electron version
+  --electron-non-patented-ffmpeg
+                        Download the non-patented ffmpeg binaries
 ```
 
 flatpak-node-generator.py takes the package manager (npm or yarn), and a path to a lockfile for
@@ -185,3 +188,17 @@ things to note:
   architecture in its name.
 
 Both of these cases are handled by the electron-webpack-quick-start example.
+
+### Non-patented ffmpeg
+
+By defualt, the ffmpeg that Electron ships with has proprietary codecs built in
+like AAC and H.264. If you don't need these, you can pass
+`--electron-non-patented-ffmpeg` to flatpak-node-generator. This will download
+a patent-clean ffmpeg binary to `flatpak-node/libffmpeg.so`, which you can then
+use to overwrite the default Electron ffmpeg, e.g.:
+
+```yaml
+- 'install -Dm 755 flatpak-node/libffmpeg.so -t /app/electron-webpack-quick-start'
+```
+
+An short example of this is again in the electron-webpack-quick-start
