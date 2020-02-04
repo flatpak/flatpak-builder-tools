@@ -26,6 +26,7 @@ except ImportError:
 
 CRATES_IO = 'https://static.crates.io/crates'
 CARGO_HOME = 'cargo'
+CARGO_GIT_DB = f'{CARGO_HOME}/git/db'
 CARGO_CRATES = f'{CARGO_HOME}/vendor'
 
 
@@ -39,6 +40,9 @@ def rust_digest(b):
 
 def canonical_url(url):
     "Converts a string to a Cargo Canonical URL, as per https://github.com/rust-lang/cargo/blob/35c55a93200c84a4de4627f1770f76a8ad268a39/src/cargo/util/canonical_url.rs#L19"
+    logging.debug("canonicalising %s", url)
+    # Hrm. The upstream cargo does not replace those URLs, but if we don't then it doesn't work too well :(
+    url = url.replace("git+https://", "https://")
     u = urlparse(url)
     # It seems cargo drops query and fragment
     u = ParseResult(u.scheme, u.netloc, u.path, None, None, None)
@@ -92,6 +96,12 @@ def generate_sources(cargo_lock):
                         "url": canonical.geturl(),
                         "commit": revision,
                         "dest": f'{CARGO_CRATES}/{name}',
+                    },
+                    {
+                        "type": "shell",
+                        "commands": [
+                            f"git clone --bare {CARGO_CRATES}/{name}  {CARGO_GIT_DB}/{name}-{hash}"
+                        ]
                     },
                     {
                         "type": "shell",
