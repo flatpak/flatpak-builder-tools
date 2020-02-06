@@ -100,7 +100,7 @@ def generate_sources(cargo_lock):
                     {
                         "type": "shell",
                         "commands": [
-                            f"git clone --bare {CARGO_CRATES}/{name}  {CARGO_GIT_DB}/{name}-{hash}"
+                            f"git clone --bare {CARGO_CRATES}/{name} {CARGO_GIT_DB}/{name}-{hash}"
                         ]
                     },
                     {
