@@ -53,7 +53,7 @@ def canonical_url(url):
         u = u._replace(path = u.path.lower())
 
     if u.path.endswith(".git"):
-        u.path = u.path[:-len(".git")]
+        u = u._replace(path = u.path[:-len(".git")])
 
     return u
 
