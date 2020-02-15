@@ -9,7 +9,7 @@ Generates a sources file for a list of CPAN modules.
 - JSON::MaybeXS
 - LWP::UserAgent
 - MetaCPAN::Client
-- Pod::Simple::SimpleTree
+- Capture::Tiny
 
 Example installation on Fedora:
 
@@ -116,7 +116,7 @@ flatpak-cpan-generator works by:
 
 - Using cpanminus to install all the needed libraries into a separate directory. cpanminus is
   used over vanilla CPAN because the latter does not seem to support this use case at all.
-- Parsing perllocal.pod in order to extract the names and versions of the installed packages.
+- Parsing the output of cpanm in order to extract the names and versions of the installed packages.
 - Querying CPAN to grab the distribution URLs for each and saving them into the sources file.
 
 We can't just resolve the dependency list without cpanminus, because many CPAN packages don't

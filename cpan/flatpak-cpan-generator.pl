@@ -5,9 +5,7 @@ use v5.14;
 use strict;
 use warnings;
 
-use Config;
 use Digest::SHA;
-use File::Spec;
 require File::Temp;
 use File::Temp ();
 
@@ -15,38 +13,18 @@ use Getopt::Long::Descriptive;
 use JSON::MaybeXS;
 use LWP::UserAgent;
 use MetaCPAN::Client;
-use Pod::Simple::SimpleTree;
+use Capture::Tiny qw(tee);
 
 
 sub scan_deps {
-  my ($root) = @_;
-  my $localpath = File::Spec->join($root, 'lib', 'perl5', $Config{archname}, 'perllocal.pod');
+  my @deps = grep(/^Successfully installed/, @_);
 
-  my $parser = Pod::Simple::SimpleTree->new;
-  my $doc = $parser->parse_file($localpath)->root;
-
-  my @deps = ();
-
-  die "unexpected document root $doc->[0]" if $doc->[0] ne 'Document';
-
-  my $current_module;
-
-  for (my $i = 2; $i < @$doc; $i++) {
-    my $node = $doc->[$i];
-    if ($node->[0] eq 'head2' && $node->[3]->[0] eq 'C' && $node->[3]->[2] eq 'Module') {
-      push @deps, { name => $node->[5]->[2], version => '' };
-    } elsif ($node->[0] eq 'over-bullet') {
-      for (my $j = 2; $j < @$node; $j++) {
-        my $item = $node->[$j];
-        if ($item->[0] eq 'item-bullet' && $item->[2]->[0] eq 'C' &&
-            $item->[2]->[2] =~ /^VERSION: (.*)$/) {
-          $deps[-1]->{version} = $1;
-        }
-      }
-    }
+  for (@deps)
+  {
+      s/^Successfully installed (.*)/$1/;
   }
 
-  @deps
+   @deps
 }
 
 sub get_url_sha256 {
@@ -67,14 +45,9 @@ sub get_url_sha256 {
 }
 sub get_source_for_dep {
   my ($cpan, $dep, $outdir) = @_;
-  my $release_set = $cpan->release({
-    all => [
-      { distribution => $dep->{name} =~ s/::/-/gr },
-      { version => $dep->{version} },
-    ],
-  });
+  my $release_set = $cpan->release({ name => $dep });
 
-  die "Unexpected @{[$release_set->total]} releases for $dep->{name}\@$dep->{version}"
+  die "Unexpected @{[$release_set->total]} releases for $dep"
     if $release_set->total != 1;
   my $release = $release_set->next;
 
@@ -120,17 +93,20 @@ sub main {
   say '** Installing dependencies with cpanm...';
 
   my $tmpdir = File::Temp->newdir;
-  system ('cpanm', '-L', $tmpdir->dirname, "--", @ARGV)
-    and die "cpanm failed with exit status $?\n";
+  my ($stdout, $stderr, $exit) = tee {
+      system ('cpanm', '-n', '-L', $tmpdir, "--", @ARGV);
+  };
+  die "cpanm failed with exit status $exit\n" if $exit != 0;
 
   say '** Scanning dependencies...';
 
-  my @deps = scan_deps $tmpdir->dirname;
+  my @stdout = split "\n", $stdout;
+  my @deps = scan_deps @stdout;
   # my @deps = scan_deps 'lib';
   my @sources = ();
 
   foreach my $dep (@deps) {
-    say "** Processing: $dep->{name}";
+    say "** Processing: $dep";
     my $source = get_source_for_dep $cpan, $dep, $opts->dir;
     push @sources, $source;
   }
