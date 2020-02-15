@@ -74,7 +74,7 @@ sub get_source_for_dep {
     ],
   });
 
-  die "Unexpected @{[$release_set->total]} releases for $dep->{name}@$dep->{version}"
+  die "Unexpected @{[$release_set->total]} releases for $dep->{name}\@$dep->{version}"
     if $release_set->total != 1;
   my $release = $release_set->next;
 
