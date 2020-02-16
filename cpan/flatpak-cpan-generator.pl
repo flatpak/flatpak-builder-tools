@@ -115,7 +115,20 @@ sub main {
     type => 'script',
     'dest-filename' => "@{[$opts->dir]}/install.sh",
     commands => [
-      map { "cd $_->{dest} && perl Makefile.PL && make install && cd ../.." } @sources
+      "set -e",
+      "function make_install {",
+      "    mod_dir=\$1",
+      "    cd \$mod_dir",
+      "    if [ -f 'Makefile.PL' ]; then",
+      "        perl Makefile.PL && make install",
+      "    elif [ -f 'Build.PL' ]; then",
+      "        perl Build.PL && ./Build && ./Build install",
+      "    else",
+      "        echo 'No Makefile.PL or Build.PL found. Do not know how to install this module'",
+      "        exit 1",
+      "    fi",
+      "}",
+      map { "(make_install $_->{dest})" } @sources
     ],
   };
 
