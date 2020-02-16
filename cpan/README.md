@@ -30,9 +30,10 @@ This will write a generated-sources.json (the filename can be changed via `-o/--
 - Downloads the dependencies into a directory named `perl-libs`. (You can change the directory
   name via `-d/--dir`.)
 - Saves a file `install.sh` into the same directory as above that installs all the dependencies
-  by running `perl Makefile.PL && make install` inside each directory.
+  by running `perl Makefile.PL && make install` or `perl Build.PL && ./Build && ./Build install`
+  inside each directory.
 
-In addition, both Perl itself and modules installed via Makefile.PL tend to not have write
+Note both Perl itself and modules installed via Makefile.PL tend to not have write
 permission on shared objects they installed, which can break flatpak-builder. The example
 below shows how to work around that via chmod.
 
