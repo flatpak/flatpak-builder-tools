@@ -508,12 +508,12 @@ class NpmLockfileProvider(LockfileProvider):
 
     def parse_git_source(self, version: str, from_: str) -> Optional[GitSource]:
         git_prefixes = {
-            'github': 'https://github.com/',
-            'gitlab': 'https://gitlab.com/',
-            'bitbucket': 'https://bitbucket.com/',
-            'git': 'git://',
-            'git+http': 'http://',
-            'git+https': 'https://',
+            'github:': 'https://github.com/',
+            'gitlab:': 'https://gitlab.com/',
+            'bitbucket:': 'https://bitbucket.com/',
+            'git:': 'git://',
+            'git+http:': 'http:',
+            'git+https:': 'https:',
         }
 
         assert version.count('#') == 1, version
@@ -522,7 +522,7 @@ class NpmLockfileProvider(LockfileProvider):
         url: Optional[str] = None
 
         for npm_prefix, url_prefix in git_prefixes.items():
-            if original.startswith(npm_prefix + ':'):
+            if original.startswith(npm_prefix):
                 url = url_prefix + original[len(npm_prefix)+1:]
                 break
         else:
