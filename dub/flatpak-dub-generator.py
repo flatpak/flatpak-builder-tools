@@ -30,6 +30,9 @@ def generate_sources(dub_selections):
     local_packages = []
 
     for name, version in dub_selections["versions"].items():
+        if isinstance(version, dict) and "path" in version:
+            logging.warning(f"Skipping path based dependency {name}")
+            continue
         dl_url = urllib.parse.urljoin(REGISTRY_URL, f"/packages/{name}/{version}.zip")
         sources += [{
             "type": "archive",
