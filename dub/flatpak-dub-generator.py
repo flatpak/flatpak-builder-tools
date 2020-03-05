@@ -23,7 +23,9 @@ def get_remote_sha256(url):
 
 def load_dub_selections(dub_selections_file="dub.selections.json"):
     with open(dub_selections_file, "r") as f:
-        return json.load(f)
+        dub_selections = json.load(f)
+    assert dub_selections.get("fileVersion") == 1
+    return dub_selections
 
 def generate_sources(dub_selections):
     sources = []
