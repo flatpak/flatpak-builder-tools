@@ -416,10 +416,10 @@ class ElectronBinaryManager:
 
 class SpecialSourceProvider:
     def __init__(self, gen: ManifestGenerator, electron_chromedriver: str,
-                 electron_non_patented_ffmpeg: bool):
+                 electron_ffmpeg: str):
         self.gen = gen
         self.electron_chromedriver = electron_chromedriver
-        self.electron_non_patented_ffmpeg = electron_non_patented_ffmpeg
+        self.electron_ffmpeg = electron_ffmpeg
 
     async def _handle_electron(self, package: Package) -> None:
         manager = await ElectronBinaryManager.for_version(package.version)
@@ -436,12 +436,19 @@ class SpecialSourceProvider:
         self.gen.add_url_source(integrity_file.url, integrity_file.integrity,
                                 electron_cache_dir / integrity_file.filename)
 
-        if self.electron_non_patented_ffmpeg:
+        if self.electron_ffmpeg is not None:
             for binary in manager.find_binaries('ffmpeg'):
                 assert binary.arch is not None
-                self.gen.add_archive_source(binary.url, binary.integrity,
-                                            destination=self.gen.data_root,
+                if self.electron_ffmpeg == "lib":
+                    self.gen.add_archive_source(binary.url, binary.integrity,
+                                                destination=self.gen.data_root,
+                                                only_arches=[binary.arch.flatpak])
+                elif self.electron_ffmpeg == "archive":
+                    self.gen.add_url_source(binary.url, binary.integrity,
+                                            destination=electron_cache_dir / binary.filename,
                                             only_arches=[binary.arch.flatpak])
+                else:
+                    raise ValueError()
 
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
         # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
@@ -993,8 +1000,8 @@ async def main() -> None:
     parser.add_argument('--electron-chromedriver',
                         help='Use the ChromeDriver version associated with the given '
                              'Electron version')
-    parser.add_argument('--electron-non-patented-ffmpeg', action='store_true',
-                        help='Download the non-patented ffmpeg binaries')
+    parser.add_argument('--electron-ffmpeg', choices=["archive", "lib"],
+                        help='Download the ffmpeg binaries')
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
 
@@ -1046,7 +1053,7 @@ async def main() -> None:
     gen = ManifestGenerator()
     with gen:
         special = SpecialSourceProvider(gen, args.electron_chromedriver,
-                                        args.electron_non_patented_ffmpeg)
+                                        args.electron_ffmpeg)
 
         with provider_factory.create_module_provider(gen, special) as module_provider:
             with GeneratorProgress(packages, module_provider) as progress:
