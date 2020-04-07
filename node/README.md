@@ -191,8 +191,9 @@ Both of these cases are handled by the electron-webpack-quick-start example.
 
 ### ffmpeg support
 
-If your app needs separate ffmpeg archive, add `--electron-ffmpeg=archive` option
-to flatpak-node-generator.
+If your app needs separate ffmpeg for matching electron version, add
+`--electron-ffmpeg=archive` option to flatpak-node-generator. This will put
+`ffmpeg-$suffix.zip` alongside electron in the cache directory.
 
 By defualt, the ffmpeg that Electron ships with has proprietary codecs built in
 like AAC and H.264. If you don't need these, you can pass
