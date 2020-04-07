@@ -439,11 +439,11 @@ class SpecialSourceProvider:
         if self.electron_ffmpeg is not None:
             for binary in manager.find_binaries('ffmpeg'):
                 assert binary.arch is not None
-                if self.electron_ffmpeg == "lib":
+                if self.electron_ffmpeg == 'lib':
                     self.gen.add_archive_source(binary.url, binary.integrity,
                                                 destination=self.gen.data_root,
                                                 only_arches=[binary.arch.flatpak])
-                elif self.electron_ffmpeg == "archive":
+                elif self.electron_ffmpeg == 'archive':
                     self.gen.add_url_source(binary.url, binary.integrity,
                                             destination=electron_cache_dir / binary.filename,
                                             only_arches=[binary.arch.flatpak])
@@ -1000,7 +1000,7 @@ async def main() -> None:
     parser.add_argument('--electron-chromedriver',
                         help='Use the ChromeDriver version associated with the given '
                              'Electron version')
-    parser.add_argument('--electron-ffmpeg', choices=["archive", "lib"],
+    parser.add_argument('--electron-ffmpeg', choices=['archive', 'lib'],
                         help='Download the ffmpeg binaries')
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
