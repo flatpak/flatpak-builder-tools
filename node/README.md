@@ -189,11 +189,14 @@ things to note:
 
 Both of these cases are handled by the electron-webpack-quick-start example.
 
-### Non-patented ffmpeg
+### ffmpeg support
+
+If your app needs separate ffmpeg archive, add `--electron-ffmpeg=archive` option
+to flatpak-node-generator.
 
 By defualt, the ffmpeg that Electron ships with has proprietary codecs built in
 like AAC and H.264. If you don't need these, you can pass
-`--electron-non-patented-ffmpeg` to flatpak-node-generator. This will download
+`--electron-ffmpeg=lib` to flatpak-node-generator. This will download
 a patent-clean ffmpeg binary to `flatpak-node/libffmpeg.so`, which you can then
 use to overwrite the default Electron ffmpeg, e.g.:
 
