@@ -452,11 +452,11 @@ class SpecialSourceProvider:
                     raise ValueError()
 
     async def _handle_node_headers(self, package: Package) -> None:
-        node_gyp_cache_dir = self.gen.data_root / 'node-gyp'
+        node_gyp_headers_dir = self.gen.data_root / 'node-gyp' / 'electron-current'
         url = f'https://www.electronjs.org/headers/v{package.version}/node-v{package.version}-headers.tar.gz'
         metadata = await RemoteUrlMetadata.get(url)
         self.gen.add_archive_source(url, metadata.integrity,
-                                    destination=node_gyp_cache_dir / package.version)
+                                    destination=node_gyp_headers_dir)
 
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
         # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
