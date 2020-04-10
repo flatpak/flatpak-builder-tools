@@ -27,6 +27,7 @@ CRATES_IO = 'https://static.crates.io/crates'
 CARGO_HOME = 'cargo'
 CARGO_GIT_DB = f'{CARGO_HOME}/git/db'
 CARGO_CRATES = f'{CARGO_HOME}/vendor'
+VENDORED_SOURCES = 'vendored-sources'
 
 
 def rust_digest(b):
@@ -80,7 +81,7 @@ def get_git_sources(package):
             'git': canonical.geturl(),
             'branch': branch,
             #XXX 'rev': revision,
-            'replace-with': 'vendored-sources',
+            'replace-with': VENDORED_SOURCES,
         }
     }
     git_sources = [
@@ -130,8 +131,8 @@ def get_git_sources(package):
 def generate_sources(cargo_lock):
     sources = []
     cargo_vendored_sources = {
-        'vendored-sources': {'directory': f'{CARGO_CRATES}'},
-        'crates-io': {'replace-with': 'vendored-sources'},
+        VENDORED_SOURCES: {'directory': f'{CARGO_CRATES}'},
+        'crates-io': {'replace-with': VENDORED_SOURCES},
     }
     metadata = cargo_lock.get('metadata')
     for package in cargo_lock['package']:
