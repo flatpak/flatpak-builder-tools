@@ -75,10 +75,13 @@ def get_git_sources(package):
     assert revision, 'The commit needs to be indicated in the fragement part'
     canonical = canonical_url(source)
     digest = rust_digest(canonical.geturl())
-    cargo_git_source = {
-        'canonical': canonical.geturl(),
-        'branch': branch,
-        'rev': revision,
+    cargo_vendored_entry = {
+        canonical.geturl(): {
+            'git': canonical.geturl(),
+            'branch': branch,
+            #XXX 'rev': revision,
+            'replace-with': 'vendored-sources',
+        }
     }
     git_sources = [
         {
@@ -122,11 +125,14 @@ def get_git_sources(package):
             ],
         },
     ]
-    return (git_sources, cargo_git_source)
+    return (git_sources, cargo_vendored_entry)
 
 def generate_sources(cargo_lock):
     sources = []
-    cargo_git_sources = []
+    cargo_vendored_sources = {
+        'vendored-sources': {'directory': f'{CARGO_CRATES}'},
+        'crates-io': {'replace-with': 'vendored-sources'},
+    }
     metadata = cargo_lock.get('metadata')
     for package in cargo_lock['package']:
         name = package['name']
@@ -134,9 +140,9 @@ def generate_sources(cargo_lock):
         if 'source' in package:
             source = package['source']
             if source.startswith('git+'):
-                git_sources, cargo_git_source = get_git_sources(package)
+                git_sources, cargo_vendored_entry = get_git_sources(package)
                 sources += git_sources
-                cargo_git_sources.append(cargo_git_source)
+                cargo_vendored_sources.update(cargo_vendored_entry)
                 continue
             else:
                 key = f'checksum {name} {version} ({source})'
@@ -173,28 +179,12 @@ def generate_sources(cargo_lock):
             'for c in *.crate; do tar -xf $c; done'
         ]
     })
-    cargo_sources = {
-        'crates-io': {'replace-with': 'vendored-sources'},
-        'vendored-sources': {'directory': f'{CARGO_CRATES}'},
-    }
-    for cargo_git_source in cargo_git_sources:
-        # FIXME: Make those a proper attrib
-        canonical = cargo_git_source['canonical']
-        branch = cargo_git_source['branch']
 
-        key = canonical
-        value = {
-            'git': canonical,
-            'branch': branch,
-            'replace-with': 'vendored-sources',
-        }
-        cargo_sources[key] = value
-
-    logging.debug(f'Vendored sources: {cargo_sources}')
+    logging.debug(f'Vendored sources: {cargo_vendored_sources}')
     sources.append({
         'type': 'file',
         'url': 'data:' + urlquote(toml.dumps({
-            'source': cargo_sources,
+            'source': cargo_vendored_sources,
         })),
         'dest': CARGO_HOME,
         'dest-filename': 'config'
