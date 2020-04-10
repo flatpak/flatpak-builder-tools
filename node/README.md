@@ -193,13 +193,10 @@ Both of these cases are handled by the electron-webpack-quick-start example.
 
 Some node/electron versions are binary incompatible and require rebuilding of
 native node dependencies for electron. In offline mode, it may result in broken ABI.
-If you are seing errors like 
+If you are seeing errors like 
 `The module 'something.node' was compiled against a different Node.js version`,
 then pass `--electron-node-headers` option to flatpak-node-generator and set 
 `npm_config_nodedir` to `flatpak-node/node-gyp/electron-current`.
-
-Also you may want to run `electron-rebuild -f` to make sure that native dependencies
-were rebuilt.
 
 ### ffmpeg support
 
