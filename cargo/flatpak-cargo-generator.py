@@ -6,7 +6,6 @@ import toml
 import json
 from urllib.parse import quote as urlquote
 from urllib.parse import urlparse, ParseResult, parse_qs
-import sys
 import argparse
 import logging
 
@@ -75,9 +74,7 @@ def get_git_sources(package):
 
     assert revision, 'The commit needs to be indicated in the fragement part'
     canonical = canonical_url(source)
-    reponame = canonical.path.rsplit('/', 1)[1]
     digest = rust_digest(canonical.geturl())
-    shortcommit = revision[:8]
     cargo_git_source = {
         'canonical': canonical.geturl(),
         'branch': branch,
@@ -184,13 +181,11 @@ def generate_sources(cargo_lock):
         # FIXME: Make those a proper attrib
         canonical = cargo_git_source['canonical']
         branch = cargo_git_source['branch']
-        revision = cargo_git_source['rev']
 
         key = canonical
         value = {
             'git': canonical,
             'branch': branch,
-            # 'rev': revision,
             'replace-with': 'vendored-sources',
         }
         cargo_sources[key] = value
