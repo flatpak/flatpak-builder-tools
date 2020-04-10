@@ -62,88 +62,96 @@ def load_cargo_lock(lockfile='Cargo.lock'):
         cargo_lock = toml.load(f)
     return cargo_lock
 
+def get_git_sources(package):
+    name = package["name"]
+    source = package["source"]
+    revision = urlparse(source).fragment
+    branches = parse_qs(urlparse(source).query).get("branch", [])
+    if branches:
+        assert len(branches) == 1, f"Expected exactly one branch, got {branches}"
+        branch = branches[0]
+    else:
+        branch = "master"
+
+    assert revision, "The commit needs to be indicated in the fragement part"
+    canonical = canonical_url(source)
+    reponame = canonical.path.rsplit('/', 1)[1]
+    digest = rust_digest(canonical.geturl())
+    shortcommit = revision[:8]
+    cargo_git_source = {
+        "canonical": canonical.geturl(),
+        "branch": branch,
+        "rev": revision,
+    }
+    git_sources = [
+        {
+            "type": "git",
+            "url": canonical.geturl(),
+            "commit": revision,
+            "dest": f'{CARGO_CRATES}/{name}',
+        },
+        {
+            "type": "shell",
+            "commands": [
+                f"git clone --bare {CARGO_CRATES}/{name} {CARGO_GIT_DB}/{name}-{digest}"
+            ]
+        },
+        {
+            "type": "shell",
+            "commands": [
+                # FIXME: This is an ugly workaround for imap-proto, https://github.com/djc/tokio-imap, which has workspaces in Cargo.toml
+                # The correct solution is to parse Cargo.toml.
+                # Then, however, we get very close to implementation details s.t. it seems smarter to patch cargo instead of
+                # reverse engineering its behaviour.
+                f"if test -d {CARGO_CRATES}/{name}/{name}; then "
+                f"mv {CARGO_CRATES}/{name} {CARGO_CRATES}/{name}.bak; "
+                f"cp -ar --dereference --reflink=auto {CARGO_CRATES}/{name}.bak/{name} {CARGO_CRATES}/{name}; "
+                f"rm -r {CARGO_CRATES}/{name}.bak; "
+                "fi",
+            ],
+        },
+        {
+            'type': 'file',
+            # FIXME: Vendor is hard coded
+            'url': "data:" + urlquote(json.dumps({'package': None, 'files': {}})),
+            'dest': f'{CARGO_CRATES}/{name}', #-{version}',
+            'dest-filename': '.cargo-checksum.json',
+        },
+        {
+            "type": "shell",
+            "commands": [
+                f"echo rm -r {CARGO_CRATES}/{name}/.git",
+                # FIXME: Cargo does not copy .git/ and some other files
+            ],
+        },
+    ]
+    return (git_sources, cargo_git_source)
+
 def generate_sources(cargo_lock):
     sources = []
     cargo_git_sources = []
-    metadata = cargo_lock['metadata']
+    metadata = cargo_lock.get('metadata')
     for package in cargo_lock['package']:
         name = package['name']
         version = package['version']
         if 'source' in package:
             source = package['source']
             if source.startswith("git+"):
-                revision = urlparse(source).fragment
-                branches = parse_qs(urlparse(source).query).get("branch", [])
-                if branches:
-                    assert len(branches) == 1, f"Expected exactly one branch, got {branches}"
-                    branch = branches[0]
-                else:
-                    branch = "master"
-
-                assert revision, "The commit needs to be indicated in the fragement part"
-                canonical = canonical_url(source)
-                reponame = canonical.path.rsplit('/', 1)[1]
-                hash = rust_digest(canonical.geturl())
-                shortcommit = revision[:8]
-                cargo_git_source = {
-                    "canonical": canonical.geturl(),
-                    "branch": branch,
-                    "rev": revision,
-                }
-                git_sources = [
-                    {
-                        "type": "git",
-                        "url": canonical.geturl(),
-                        "commit": revision,
-                        "dest": f'{CARGO_CRATES}/{name}',
-                    },
-                    {
-                        "type": "shell",
-                        "commands": [
-                            f"git clone --bare {CARGO_CRATES}/{name} {CARGO_GIT_DB}/{name}-{hash}"
-                        ]
-                    },
-                    {
-                        "type": "shell",
-                        "commands": [
-                            # FIXME: This is an ugly workaround for imap-proto, https://github.com/djc/tokio-imap, which has workspaces in Cargo.toml
-                            # The correct solution is to parse Cargo.toml.
-                            # Then, however, we get very close to implementation details s.t. it seems smarter to patch cargo instead of
-                            # reverse engineering its behaviour.
-                            f"if test -d {CARGO_CRATES}/{name}/{name}; then "
-                            f"mv {CARGO_CRATES}/{name} {CARGO_CRATES}/{name}.bak; "
-                            f"cp -ar --dereference --reflink=auto {CARGO_CRATES}/{name}.bak/{name} {CARGO_CRATES}/{name}; "
-                            f"rm -r {CARGO_CRATES}/{name}.bak; "
-                            "fi",
-                        ],
-                    },
-                    {
-                        'type': 'file',
-                        # FIXME: Vendor is hard coded
-                        'url': "data:" + urlquote(open(("vendor/" + f"{name}/.cargo-checksum.json"), 'r').read()),
-                        'dest': f'{CARGO_CRATES}/{name}', #-{version}',
-                        'dest-filename': '.cargo-checksum.json',
-                    },
-                    {
-                        "type": "shell",
-                        "commands": [
-                            f"echo rm -r {CARGO_CRATES}/{name}/.git",
-                            # FIXME: Cargo does not copy .git/ and some other files
-                        ],
-                    },
-                ]
+                git_sources, cargo_git_source = get_git_sources(package)
                 sources += git_sources
                 cargo_git_sources.append(cargo_git_source)
                 continue
-
             else:
                 key = f'checksum {name} {version} ({source})'
-                if key not in metadata:
-                    print(f'{key} ({source}) not in metadata', file=sys.stderr)
+                if metadata is not None and key in metadata:
+                    checksum = metadata[key]
+                elif "checksum" in package:
+                    checksum = package["checksum"]
+                else:
+                    logging.warning(f"{name} doesn't have checksum")
                     continue
-                checksum = metadata[key]
         else:
-            print(f'{name} has no source', file=sys.stderr)
+            logging.warning(f"{name} has no source")
             logging.debug(f"Package for {name}: {package}")
             continue
         sources += [
@@ -187,6 +195,7 @@ def generate_sources(cargo_lock):
         }
         cargo_sources[key] = value
 
+    logging.debug(f"Vendored sources: {cargo_sources}")
     sources.append({
         'type': 'file',
         'url': 'data:' + urlquote(toml.dumps({
