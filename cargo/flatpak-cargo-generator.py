@@ -46,7 +46,7 @@ def get_git_cargo_packages(git_url, commit):
     tmdir = os.path.join(tempfile.gettempdir(), 'flatpak-cargo', clone_dir)
     if not os.path.isdir(os.path.join(tmdir, '.git')):
         subprocess.run(['git', 'clone', git_url, tmdir], check=True)
-    subprocess.run(['git', 'checkout', tmdir], cwd=tmdir, check=True)
+    subprocess.run(['git', 'checkout', commit], cwd=tmdir, check=True)
     root_toml = load_toml(os.path.join(tmdir, 'Cargo.toml'))
     if 'package' in root_toml:
         return [(root_toml['package']['name'], '.')]
