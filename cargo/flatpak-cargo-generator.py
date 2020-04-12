@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 __license__ = 'MIT'
-import base64
-import toml
 import json
 from urllib.parse import quote as urlquote
 from urllib.parse import urlparse, ParseResult, parse_qs
@@ -11,6 +9,7 @@ import tempfile
 import subprocess
 import argparse
 import logging
+import toml
 
 CRATES_IO = 'https://static.crates.io/crates'
 CARGO_HOME = 'cargo'
