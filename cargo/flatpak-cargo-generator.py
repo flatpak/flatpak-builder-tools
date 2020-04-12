@@ -36,10 +36,10 @@ def canonical_url(url):
 
     return u
 
-def load_cargo_lock(lockfile='Cargo.lock'):
-    with open(lockfile, 'r') as f:
-        cargo_lock = toml.load(f)
-    return cargo_lock
+def load_toml(tomlfile='Cargo.lock'):
+    with open(tomlfile, 'r') as f:
+        toml_data = toml.load(f)
+    return toml_data
 
 def get_git_cargo_packages(git_url, commit):
     clone_dir = git_url.replace('://', '_').replace('/', '_')
@@ -47,16 +47,14 @@ def get_git_cargo_packages(git_url, commit):
     if not os.path.isdir(os.path.join(tmdir, '.git')):
         subprocess.run(['git', 'clone', git_url, tmdir], check=True)
     subprocess.run(['git', 'checkout', tmdir], cwd=tmdir, check=True)
-    with open(os.path.join(tmdir, 'Cargo.toml'), 'r') as r:
-        root_toml = toml.load(r)
+    root_toml = load_toml(os.path.join(tmdir, 'Cargo.toml'))
     if 'package' in root_toml:
         return [(root_toml['package']['name'], '.')]
     elif 'workspace' in root_toml:
         packages = []
         for subpkg in root_toml['workspace']['members']:
-            with open(os.path.join(tmdir, subpkg, 'Cargo.toml'), 'r') as f:
-                pkg_toml = toml.load(f)
-                packages.append((pkg_toml['package']['name'], subpkg))
+            pkg_toml = load_toml(os.path.join(tmdir, subpkg, 'Cargo.toml'))
+            packages.append((pkg_toml['package']['name'], subpkg))
         return packages
     else:
         raise ValueError(f'Neither "package" nor "workspace" in {git_url}')
@@ -199,7 +197,7 @@ def main():
     else:
         outfile = 'generated-sources.json'
 
-    generated_sources = generate_sources(load_cargo_lock(args.cargo_lock))
+    generated_sources = generate_sources(load_toml(args.cargo_lock))
     with open(outfile, 'w') as out:
         json.dump(generated_sources, out, indent=4, sort_keys=False)
 
