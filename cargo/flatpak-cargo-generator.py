@@ -12,33 +12,10 @@ import subprocess
 import argparse
 import logging
 
-
-key = b'\x00' * 16
-try:
-    # this is siphash-cffi
-    from siphash import siphash_64
-    siphasher = lambda b: base64.b16encode(siphash_64(key, b))
-
-except ImportError:
-    # this is siphash
-    from siphash import SipHash_2_4
-    siphasher = lambda b: SipHash_2_4(key, b).hexdigest()
-
-
-
 CRATES_IO = 'https://static.crates.io/crates'
 CARGO_HOME = 'cargo'
-CARGO_GIT_DB = f'{CARGO_HOME}/git/db'
 CARGO_CRATES = f'{CARGO_HOME}/vendor'
 VENDORED_SOURCES = 'vendored-sources'
-
-
-def rust_digest(b):
-    # The 0xff suffix matches Rust's behaviour
-    # https://doc.rust-lang.org/src/core/hash/mod.rs.html#611-616
-    digest = siphasher(b.encode() + b'\xff').decode('ascii').lower()
-    logging.debug('Hashing %r to %r', b, digest)
-    return digest
 
 def canonical_url(url):
     'Converts a string to a Cargo Canonical URL, as per https://github.com/rust-lang/cargo/blob/35c55a93200c84a4de4627f1770f76a8ad268a39/src/cargo/util/canonical_url.rs#L19'
@@ -64,8 +41,9 @@ def load_cargo_lock(lockfile='Cargo.lock'):
         cargo_lock = toml.load(f)
     return cargo_lock
 
-def get_git_cargo_packages(git_url, revision):
-    tmdir = os.path.join(tempfile.gettempdir(), 'flatpak-cargo', rust_digest(git_url))
+def get_git_cargo_packages(git_url, commit):
+    clone_dir = git_url.replace('://', '_').replace('/', '_')
+    tmdir = os.path.join(tempfile.gettempdir(), 'flatpak-cargo', clone_dir)
     if not os.path.isdir(os.path.join(tmdir, '.git')):
         subprocess.run(['git', 'clone', git_url, tmdir], check=True)
     subprocess.run(['git', 'checkout', tmdir], cwd=tmdir, check=True)
@@ -86,60 +64,57 @@ def get_git_cargo_packages(git_url, revision):
 def get_git_sources(package):
     name = package['name']
     source = package['source']
-    revision = urlparse(source).fragment
-    branches = parse_qs(urlparse(source).query).get('branch', [])
-    if branches:
-        assert len(branches) == 1, f'Expected exactly one branch, got {branches}'
-        branch = branches[0]
-    else:
-        branch = 'master'
-
-    assert revision, 'The commit needs to be indicated in the fragement part'
+    commit = urlparse(source).fragment
+    assert commit, 'The commit needs to be indicated in the fragement part'
     canonical = canonical_url(source)
     repo_url = canonical.geturl()
-    _, repo_name = repo_url.rsplit('/', 1)
-    digest = rust_digest(repo_url)
+
     cargo_vendored_entry = {
         repo_url: {
             'git': repo_url,
-            'branch': branch,
-            #XXX 'rev': revision,
             'replace-with': VENDORED_SOURCES,
         }
     }
-    git_repo_sources = {digest: [
-        {
-            'type': 'git',
-            'url': repo_url,
-            'commit': revision,
-            'dest': f'{CARGO_GIT_DB}/{repo_name}-{digest}',
-        },
-        {
-            'type': 'shell',
-            'commands': [
-                f'cd {CARGO_GIT_DB}/{repo_name}-{digest} && git config core.bare true'
-            ]
-        }
-    ]}
+
+    rev = parse_qs(urlparse(source).query).get('rev')
+    branch = parse_qs(urlparse(source).query).get('branch', ['master'])
+    if rev:
+        assert len(rev) == 1
+        cargo_vendored_entry[repo_url]['rev'] = rev[0]
+    else:
+        assert len(branch) == 1
+        cargo_vendored_entry[repo_url]['branch'] = branch[0]
+
     git_sources = []
-    for pkg_name, pkg_subpath in get_git_cargo_packages(repo_url, revision):
+    for pkg_name, pkg_subpath in get_git_cargo_packages(repo_url, commit):
         if pkg_name != name:
             continue
         if pkg_subpath == '.':
-            checkout_commands = [
-                f'git clone {CARGO_GIT_DB}/{repo_name}-{digest} {CARGO_CRATES}/{pkg_name}'
+            git_sources += [
+                {
+                    'type': 'git',
+                    'url': repo_url,
+                    'commit': commit,
+                    'dest': f'{CARGO_CRATES}/{pkg_name}',
+                }
             ]
         else:
-            checkout_commands = [
-                f'git clone {CARGO_GIT_DB}/{repo_name}-{digest} {CARGO_CRATES}/{pkg_name}.full',
-                f'mv {CARGO_CRATES}/{pkg_name}.full/{pkg_subpath} {CARGO_CRATES}/{pkg_name}',
-                f'rm -rf {CARGO_CRATES}/{pkg_name}.full'
+            git_sources += [
+                {
+                    'type': 'git',
+                    'url': repo_url,
+                    'commit': commit,
+                    'dest': f'{CARGO_CRATES}/{pkg_name}.repo',
+                },
+                {
+                    'type': 'shell',
+                    'commands': [
+                        f'mv {CARGO_CRATES}/{pkg_name}.repo/{pkg_subpath} {CARGO_CRATES}/{pkg_name}',
+                        f'rm -rf {CARGO_CRATES}/{pkg_name}.repo'
+                    ]
+                }
             ]
         git_sources += [
-            {
-                'type': 'shell',
-                'commands': checkout_commands
-            },
             {
                 'type': 'file',
                 'url': 'data:' + urlquote(json.dumps({'package': None, 'files': {}})),
@@ -147,16 +122,14 @@ def get_git_sources(package):
                 'dest-filename': '.cargo-checksum.json',
             }
         ]
-    return (git_sources, git_repo_sources, cargo_vendored_entry)
+    return (git_sources, cargo_vendored_entry)
 
 def generate_sources(cargo_lock):
     sources = []
-    module_sources = []
     cargo_vendored_sources = {
         VENDORED_SOURCES: {'directory': f'{CARGO_CRATES}'},
         'crates-io': {'replace-with': VENDORED_SOURCES},
     }
-    git_repo_sources = {}
     metadata = cargo_lock.get('metadata')
     for package in cargo_lock['package']:
         name = package['name']
@@ -164,10 +137,9 @@ def generate_sources(cargo_lock):
         if 'source' in package:
             source = package['source']
             if source.startswith('git+'):
-                git_sources, pkg_git_repo_sources, cargo_vendored_entry = get_git_sources(package)
-                module_sources += git_sources
+                git_sources, cargo_vendored_entry = get_git_sources(package)
+                sources += git_sources
                 cargo_vendored_sources.update(cargo_vendored_entry)
-                git_repo_sources.update(pkg_git_repo_sources)
                 continue
             else:
                 key = f'checksum {name} {version} ({source})'
@@ -182,7 +154,7 @@ def generate_sources(cargo_lock):
             logging.warning(f'{name} has no source')
             logging.debug(f'Package for {name}: {package}')
             continue
-        module_sources += [
+        sources += [
             {
                 'type': 'file',
                 'url': f'{CRATES_IO}/{name}/{name}-{version}.crate',
@@ -198,10 +170,6 @@ def generate_sources(cargo_lock):
             },
         ]
 
-    for repo_sources in git_repo_sources.values():
-        sources += repo_sources
-
-    sources += module_sources
     sources.append({
         'type': 'shell',
         'dest': CARGO_CRATES,
