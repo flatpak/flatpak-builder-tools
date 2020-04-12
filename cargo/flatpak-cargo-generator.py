@@ -72,7 +72,6 @@ def get_git_sources(package):
             'replace-with': VENDORED_SOURCES,
         }
     }
-
     rev = parse_qs(urlparse(source).query).get('rev')
     branch = parse_qs(urlparse(source).query).get('branch', ['master'])
     if rev:
@@ -82,9 +81,6 @@ def get_git_sources(package):
         assert len(branch) == 1
         cargo_vendored_entry[repo_url]['branch'] = branch[0]
 
-    git_sources = []
-    git_cargo_packages = get_git_cargo_packages(repo_url, commit)
-    pkg_subpath = git_cargo_packages[name]
     git_sources = [
         {
             'type': 'git',
@@ -93,8 +89,10 @@ def get_git_sources(package):
             'dest': f'{CARGO_CRATES}/{name}',
         }
     ]
+    git_cargo_packages = get_git_cargo_packages(repo_url, commit)
+    pkg_subpath = git_cargo_packages[name]
     if pkg_subpath != '.':
-        git_sources += [
+        git_sources.append(
             {
                 'type': 'shell',
                 'commands': [
@@ -103,15 +101,16 @@ def get_git_sources(package):
                     f'rm -rf {CARGO_CRATES}/{name}.repo'
                 ]
             }
-        ]
-    git_sources += [
+        )
+    git_sources.append(
         {
             'type': 'file',
             'url': 'data:' + urlquote(json.dumps({'package': None, 'files': {}})),
             'dest': f'{CARGO_CRATES}/{name}', #-{version}',
             'dest-filename': '.cargo-checksum.json',
         }
-    ]
+    )
+
     return (git_sources, cargo_vendored_entry)
 
 def generate_sources(cargo_lock):
