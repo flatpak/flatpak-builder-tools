@@ -47,16 +47,16 @@ def get_git_cargo_packages(git_url, commit):
         subprocess.run(['git', 'clone', git_url, tmdir], check=True)
     subprocess.run(['git', 'checkout', commit], cwd=tmdir, check=True)
     root_toml = load_toml(os.path.join(tmdir, 'Cargo.toml'))
+    packages = {}
     if 'package' in root_toml:
-        return [(root_toml['package']['name'], '.')]
+        packages[root_toml['package']['name']] = '.'
     elif 'workspace' in root_toml:
-        packages = []
         for subpkg in root_toml['workspace']['members']:
             pkg_toml = load_toml(os.path.join(tmdir, subpkg, 'Cargo.toml'))
-            packages.append((pkg_toml['package']['name'], subpkg))
-        return packages
+            packages[pkg_toml['package']['name']] = subpkg
     else:
         raise ValueError(f'Neither "package" nor "workspace" in {git_url}')
+    return packages
 
 def get_git_sources(package):
     name = package['name']
@@ -83,42 +83,41 @@ def get_git_sources(package):
         cargo_vendored_entry[repo_url]['branch'] = branch[0]
 
     git_sources = []
-    for pkg_name, pkg_subpath in get_git_cargo_packages(repo_url, commit):
-        if pkg_name != name:
-            continue
-        if pkg_subpath == '.':
-            git_sources += [
-                {
-                    'type': 'git',
-                    'url': repo_url,
-                    'commit': commit,
-                    'dest': f'{CARGO_CRATES}/{pkg_name}',
-                }
-            ]
-        else:
-            git_sources += [
-                {
-                    'type': 'git',
-                    'url': repo_url,
-                    'commit': commit,
-                    'dest': f'{CARGO_CRATES}/{pkg_name}.repo',
-                },
-                {
-                    'type': 'shell',
-                    'commands': [
-                        f'mv {CARGO_CRATES}/{pkg_name}.repo/{pkg_subpath} {CARGO_CRATES}/{pkg_name}',
-                        f'rm -rf {CARGO_CRATES}/{pkg_name}.repo'
-                    ]
-                }
-            ]
+    git_cargo_packages = get_git_cargo_packages(repo_url, commit)
+    pkg_subpath = git_cargo_packages[name]
+    if pkg_subpath == '.':
         git_sources += [
             {
-                'type': 'file',
-                'url': 'data:' + urlquote(json.dumps({'package': None, 'files': {}})),
-                'dest': f'{CARGO_CRATES}/{name}', #-{version}',
-                'dest-filename': '.cargo-checksum.json',
+                'type': 'git',
+                'url': repo_url,
+                'commit': commit,
+                'dest': f'{CARGO_CRATES}/{name}',
             }
         ]
+    else:
+        git_sources += [
+            {
+                'type': 'git',
+                'url': repo_url,
+                'commit': commit,
+                'dest': f'{CARGO_CRATES}/{name}.repo',
+            },
+            {
+                'type': 'shell',
+                'commands': [
+                    f'mv {CARGO_CRATES}/{name}.repo/{pkg_subpath} {CARGO_CRATES}/{name}',
+                    f'rm -rf {CARGO_CRATES}/{name}.repo'
+                ]
+            }
+        ]
+    git_sources += [
+        {
+            'type': 'file',
+            'url': 'data:' + urlquote(json.dumps({'package': None, 'files': {}})),
+            'dest': f'{CARGO_CRATES}/{name}', #-{version}',
+            'dest-filename': '.cargo-checksum.json',
+        }
+    ]
     return (git_sources, cargo_vendored_entry)
 
 def generate_sources(cargo_lock):
