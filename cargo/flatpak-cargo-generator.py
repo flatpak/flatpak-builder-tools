@@ -85,26 +85,20 @@ def get_git_sources(package):
     git_sources = []
     git_cargo_packages = get_git_cargo_packages(repo_url, commit)
     pkg_subpath = git_cargo_packages[name]
-    if pkg_subpath == '.':
+    git_sources = [
+        {
+            'type': 'git',
+            'url': repo_url,
+            'commit': commit,
+            'dest': f'{CARGO_CRATES}/{name}',
+        }
+    ]
+    if pkg_subpath != '.':
         git_sources += [
-            {
-                'type': 'git',
-                'url': repo_url,
-                'commit': commit,
-                'dest': f'{CARGO_CRATES}/{name}',
-            }
-        ]
-    else:
-        git_sources += [
-            {
-                'type': 'git',
-                'url': repo_url,
-                'commit': commit,
-                'dest': f'{CARGO_CRATES}/{name}.repo',
-            },
             {
                 'type': 'shell',
                 'commands': [
+                    f'mv {CARGO_CRATES}/{name} {CARGO_CRATES}/{name}.repo',
                     f'mv {CARGO_CRATES}/{name}.repo/{pkg_subpath} {CARGO_CRATES}/{name}',
                     f'rm -rf {CARGO_CRATES}/{name}.repo'
                 ]
