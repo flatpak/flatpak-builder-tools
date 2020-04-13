@@ -416,10 +416,11 @@ class ElectronBinaryManager:
 
 class SpecialSourceProvider:
     def __init__(self, gen: ManifestGenerator, electron_chromedriver: str,
-                 electron_ffmpeg: str):
+                 electron_ffmpeg: str, electron_node_headers: bool):
         self.gen = gen
         self.electron_chromedriver = electron_chromedriver
         self.electron_ffmpeg = electron_ffmpeg
+        self.electron_node_headers = electron_node_headers
 
     async def _handle_electron(self, package: Package) -> None:
         manager = await ElectronBinaryManager.for_version(package.version)
@@ -449,6 +450,13 @@ class SpecialSourceProvider:
                                             only_arches=[binary.arch.flatpak])
                 else:
                     raise ValueError()
+
+    async def _handle_node_headers(self, package: Package) -> None:
+        node_gyp_headers_dir = self.gen.data_root / 'node-gyp' / 'electron-current'
+        url = f'https://www.electronjs.org/headers/v{package.version}/node-v{package.version}-headers.tar.gz'
+        metadata = await RemoteUrlMetadata.get(url)
+        self.gen.add_archive_source(url, metadata.integrity,
+                                    destination=node_gyp_headers_dir)
 
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
         # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
@@ -503,6 +511,8 @@ class SpecialSourceProvider:
 
         if package.name == 'electron':
             await self._handle_electron(package)
+            if self.electron_node_headers:
+                await self._handle_node_headers(package)
         elif package.name == 'chromedriver':
             await self._handle_chromedriver(package)
         elif package.name == 'electron-builder':
@@ -1002,6 +1012,8 @@ async def main() -> None:
                              'Electron version')
     parser.add_argument('--electron-ffmpeg', choices=['archive', 'lib'],
                         help='Download the ffmpeg binaries')
+    parser.add_argument('--electron-node-headers', action='store_true',
+                        help='Download the electron node headers')
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
 
@@ -1053,7 +1065,8 @@ async def main() -> None:
     gen = ManifestGenerator()
     with gen:
         special = SpecialSourceProvider(gen, args.electron_chromedriver,
-                                        args.electron_ffmpeg)
+                                        args.electron_ffmpeg,
+                                        args.electron_node_headers)
 
         with provider_factory.create_module_provider(gen, special) as module_provider:
             with GeneratorProgress(packages, module_provider) as progress:
