@@ -3,6 +3,8 @@
 __license__ = 'MIT'
 
 from typing import *
+# Explictly import these.
+from typing import cast, IO
 
 from pathlib import Path
 
@@ -19,22 +21,192 @@ import re
 import shlex
 import shutil
 import sys
+import tempfile
 import textwrap
+import types
 import urllib.parse
 import urllib.request
+
+DEFAULT_PART_SIZE = 4096
+
+
+class Cache:
+    instance: 'Cache'
+
+    @classmethod
+    def get_working_instance_if(cls, condition: bool) -> 'Cache':
+        return cls.instance if condition else NullCache()
+
+    class BucketReader:
+        def read_parts(self, size: int = DEFAULT_PART_SIZE) -> Iterator[bytes]:
+            raise NotImplementedError
+
+        def read_all(self) -> bytes:
+            raise NotImplementedError
+
+        def close(self) -> None:
+            raise NotImplementedError
+
+        def __enter__(self) -> 'Cache.BucketReader':
+            return self
+
+        def __exit__(self, exc_type: Optional[Type[BaseException]],
+                     exc_value: Optional[BaseException],
+                     traceback: Optional[types.TracebackType]):
+            self.close()
+
+    class BucketWriter:
+        def write(self, data: bytes) -> None:
+            raise NotImplementedError
+
+        def cancel(self) -> None:
+            raise NotImplementedError
+
+        def seal(self) -> None:
+            raise NotImplementedError
+
+        def __enter__(self) -> 'Cache.BucketWriter':
+            return self
+
+        def __exit__(self, exc_type: Optional[Type[BaseException]],
+                     exc_value: Optional[BaseException],
+                     traceback: Optional[types.TracebackType]):
+            if traceback is None:
+                self.seal()
+            else:
+                self.cancel()
+
+    class BucketRef:
+        def __init__(self, key: str) -> None:
+            self.key = key
+
+        def open_read(self) -> Optional['Cache.BucketReader']:
+            raise NotImplementedError
+
+        def open_write(self) -> 'Cache.BucketWriter':
+            raise NotImplementedError
+
+    def get(self, key: str) -> BucketRef:
+        raise NotImplementedError
+
+
+class NullCache(Cache):
+    class NullBucketWriter(Cache.BucketWriter):
+        def write(self, data: bytes) -> None:
+            pass
+
+        def cancel(self) -> None:
+            pass
+
+        def seal(self) -> None:
+            pass
+
+    class NullBucketRef(Cache.BucketRef):
+        def __init__(self, key: str) -> None:
+            super().__init__(key)
+
+        def open_read(self) -> Optional[Cache.BucketReader]:
+            return None
+
+        def open_write(self) -> Cache.BucketWriter:
+            return NullCache.NullBucketWriter()
+
+    def get(self, key: str) -> Cache.BucketRef:
+        return NullCache.NullBucketRef(key)
+
+
+class FilesystemBasedCache(Cache):
+    _SUBDIR = 'flatpak-node-generator'
+    _KEY_CHAR_ESCAPE_RE = re.compile(r'[^A-Za-z0-9._\-]')
+
+    @staticmethod
+    def _escape_key(key: str) -> str:
+        return FilesystemBasedCache._KEY_CHAR_ESCAPE_RE.sub(
+            lambda m: f'_{ord(m.group()):02X}', key)
+
+    class FilesystemBucketReader(Cache.BucketReader):
+        def __init__(self, file: IO[bytes]) -> None:
+            self.file = file
+
+        def close(self) -> None:
+            self.file.close()
+
+        def read_parts(self, size: int = DEFAULT_PART_SIZE) -> Iterator[bytes]:
+            while True:
+                data = self.file.read(size)
+                if not data:
+                    break
+
+                yield data
+
+        def read_all(self) -> bytes:
+            return self.file.read()
+
+    class FilesystemBucketWriter(Cache.BucketWriter):
+        def __init__(self, file: IO[bytes], temp: Path, target: Path) -> None:
+            self.file = file
+            self.temp = temp
+            self.target = target
+
+        def write(self, data: bytes) -> None:
+            self.file.write(data)
+
+        def cancel(self) -> None:
+            self.file.close()
+            self.temp.unlink()
+
+        def seal(self) -> None:
+            self.file.close()
+            self.temp.rename(self.target)
+
+    class FilesystemBucketRef(Cache.BucketRef):
+        def __init__(self, key: str, cache_root: Path) -> None:
+            super().__init__(key)
+            self._cache_root = cache_root
+
+            self._cache_path = self._cache_root / FilesystemBasedCache._escape_key(key)
+
+        def open_read(self) -> Optional[Cache.BucketReader]:
+            try:
+                fp = self._cache_path.open('rb')
+            except FileNotFoundError:
+                return None
+            else:
+                return FilesystemBasedCache.FilesystemBucketReader(fp)
+
+        def open_write(self) -> Cache.BucketWriter:
+            target = self._cache_path
+            if not target.parent.exists():
+                target.parent.mkdir(exist_ok=True, parents=True)
+
+            fd, temp = tempfile.mkstemp(dir=self._cache_root, prefix='__temp__')
+            return FilesystemBasedCache.FilesystemBucketWriter(os.fdopen(fd, 'wb'),
+                                                               Path(temp), target)
+
+    @property
+    def _cache_root(self) -> Path:
+        xdg_cache_home = os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache'))
+        return Path(xdg_cache_home) / self._SUBDIR
+
+    def get(self, key: str) -> Cache.BucketRef:
+        return FilesystemBasedCache.FilesystemBucketRef(key, self._cache_root)
+
+
+Cache.instance = NullCache()
 
 
 class Requests:
     instance: 'Requests'
 
-    DEFAULT_PART_SIZE = 4096
     DEFAULT_RETRIES = 5
-
     retries: ClassVar[int] = DEFAULT_RETRIES
 
     @property
     def is_async(self) -> bool:
         raise NotImplementedError
+
+    def __get_cache_bucket(self, cachable: bool, url: str) -> Cache.BucketRef:
+        return Cache.get_working_instance_if(cachable).get(f'requests:{url}')
 
     async def _read_parts(self,
                           url: str,
@@ -47,21 +219,43 @@ class Requests:
 
     async def read_parts(self,
                          url: str,
+                         *,
+                         cachable: bool,
                          size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+        bucket = self.__get_cache_bucket(cachable, url)
+
+        bucket_reader = bucket.open_read()
+        if bucket_reader is not None:
+            for part in bucket_reader.read_parts(size):
+                yield part
+
+            return
+
         for i in range(1, Requests.retries + 1):
             try:
-                async for part in self._read_parts(url, size):
-                    yield part
+                with bucket.open_write() as bucket_writer:
+                    async for part in self._read_parts(url, size):
+                        bucket_writer.write(part)
+                        yield part
 
                 return
             except Exception:
                 if i == Requests.retries:
                     raise
 
-    async def read_all(self, url: str) -> bytes:
+    async def read_all(self, url: str, *, cachable: bool = False) -> bytes:
+        bucket = self.__get_cache_bucket(cachable, url)
+
+        bucket_reader = bucket.open_read()
+        if bucket_reader is not None:
+            return bucket_reader.read_all()
+
         for i in range(1, Requests.retries + 1):
             try:
-                return await self._read_all(url)
+                with bucket.open_write() as bucket_writer:
+                    data = await self._read_all(url)
+                    bucket_writer.write(data)
+                    return data
             except Exception:
                 if i == Requests.retries:
                     raise
@@ -76,7 +270,7 @@ class UrllibRequests(Requests):
 
     async def _read_parts(self,
                           url: str,
-                          size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+                          size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
         with urllib.request.urlopen(url) as response:
             while True:
                 data = response.read(size)
@@ -97,7 +291,7 @@ class StubRequests(Requests):
 
     async def _read_parts(self,
                           url: str,
-                          size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+                          size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
         yield b''
 
     async def _read_all(self, url: str) -> bytes:
@@ -120,10 +314,9 @@ try:
                 async with session.get(url) as response:
                     yield response.content
 
-        async def _read_parts(
-                self,
-                url: str,
-                size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+        async def _read_parts(self,
+                              url: str,
+                              size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
             async with self._open_stream(url) as stream:
                 while True:
                     data = await stream.read(size)
@@ -139,6 +332,10 @@ try:
     Requests.instance = AsyncRequests()
 
 except ImportError:
+    pass
+
+
+class CachedRequests(Requests):
     pass
 
 
@@ -164,6 +361,13 @@ class Integrity(NamedTuple):
         builder = IntegrityBuilder(algorithm)
         builder.update(data)
         return builder.build()
+
+    @staticmethod
+    def from_json_object(data: Any) -> 'Integrity':
+        return Integrity(algorithm=data['algorithm'], digest=data['digest'])
+
+    def to_json_object(self) -> Any:
+        return {'algorithm': self.algorithm, 'digest': self.digest}
 
     def to_base64(self) -> str:
         return base64.b64encode(binascii.unhexlify(self.digest)).decode()
@@ -191,24 +395,61 @@ class RemoteUrlMetadata(NamedTuple):
     size: int
 
     @staticmethod
-    async def get(url: str,
+    def __get_cache_bucket(cachable: bool, kind: str, url: str) -> Cache.BucketRef:
+        return Cache.get_working_instance_if(cachable).get(
+            f'remote-url-metadata:{kind}:{url}')
+
+    @staticmethod
+    def from_json_object(data: Any) -> 'RemoteUrlMetadata':
+        return RemoteUrlMetadata(integrity=Integrity.from_json_object(data['integrity']),
+                                 size=data['size'])
+
+    @classmethod
+    async def get(cls,
+                  url: str,
                   *,
+                  cachable: bool,
                   integrity_algorithm: str = 'sha256') -> 'RemoteUrlMetadata':
+        bucket = cls.__get_cache_bucket(cachable, 'full', url)
+
+        bucket_reader = bucket.open_read()
+        if bucket_reader is not None:
+            data = json.loads(bucket_reader.read_all())
+            return RemoteUrlMetadata.from_json_object(data)
+
         builder = IntegrityBuilder(integrity_algorithm)
         size = 0
 
-        async for part in Requests.instance.read_parts(url):
+        async for part in Requests.instance.read_parts(url, cachable=False):
             builder.update(part)
             size += len(part)
 
-        return RemoteUrlMetadata(integrity=builder.build(), size=size)
+        metadata = RemoteUrlMetadata(integrity=builder.build(), size=size)
 
-    @staticmethod
-    async def get_size(url: str) -> int:
+        with bucket.open_write() as bucket_writer:
+            bucket_writer.write(json.dumps(metadata.to_json_object()).encode('ascii'))
+
+        return metadata
+
+    @classmethod
+    async def get_size(cls, url: str, *, cachable: bool) -> int:
+        bucket = cls.__get_cache_bucket(cachable, 'size', url)
+
+        bucket_reader = bucket.open_read()
+        if bucket_reader is not None:
+            return int(bucket_reader.read_all())
+
         size = 0
-        async for part in Requests.instance.read_parts(url):
+        async for part in Requests.instance.read_parts(url, cachable=False):
             size += len(part)
+
+        with bucket.open_write() as bucket_writer:
+            bucket_writer.write(str(size).encode('ascii'))
+
         return size
+
+    def to_json_object(self) -> Any:
+        return {'integrity': self.integrity.to_json_object(), 'size': self.size}
 
 
 class ResolvedSource(NamedTuple):
@@ -221,7 +462,7 @@ class ResolvedSource(NamedTuple):
         else:
             url = self.resolved
             assert url is not None, 'registry source has no resolved URL'
-            metadata = await RemoteUrlMetadata.get(url)
+            metadata = await RemoteUrlMetadata.get(url, cachable=True)
             return metadata.integrity
 
 
@@ -436,7 +677,8 @@ class ElectronBinaryManager:
     async def for_version(version: str) -> 'ElectronBinaryManager':
         base_url = f'https://github.com/electron/electron/releases/download/v{version}'
         integrity_url = f'{base_url}/{ElectronBinaryManager.INTEGRITY_BASE_FILENAME}'
-        integrity_data = (await Requests.instance.read_all(integrity_url)).decode()
+        integrity_data = (await Requests.instance.read_all(integrity_url,
+                                                           cachable=True)).decode()
 
         integrities: Dict[str, Integrity] = {}
         for line in integrity_data.splitlines():
@@ -505,7 +747,7 @@ class SpecialSourceProvider:
     async def _handle_node_headers(self, package: Package) -> None:
         node_gyp_headers_dir = self.gen.data_root / 'node-gyp' / 'electron-current'
         url = f'https://www.electronjs.org/headers/v{package.version}/node-v{package.version}-headers.tar.gz'
-        metadata = await RemoteUrlMetadata.get(url)
+        metadata = await RemoteUrlMetadata.get(url, cachable=True)
         self.gen.add_archive_source(url,
                                     metadata.integrity,
                                     destination=node_gyp_headers_dir)
@@ -514,7 +756,7 @@ class SpecialSourceProvider:
         # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
         # just use unpkg instead.
         url = f'https://unpkg.com/chromedriver@{package.version}/lib/chromedriver'
-        js = await Requests.instance.read_all(url)
+        js = await Requests.instance.read_all(url, cachable=True)
         # XXX: a tad ugly
         match = re.search(r"exports\.version = '([^']+)'", js.decode())
         assert match is not None, f'Failed to get ChromeDriver binary version from {url}'
@@ -541,7 +783,7 @@ class SpecialSourceProvider:
         else:
             url = (f'https://chromedriver.storage.googleapis.com/{version}/'
                    'chromedriver_linux64.zip')
-            metadata = await RemoteUrlMetadata.get(url)
+            metadata = await RemoteUrlMetadata.get(url, cachable=True)
 
             self.gen.add_archive_source(url,
                                         metadata.integrity,
@@ -707,7 +949,8 @@ class NpmModuleProvider(ModuleProvider):
             self.cached_registry_data[package.name] = cache_future
 
             data_url = f'{self.registry}/{package.name}'
-            data = await Requests.instance.read_all(data_url)
+            # NOTE: Not cachable, because this is an API call.
+            data = await Requests.instance.read_all(data_url, cachable=False)
             index = json.loads(data)
 
             assert 'versions' in index, f'{data_url} returned an invalid package index'
@@ -749,7 +992,7 @@ class NpmModuleProvider(ModuleProvider):
             assert source.integrity is not None
 
             integrity = await source.retrieve_integrity()
-            size = await RemoteUrlMetadata.get_size(source.resolved)
+            size = await RemoteUrlMetadata.get_size(source.resolved, cachable=True)
             metadata = RemoteUrlMetadata(integrity=integrity, size=size)
             content_path = self.get_cacache_content_path(integrity)
             self.gen.add_url_source(source.resolved, integrity, content_path)
@@ -1095,6 +1338,9 @@ async def main() -> None:
     parser.add_argument('--no-aiohttp',
                         action='store_true',
                         help="Don't use aiohttp, and silence any warnings related to it")
+    parser.add_argument('--no-requests-cache',
+                        action='store_true',
+                        help='Disable the requests cache')
     parser.add_argument('--retries',
                         type=int,
                         help='Number of retries of failed requests',
@@ -1140,6 +1386,9 @@ async def main() -> None:
     elif not Requests.instance.is_async:
         print('WARNING: aiohttp is not found, performance will suffer.', file=sys.stderr)
         print('  (Pass --no-aiohttp to silence this warning.)', file=sys.stderr)
+
+    if not args.no_requests_cache:
+        Cache.instance = FilesystemBasedCache()
 
     lockfiles: List[Path]
     if args.recursive or args.recursive_pattern:
