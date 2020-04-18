@@ -6,6 +6,7 @@ import argparse
 import json
 import hashlib
 import os
+import re
 import subprocess
 import tempfile
 import urllib.request
@@ -91,24 +92,39 @@ else:
 modules = []
 
 for package in packages:
-    package_name = 'python{}-{}'.format('2' if opts.python2 else '3',
-                                        package.split("=")[0])
+    if '#' in package:
+        vcs_details = re.split(r'\#|\&', package)
+        r = re.compile("egg=.*")
+        for egg_name in list(filter(r.match, vcs_details)):
+            package_name = re.search('^egg=(.*?)$', egg_name).group(1)
+            if package_name:
+                break
+        else:
+            package_name = os.path.basename(re.search('(.*?)#', x).group(1))
+        vsc_name = package_name
+        vsc_url = package
+    else:
+        package_name = 'python{}-{}'.format('2' if opts.python2 else '3',
+                                            package.split("=")[0])
+        vsc_name = None
+        vsc_url = None
     tempdir_prefix = 'pip-generator-{}-'.format(package_name)
     with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
-
         pip_download = [
             pip_executable,
             'download',
+            '--exists-action=i',
             '--dest',
             tempdir
         ]
         pip_command = [
             pip_executable,
             'install',
+            '--exists-action=i',
             '--no-index',
             '--find-links="file://${PWD}"',
             '--prefix=${FLATPAK_DEST}',
-            shlex.quote(package)
+            package
         ]
         if opts.no_build_isolation:
             pip_command.append('--no-build-isolation')
@@ -141,7 +157,10 @@ for package in packages:
                 if name == 'setuptools':  # Already installed
                     continue
                 sha256 = get_file_hash(os.path.join(tempdir, filename))
-                url = get_pypi_url(name, filename)
+                if name == vsc_name:
+                    url = vsc_url
+                else:
+                    url = get_pypi_url(name, filename)
                 source = OrderedDict([
                     ('type', 'file'),
                     ('url', url),
