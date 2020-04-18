@@ -937,6 +937,10 @@ class YarnLockfileProvider(LockfileProvider):
 
 
 class YarnModuleProvider(ModuleProvider):
+    # From https://github.com/yarnpkg/yarn/blob/v1.22.4/src/fetchers/tarball-fetcher.js
+    _PACKAGE_TARBALL_URL_RE = re.compile(
+        r'(?:(@[^/]+)(?:/|%2f))?[^/]+/(?:-|_attachments)/(?:@[^/]+/)?([^/]+)$')
+
     def __init__(self, gen: ManifestGenerator, special: SpecialSourceProvider) -> None:
         self.gen = gen
         self.special_source_provider = special
@@ -953,12 +957,15 @@ class YarnModuleProvider(ModuleProvider):
         integrity = await source.retrieve_integrity()
 
         url_parts = urllib.parse.urlparse(source.resolved)
-        extension = os.path.splitext(url_parts.path)[1]
+        match = self._PACKAGE_TARBALL_URL_RE.search(url_parts.path)
+        if match is not None:
+            scope, filename = match.groups()
+            if scope:
+                filename = f'{scope}-{filename}'
+        else:
+            filename = os.path.basename(url_parts.path)
 
-        escaped_name = package.name.replace('/', '-')
-        destination = self.mirror_dir / f'{escaped_name}-{package.version}{extension}'
-
-        self.gen.add_url_source(source.resolved, integrity, destination)
+        self.gen.add_url_source(source.resolved, integrity, self.mirror_dir / filename)
 
         await self.special_source_provider.generate_special_sources(package)
 
