@@ -28,9 +28,10 @@ get npm with electron-builder.
 
 ```
 usage: flatpak-node-generator.py [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN]
-                                 [--registry REGISTRY] [--no-devel]
-                                 [--no-aiohttp] [--no-requests-cache]
-                                 [--retries RETRIES] [-P] [-s]
+                                 [--registry REGISTRY] [--no-trim-index]
+                                 [--no-devel] [--no-aiohttp]
+                                 [--no-requests-cache] [--retries RETRIES]
+                                 [-P] [-s]
                                  [--node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON]
                                  [--electron-ffmpeg {archive,lib}]
                                  [--electron-node-headers]
@@ -52,6 +53,7 @@ optional arguments:
                         Given -r, restrict files to those matching the given
                         pattern.
   --registry REGISTRY   The registry to use (npm only)
+  --no-trim-index       Don't trim npm package metadata (npm only)
   --no-devel            Don't include devel dependencies (npm only)
   --no-aiohttp          Don't use aiohttp, and silence any warnings related to
                         it
