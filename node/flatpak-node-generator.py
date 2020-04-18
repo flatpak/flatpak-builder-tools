@@ -36,14 +36,18 @@ class Requests:
     def is_async(self) -> bool:
         raise NotImplementedError
 
-    async def _read_parts(self, url: str, size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+    async def _read_parts(self,
+                          url: str,
+                          size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
         raise NotImplementedError
         yield b''  # Silence mypy.
 
     async def _read_all(self, url: str) -> bytes:
         raise NotImplementedError
 
-    async def read_parts(self, url: str, size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+    async def read_parts(self,
+                         url: str,
+                         size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
         for i in range(1, Requests.retries + 1):
             try:
                 async for part in self._read_parts(url, size):
@@ -70,7 +74,8 @@ class UrllibRequests(Requests):
     def is_async(self) -> bool:
         return False
 
-    async def _read_parts(self, url: str,
+    async def _read_parts(self,
+                          url: str,
                           size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
         with urllib.request.urlopen(url) as response:
             while True:
@@ -90,7 +95,8 @@ class StubRequests(Requests):
     def is_async(self) -> bool:
         return True
 
-    async def _read_parts(self, url: str,
+    async def _read_parts(self,
+                          url: str,
                           size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
         yield b''
 
@@ -99,7 +105,6 @@ class StubRequests(Requests):
 
 
 Requests.instance = UrllibRequests()
-
 
 try:
     import aiohttp
@@ -115,8 +120,10 @@ try:
                 async with session.get(url) as response:
                     yield response.content
 
-        async def _read_parts(self, url: str,
-                              size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+        async def _read_parts(
+                self,
+                url: str,
+                size: int = Requests.DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
             async with self._open_stream(url) as stream:
                 while True:
                     data = await stream.read(size)
@@ -184,7 +191,9 @@ class RemoteUrlMetadata(NamedTuple):
     size: int
 
     @staticmethod
-    async def get(url: str, *, integrity_algorithm: str = 'sha256') -> 'RemoteUrlMetadata':
+    async def get(url: str,
+                  *,
+                  integrity_algorithm: str = 'sha256') -> 'RemoteUrlMetadata':
         builder = IntegrityBuilder(integrity_algorithm)
         size = 0
 
@@ -216,7 +225,8 @@ class ResolvedSource(NamedTuple):
             return metadata.integrity
 
 
-class UnresolvedRegistrySource: pass
+class UnresolvedRegistrySource:
+    pass
 
 
 class GitSource(NamedTuple):
@@ -287,8 +297,11 @@ class ManifestGenerator(contextlib.AbstractContextManager):
     def _add_source(self, source: Dict[str, Any]) -> None:
         self._sources.add(tuple(source.items()))
 
-    def _add_source_with_destination(self, source: Dict[str, Any],
-                                     destination: Optional[Path], *, is_dir: bool,
+    def _add_source_with_destination(self,
+                                     source: Dict[str, Any],
+                                     destination: Optional[Path],
+                                     *,
+                                     is_dir: bool,
                                      only_arches: Optional[List[str]] = None) -> None:
         if destination is not None:
             if is_dir:
@@ -303,27 +316,47 @@ class ManifestGenerator(contextlib.AbstractContextManager):
 
         self._add_source(source)
 
-    def add_url_source(self, url: str, integrity: Integrity, destination: Optional[Path] = None,
-                       *, only_arches: Optional[List[str]] = None) -> None:
-        source: Dict[str, Any] = {'type': 'file', 'url': url,
-                                  integrity.algorithm: integrity.digest}
-        self._add_source_with_destination(source, destination, is_dir=False,
+    def add_url_source(self,
+                       url: str,
+                       integrity: Integrity,
+                       destination: Optional[Path] = None,
+                       *,
+                       only_arches: Optional[List[str]] = None) -> None:
+        source: Dict[str, Any] = {
+            'type': 'file',
+            'url': url,
+            integrity.algorithm: integrity.digest
+        }
+        self._add_source_with_destination(source,
+                                          destination,
+                                          is_dir=False,
                                           only_arches=only_arches)
 
-    def add_archive_source(self, url: str, integrity: Integrity,
+    def add_archive_source(self,
+                           url: str,
+                           integrity: Integrity,
                            destination: Optional[Path] = None,
                            only_arches: Optional[List[str]] = None,
                            strip_components: int = 1) -> None:
-        source: Dict[str, Any] = {'type': 'archive', 'url': url, 'strip-components': 1,
-                                  integrity.algorithm: integrity.digest}
-        self._add_source_with_destination(source, destination, is_dir=True,
+        source: Dict[str, Any] = {
+            'type': 'archive',
+            'url': url,
+            'strip-components': 1,
+            integrity.algorithm: integrity.digest
+        }
+        self._add_source_with_destination(source,
+                                          destination,
+                                          is_dir=True,
                                           only_arches=only_arches)
 
     def add_data_source(self, data: AnyStr, destination: Path) -> None:
         source = {'type': 'file', 'url': 'data:' + urllib.parse.quote(data)}
         self._add_source_with_destination(source, destination, is_dir=False)
 
-    def add_git_source(self, url: str, commit: str, destination: Optional[Path] = None) -> None:
+    def add_git_source(self,
+                       url: str,
+                       commit: str,
+                       destination: Optional[Path] = None) -> None:
         source = {'type': 'git', 'url': url, 'commit': commit}
         self._add_source_with_destination(source, destination, is_dir=True)
 
@@ -370,7 +403,8 @@ class ElectronBinaryManager:
 
     INTEGRITY_BASE_FILENAME = 'SHASUMS256.txt'
 
-    def __init__(self, version: str, base_url: str, integrities: Dict[str, Integrity]) -> None:
+    def __init__(self, version: str, base_url: str, integrities: Dict[str,
+                                                                      Integrity]) -> None:
         self.version = version
         self.base_url = base_url
         self.integrities = integrities
@@ -383,10 +417,13 @@ class ElectronBinaryManager:
             binary_filename = f'{binary}-v{self.version}-linux-{electron_arch}.zip'
             binary_url = self.child_url(binary_filename)
 
-            arch = ElectronBinaryManager.Arch(electron=electron_arch, flatpak=flatpak_arch)
-            yield ElectronBinaryManager.Binary(filename=binary_filename, url=binary_url,
-                                               integrity=self.integrities[binary_filename],
-                                               arch=arch)
+            arch = ElectronBinaryManager.Arch(electron=electron_arch,
+                                              flatpak=flatpak_arch)
+            yield ElectronBinaryManager.Binary(
+                filename=binary_filename,
+                url=binary_url,
+                integrity=self.integrities[binary_filename],
+                arch=arch)
 
     @property
     def integrity_file(self) -> 'ElectronBinaryManager.Binary':
@@ -410,7 +447,8 @@ class ElectronBinaryManager:
         integrities[ElectronBinaryManager.INTEGRITY_BASE_FILENAME] = (
             Integrity.generate(integrity_data))
 
-        return ElectronBinaryManager(version=version, base_url=base_url,
+        return ElectronBinaryManager(version=version,
+                                     base_url=base_url,
                                      integrities=integrities)
 
 
@@ -429,7 +467,8 @@ class SpecialSourceProvider:
 
         for binary in manager.find_binaries('electron'):
             assert binary.arch is not None
-            self.gen.add_url_source(binary.url, binary.integrity,
+            self.gen.add_url_source(binary.url,
+                                    binary.integrity,
                                     electron_cache_dir / binary.filename,
                                     only_arches=[binary.arch.flatpak])
 
@@ -441,12 +480,15 @@ class SpecialSourceProvider:
             for binary in manager.find_binaries('ffmpeg'):
                 assert binary.arch is not None
                 if self.electron_ffmpeg == 'lib':
-                    self.gen.add_archive_source(binary.url, binary.integrity,
+                    self.gen.add_archive_source(binary.url,
+                                                binary.integrity,
                                                 destination=self.gen.data_root,
                                                 only_arches=[binary.arch.flatpak])
                 elif self.electron_ffmpeg == 'archive':
-                    self.gen.add_url_source(binary.url, binary.integrity,
-                                            destination=electron_cache_dir / binary.filename,
+                    self.gen.add_url_source(binary.url,
+                                            binary.integrity,
+                                            destination=electron_cache_dir /
+                                            binary.filename,
                                             only_arches=[binary.arch.flatpak])
                 else:
                     raise ValueError()
@@ -455,7 +497,8 @@ class SpecialSourceProvider:
         node_gyp_headers_dir = self.gen.data_root / 'node-gyp' / 'electron-current'
         url = f'https://www.electronjs.org/headers/v{package.version}/node-v{package.version}-headers.tar.gz'
         metadata = await RemoteUrlMetadata.get(url)
-        self.gen.add_archive_source(url, metadata.integrity,
+        self.gen.add_archive_source(url,
+                                    metadata.integrity,
                                     destination=node_gyp_headers_dir)
 
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
@@ -477,15 +520,18 @@ class SpecialSourceProvider:
 
             for binary in manager.find_binaries('chromedriver'):
                 assert binary.arch is not None
-                self.gen.add_archive_source(binary.url, binary.integrity,
+                self.gen.add_archive_source(binary.url,
+                                            binary.integrity,
                                             destination=destination,
                                             only_arches=[binary.arch.flatpak])
         else:
             url = (f'https://chromedriver.storage.googleapis.com/{version}/'
-                    'chromedriver_linux64.zip')
+                   'chromedriver_linux64.zip')
             metadata = await RemoteUrlMetadata.get(url)
 
-            self.gen.add_archive_source(url, metadata.integrity, destination=destination,
+            self.gen.add_archive_source(url,
+                                        metadata.integrity,
+                                        destination=destination,
                                         only_arches=['x86_64'])
 
     def _handle_electron_builder(self, package: Package) -> None:
@@ -540,7 +586,7 @@ class NpmLockfileProvider(LockfileProvider):
 
         for npm_prefix, url_prefix in git_prefixes.items():
             if original.startswith(npm_prefix):
-                url = url_prefix + original[len(npm_prefix)+1:]
+                url = url_prefix + original[len(npm_prefix) + 1:]
                 break
         else:
             return None
@@ -595,8 +641,8 @@ class NpmModuleProvider(ModuleProvider):
         self.index_entries: Dict[Path, str] = {}
         self.all_lockfiles: Set[Path] = set()
         # Mapping of lockfiles to a dict of the Git source target paths and GitSource objects.
-        self.git_sources: DefaultDict[Path, Dict[Path, GitSource]] = collections.defaultdict(
-            lambda: {})
+        self.git_sources: DefaultDict[Path, Dict[
+            Path, GitSource]] = collections.defaultdict(lambda: {})
 
     def __exit__(self, *_: Any) -> None:
         self._finalize()
@@ -606,7 +652,8 @@ class NpmModuleProvider(ModuleProvider):
         return Path(digest[0:2]) / digest[2:4] / digest[4:]
 
     def get_cacache_index_path(self, integrity: Integrity) -> Path:
-        return self.cacache_dir / Path('index-v5') / self.get_cacache_integrity_path(integrity)
+        return self.cacache_dir / Path('index-v5') / self.get_cacache_integrity_path(
+            integrity)
 
     def get_cacache_content_path(self, integrity: Integrity) -> Path:
         return (self.cacache_dir / Path('content-v2') / integrity.algorithm /
@@ -615,10 +662,14 @@ class NpmModuleProvider(ModuleProvider):
     def add_index_entry(self, url: str, metadata: RemoteUrlMetadata) -> None:
         key = f'make-fetch-happen:request-cache:{url}'
         index_json = json.dumps({
-            'key': key,
-            'integrity': f'{metadata.integrity.algorithm}-{metadata.integrity.to_base64()}',
-            'time': 0,
-            'size': metadata.size,
+            'key':
+                key,
+            'integrity':
+                f'{metadata.integrity.algorithm}-{metadata.integrity.to_base64()}',
+            'time':
+                0,
+            'size':
+                metadata.size,
             'metadata': {
                 'url': url,
                 'reqHeaders': {},
@@ -646,7 +697,8 @@ class NpmModuleProvider(ModuleProvider):
             assert 'versions' in index, f'{data_url} returned an invalid package index'
             cache_future.set_result(index['versions'])
 
-            metadata = RemoteUrlMetadata(integrity=Integrity.generate(data), size=len(data))
+            metadata = RemoteUrlMetadata(integrity=Integrity.generate(data),
+                                         size=len(data))
             content_path = self.get_cacache_content_path(metadata.integrity)
             self.gen.add_data_source(data, content_path)
             self.add_index_entry(data_url, metadata)
@@ -705,7 +757,8 @@ class NpmModuleProvider(ModuleProvider):
         if self.git_sources:
             # Generate jq scripts to patch the package*.json files.
             scripts = {
-                'package.json': '''
+                'package.json':
+                    '''
                     walk(
                         if type == "object"
                         then
@@ -719,7 +772,8 @@ class NpmModuleProvider(ModuleProvider):
                         end
                     )
                 ''',
-                'package-lock.json': '''
+                'package-lock.json':
+                    '''
                     walk(
                         if type == "object" and (.version | type == "string") and $data[.version]
                         then
@@ -745,18 +799,21 @@ class NpmModuleProvider(ModuleProvider):
 
                 for filename, script in scripts.items():
                     target = Path('$FLATPAK_BUILDER_BUILDDIR') / prefix / filename
-                    script =  textwrap.dedent(script.lstrip('\n')).strip().replace('\n', '')
+                    script = textwrap.dedent(script.lstrip('\n')).strip().replace(
+                        '\n', '')
                     json_data = json.dumps(data[filename])
-                    patch_commands[lockfile].append('jq'
-                                                   ' --arg buildroot "$FLATPAK_BUILDER_BUILDDIR"'
-                                                   f' --argjson data {shlex.quote(json_data)}'
-                                                   f' {shlex.quote(script)} {target}'
-                                                   f' > {target}.new')
+                    patch_commands[lockfile].append(
+                        'jq'
+                        ' --arg buildroot "$FLATPAK_BUILDER_BUILDDIR"'
+                        f' --argjson data {shlex.quote(json_data)}'
+                        f' {shlex.quote(script)} {target}'
+                        f' > {target}.new')
                     patch_commands[lockfile].append(f'mv {target}{{.new,}}')
 
         patch_all_commands: List[str] = []
         for lockfile in self.all_lockfiles:
-            patch_dest = self.gen.data_root / 'patch' / self.relative_lockfile_dir(lockfile)
+            patch_dest = self.gen.data_root / 'patch' / self.relative_lockfile_dir(
+                lockfile)
             # Don't use with_extension to avoid problems if the package has a . in its name.
             patch_dest = patch_dest.with_name(patch_dest.name + '.sh')
 
@@ -929,7 +986,8 @@ class YarnProviderFactory(ProviderFactory):
 
 
 class GeneratorProgress(contextlib.AbstractContextManager):
-    def __init__(self, packages: Collection[Package], module_provider: ModuleProvider) -> None:
+    def __init__(self, packages: Collection[Package],
+                 module_provider: ModuleProvider) -> None:
         self.finished = 0
         self.packages = packages
         self.module_provider = module_provider
@@ -943,7 +1001,7 @@ class GeneratorProgress(contextlib.AbstractContextManager):
         result = f'{package.name} @ {package.version}'
 
         if len(result) > max_width:
-            result = result[:max_width-3] + '...'
+            result = result[:max_width - 3] + '...'
 
         return result
 
@@ -957,7 +1015,8 @@ class GeneratorProgress(contextlib.AbstractContextManager):
         max_package_width = columns - len(prefix_string)
 
         if self.current_package is not None:
-            sys.stdout.write(self._format_package(self.current_package, max_package_width))
+            sys.stdout.write(self._format_package(self.current_package,
+                                                  max_package_width))
 
         sys.stdout.flush()
 
@@ -987,32 +1046,52 @@ def scan_for_lockfiles(base: Path, patterns: List[str]) -> Iterator[Path]:
 async def main() -> None:
     parser = argparse.ArgumentParser(description='Flatpak Node generator')
     parser.add_argument('type', choices=['npm', 'yarn'])
-    parser.add_argument('lockfile', help='The lockfile path (package-lock.json or yarn.lock)')
-    parser.add_argument('-o', '--output', help='The output sources file',
+    parser.add_argument('lockfile',
+                        help='The lockfile path (package-lock.json or yarn.lock)')
+    parser.add_argument('-o',
+                        '--output',
+                        help='The output sources file',
                         default='generated-sources.json')
-    parser.add_argument('-r', '--recursive', action='store_true',
-                        help='Recursively process all files under the lockfile directory with '
-                             'the lockfile basename')
-    parser.add_argument('-R', '--recursive-pattern', action='append',
-                        help='Given -r, restrict files to those matching the given pattern.')
-    parser.add_argument('--registry', help='The registry to use (npm only)',
-                       default='https://registry.npmjs.org')
-    parser.add_argument('--no-devel', action='store_true',
+    parser.add_argument(
+        '-r',
+        '--recursive',
+        action='store_true',
+        help='Recursively process all files under the lockfile directory with '
+        'the lockfile basename')
+    parser.add_argument(
+        '-R',
+        '--recursive-pattern',
+        action='append',
+        help='Given -r, restrict files to those matching the given pattern.')
+    parser.add_argument('--registry',
+                        help='The registry to use (npm only)',
+                        default='https://registry.npmjs.org')
+    parser.add_argument('--no-devel',
+                        action='store_true',
                         help="Don't include devel dependencies (npm only)")
-    parser.add_argument('--no-aiohttp', action='store_true',
+    parser.add_argument('--no-aiohttp',
+                        action='store_true',
                         help="Don't use aiohttp, and silence any warnings related to it")
-    parser.add_argument('--retries', type=int, help='Number of retries of failed requests',
+    parser.add_argument('--retries',
+                        type=int,
+                        help='Number of retries of failed requests',
                         default=Requests.DEFAULT_RETRIES)
-    parser.add_argument('-P', '--no-autopatch', action='store_true',
+    parser.add_argument('-P',
+                        '--no-autopatch',
+                        action='store_true',
                         help="Don't automatically patch Git sources from package*.json")
-    parser.add_argument('-s', '--split', action='store_true',
+    parser.add_argument('-s',
+                        '--split',
+                        action='store_true',
                         help='Split the sources file to fit onto GitHub.')
     parser.add_argument('--electron-chromedriver',
                         help='Use the ChromeDriver version associated with the given '
-                             'Electron version')
-    parser.add_argument('--electron-ffmpeg', choices=['archive', 'lib'],
+                        'Electron version')
+    parser.add_argument('--electron-ffmpeg',
+                        choices=['archive', 'lib'],
                         help='Download the ffmpeg binaries')
-    parser.add_argument('--electron-node-headers', action='store_true',
+    parser.add_argument('--electron-node-headers',
+                        action='store_true',
                         help='Download the electron node headers')
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
@@ -1065,8 +1144,7 @@ async def main() -> None:
     gen = ManifestGenerator()
     with gen:
         special = SpecialSourceProvider(gen, args.electron_chromedriver,
-                                        args.electron_ffmpeg,
-                                        args.electron_node_headers)
+                                        args.electron_ffmpeg, args.electron_node_headers)
 
         with provider_factory.create_module_provider(gen, special) as module_provider:
             with GeneratorProgress(packages, module_provider) as progress:
@@ -1083,7 +1161,8 @@ async def main() -> None:
     else:
         with open(args.output, 'w') as fp:
             json.dump(list(gen.ordered_sources()),
-                      fp, indent=ManifestGenerator.JSON_INDENT)
+                      fp,
+                      indent=ManifestGenerator.JSON_INDENT)
 
             if fp.tell() >= ManifestGenerator.MAX_GITHUB_SIZE:
                 print('WARNING: generated-sources.json is too large for GitHub.',
