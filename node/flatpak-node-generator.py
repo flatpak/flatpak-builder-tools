@@ -896,6 +896,12 @@ class NpmModuleProvider(ModuleProvider):
     class Options(NamedTuple):
         registry: str
         no_autopatch: bool
+        no_trim_index: bool
+
+    class RegistryPackageIndex(NamedTuple):
+        url: str
+        data: Dict
+        used_versions: Set[str]
 
     def __init__(self, gen: ManifestGenerator, special: SpecialSourceProvider,
                  lockfile_root: Path, options: Options) -> None:
@@ -904,9 +910,12 @@ class NpmModuleProvider(ModuleProvider):
         self.lockfile_root = lockfile_root
         self.registry = options.registry
         self.no_autopatch = options.no_autopatch
+        self.no_trim_index = options.no_trim_index
         self.npm_cache_dir = self.gen.data_root / 'npm-cache'
         self.cacache_dir = self.npm_cache_dir / '_cacache'
-        self.cached_registry_data: Dict[str, Awaitable[dict]] = {}
+        # Awaitable so multiple tasks can be waiting on the same package info.
+        self.registry_packages: Dict[
+            str, asyncio.Future[NpmModuleProvider.RegistryPackageIndex]] = {}
         self.index_entries: Dict[Path, str] = {}
         self.all_lockfiles: Set[Path] = set()
         # Mapping of lockfiles to a dict of the Git source target paths and GitSource objects.
@@ -955,31 +964,36 @@ class NpmModuleProvider(ModuleProvider):
 
     async def resolve_source(self, package: Package) -> ResolvedSource:
         # These results are going to be the same each time.
-        if package.name not in self.cached_registry_data:
+        if package.name not in self.registry_packages:
             cache_future = asyncio.get_event_loop().create_future()
-            self.cached_registry_data[package.name] = cache_future
+            self.registry_packages[package.name] = cache_future
 
             data_url = f'{self.registry}/{package.name}'
             # NOTE: Not cachable, because this is an API call.
-            data = await Requests.instance.read_all(data_url, cachable=False)
-            index = json.loads(data)
+            raw_data = await Requests.instance.read_all(data_url, cachable=False)
+            data = json.loads(raw_data)
 
-            assert 'versions' in index, f'{data_url} returned an invalid package index'
-            cache_future.set_result(index['versions'])
+            assert 'versions' in data, f'{data_url} returned an invalid package index'
+            cache_future.set_result(
+                NpmModuleProvider.RegistryPackageIndex(url=data_url,
+                                                       data=data,
+                                                       used_versions=set()))
 
-            metadata = RemoteUrlMetadata(integrity=Integrity.generate(data),
-                                         size=len(data))
-            content_path = self.get_cacache_content_path(metadata.integrity)
-            self.gen.add_data_source(data, content_path)
-            self.add_index_entry(data_url, metadata)
+            if not self.no_trim_index:
+                for key in list(data):
+                    if key != 'versions':
+                        del data[key]
 
-        versions = await self.cached_registry_data[package.name]
+        index = await self.registry_packages[package.name]
+
+        versions = index.data['versions']
         assert package.version in versions, \
             f'{package.name} versions available are {", ".join(versions)}, not {package.version}'
 
         dist = versions[package.version]['dist']
-
         assert 'tarball' in dist, f'{package.name}@{package.version} has no tarball in dist'
+
+        index.used_versions.add(package.version)
 
         integrity: Integrity
         if 'integrity' in dist:
@@ -1022,6 +1036,22 @@ class NpmModuleProvider(ModuleProvider):
         return lockfile.parent.relative_to(self.lockfile_root)
 
     def _finalize(self) -> None:
+        for name, async_index in self.registry_packages.items():
+            index = async_index.result()
+
+            if not self.no_trim_index:
+                for version in list(index.data['versions'].keys()):
+                    if version not in index.used_versions:
+                        del index.data['versions'][version]
+
+            raw_data = json.dumps(index.data).encode()
+
+            metadata = RemoteUrlMetadata(integrity=Integrity.generate(raw_data),
+                                         size=len(raw_data))
+            content_path = self.get_cacache_content_path(metadata.integrity)
+            self.gen.add_data_source(raw_data, content_path)
+            self.add_index_entry(index.url, metadata)
+
         patch_commands: DefaultDict[Path, List[str]] = collections.defaultdict(lambda: [])
 
         if self.git_sources:
@@ -1343,6 +1373,9 @@ async def main() -> None:
     parser.add_argument('--registry',
                         help='The registry to use (npm only)',
                         default='https://registry.npmjs.org')
+    parser.add_argument('--no-trim-index',
+                        action='store_true',
+                        help="Don't trim npm package metadata (npm only)")
     parser.add_argument('--no-devel',
                         action='store_true',
                         help="Don't include devel dependencies (npm only)")
@@ -1417,7 +1450,8 @@ async def main() -> None:
         npm_options = NpmProviderFactory.Options(
             NpmLockfileProvider.Options(no_devel=args.no_devel),
             NpmModuleProvider.Options(registry=args.registry,
-                                      no_autopatch=args.no_autopatch))
+                                      no_autopatch=args.no_autopatch,
+                                      no_trim_index=args.no_trim_index))
         provider_factory = NpmProviderFactory(lockfile_root, npm_options)
     elif args.type == 'yarn':
         provider_factory = YarnProviderFactory()
