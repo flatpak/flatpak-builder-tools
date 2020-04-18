@@ -29,7 +29,8 @@ get npm with electron-builder.
 ```
 usage: flatpak-node-generator.py [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN]
                                  [--registry REGISTRY] [--no-devel]
-                                 [--no-aiohttp] [--retries RETRIES] [-P] [-s]
+                                 [--no-aiohttp] [--no-requests-cache]
+                                 [--retries RETRIES] [-P] [-s]
                                  [--node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON]
                                  [--electron-ffmpeg {archive,lib}]
                                  [--electron-node-headers]
@@ -54,6 +55,7 @@ optional arguments:
   --no-devel            Don't include devel dependencies (npm only)
   --no-aiohttp          Don't use aiohttp, and silence any warnings related to
                         it
+  --no-requests-cache   Disable the requests cache
   --retries RETRIES     Number of retries of failed requests
   -P, --no-autopatch    Don't automatically patch Git sources from
                         package*.json
@@ -73,6 +75,12 @@ containing all the sources set up like needed for the given package manager.
 
 If you're on npm and you don't want to include devel dependencies, pass --no-devel, and pass
 --production to `npm install` itself when you call.
+
+### Caching
+
+flatpak-node-generator will cache many API responses and archives from the server to speed up
+subsequent runs. You can disable this using `--no-requests-cache`, and it can be cleared via
+`rm -rf ${XDG_CACHE_HOME:-$HOME/.cache}/flatpak-node-generator`.
 
 ### Splitting mode
 
