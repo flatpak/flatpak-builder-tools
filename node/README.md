@@ -80,6 +80,8 @@ one, each smaller than the GitHub limit.
 
 ### ChromeDriver support
 
+#### node-chromedriver
+
 If your app depends on node-chromedriver, then flatpak-node-generator will download it
 to the directory `$FLATPAK_BUILDER_BUILDDIR/flatpak-node/chromedriver`. You need to
 do two things in order to utilize this:
@@ -100,10 +102,15 @@ build-options:
 In addition, the default ChromeDriver only is available for x64. If you need to build
 on other platforms, you can use the ChromeDriver binaries that are compiled by Electron
 and distributed with their releases. To do this, pass
-`--electron-chromedriver AN_ELECTRON_VERSION` to use the ChromeDriver given with that
-Electron version. Note that you may not necessarily want to use a version here that
+`--node-chromedriver-from-electron AN_ELECTRON_VERSION` to use the ChromeDriver given with
+that Electron version. Note that you may not necessarily want to use a version here that
 corresponds to the Electron version your app is using; many apps stay on older Electron
 versions but may use newer ChromeDriver functionality.
+
+#### electron-chromedriver
+
+electron-chromedriver will be handled automatically, but make sure `ELECTRON_CACHE` is
+set as show in the quickstart examples.
 
 ### Recursive mode
 
@@ -193,9 +200,9 @@ Both of these cases are handled by the electron-webpack-quick-start example.
 
 Some node/electron versions are binary incompatible and require rebuilding of
 native node dependencies for electron. In offline mode, it may result in broken ABI.
-If you are seeing errors like 
+If you are seeing errors like
 `The module 'something.node' was compiled against a different Node.js version`,
-then pass `--electron-node-headers` option to flatpak-node-generator and set 
+then pass `--electron-node-headers` option to flatpak-node-generator and set
 `npm_config_nodedir` to `flatpak-node/node-gyp/electron-current`.
 
 ### ffmpeg support

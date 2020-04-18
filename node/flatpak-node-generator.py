@@ -453,45 +453,54 @@ class ElectronBinaryManager:
 
 
 class SpecialSourceProvider:
-    def __init__(self, gen: ManifestGenerator, electron_chromedriver: str,
+    def __init__(self, gen: ManifestGenerator, node_chromedriver_from_electron: str,
                  electron_ffmpeg: str, electron_node_headers: bool):
         self.gen = gen
-        self.electron_chromedriver = electron_chromedriver
+        self.node_chromedriver_from_electron = node_chromedriver_from_electron
         self.electron_ffmpeg = electron_ffmpeg
         self.electron_node_headers = electron_node_headers
 
-    async def _handle_electron(self, package: Package) -> None:
-        manager = await ElectronBinaryManager.for_version(package.version)
+    @property
+    def electron_cache_dir(self) -> Path:
+        return self.gen.data_root / 'electron-cache'
 
-        electron_cache_dir = self.gen.data_root / 'electron-cache'
+    def _add_electron_cache_downloads(self,
+                                      manager: ElectronBinaryManager,
+                                      binary_name: str,
+                                      *,
+                                      add_integrities=True) -> None:
+        electron_cache_dir = self.electron_cache_dir
 
-        for binary in manager.find_binaries('electron'):
+        for binary in manager.find_binaries(binary_name):
             assert binary.arch is not None
             self.gen.add_url_source(binary.url,
                                     binary.integrity,
                                     electron_cache_dir / binary.filename,
                                     only_arches=[binary.arch.flatpak])
 
-        integrity_file = manager.integrity_file
-        self.gen.add_url_source(integrity_file.url, integrity_file.integrity,
-                                electron_cache_dir / integrity_file.filename)
+        if add_integrities:
+            integrity_file = manager.integrity_file
+            self.gen.add_url_source(integrity_file.url, integrity_file.integrity,
+                                    electron_cache_dir / integrity_file.filename)
+
+    async def _handle_electron(self, package: Package) -> None:
+        manager = await ElectronBinaryManager.for_version(package.version)
+        self._add_electron_cache_downloads(manager, 'electron')
 
         if self.electron_ffmpeg is not None:
-            for binary in manager.find_binaries('ffmpeg'):
-                assert binary.arch is not None
-                if self.electron_ffmpeg == 'lib':
+            if self.electron_ffmpeg == 'archive':
+                self._add_electron_cache_downloads(manager,
+                                                   'ffmpeg',
+                                                   add_integrities=False)
+            elif self.electron_ffmpeg == 'lib':
+                for binary in manager.find_binaries('ffmpeg'):
+                    assert binary.arch is not None
                     self.gen.add_archive_source(binary.url,
                                                 binary.integrity,
                                                 destination=self.gen.data_root,
                                                 only_arches=[binary.arch.flatpak])
-                elif self.electron_ffmpeg == 'archive':
-                    self.gen.add_url_source(binary.url,
-                                            binary.integrity,
-                                            destination=electron_cache_dir /
-                                            binary.filename,
-                                            only_arches=[binary.arch.flatpak])
-                else:
-                    raise ValueError()
+            else:
+                assert False, self.electron_ffmpeg
 
     async def _handle_node_headers(self, package: Package) -> None:
         node_gyp_headers_dir = self.gen.data_root / 'node-gyp' / 'electron-current'
@@ -511,12 +520,17 @@ class SpecialSourceProvider:
         assert match is not None, f'Failed to get ChromeDriver binary version from {url}'
         return match.group(1)
 
-    async def _handle_chromedriver(self, package: Package) -> None:
+    async def _handle_electron_chromedriver(self, package: Package) -> None:
+        manager = await ElectronBinaryManager.for_version(package.version)
+        self._add_electron_cache_downloads(manager, 'chromedriver')
+
+    async def _handle_node_chromedriver(self, package: Package) -> None:
         version = await self._get_chromedriver_binary_version(package)
         destination = self.gen.data_root / 'chromedriver'
 
-        if self.electron_chromedriver is not None:
-            manager = await ElectronBinaryManager.for_version(self.electron_chromedriver)
+        if self.node_chromedriver_from_electron is not None:
+            manager = await ElectronBinaryManager.for_version(
+                self.node_chromedriver_from_electron)
 
             for binary in manager.find_binaries('chromedriver'):
                 assert binary.arch is not None
@@ -559,8 +573,10 @@ class SpecialSourceProvider:
             await self._handle_electron(package)
             if self.electron_node_headers:
                 await self._handle_node_headers(package)
+        elif package.name == 'electron-chromedriver':
+            await self._handle_electron_chromedriver(package)
         elif package.name == 'chromedriver':
-            await self._handle_chromedriver(package)
+            await self._handle_node_chromedriver(package)
         elif package.name == 'electron-builder':
             self._handle_electron_builder(package)
 
@@ -1084,9 +1100,11 @@ async def main() -> None:
                         '--split',
                         action='store_true',
                         help='Split the sources file to fit onto GitHub.')
-    parser.add_argument('--electron-chromedriver',
+    parser.add_argument('--node-chromedriver-from-electron',
                         help='Use the ChromeDriver version associated with the given '
-                        'Electron version')
+                        'Electron version for node-chromedriver')
+    # Deprecated alternative to --node-chromedriver-from-electron
+    parser.add_argument('--electron-chromedriver', help=argparse.SUPPRESS)
     parser.add_argument('--electron-ffmpeg',
                         choices=['archive', 'lib'],
                         help='Download the ffmpeg binaries')
@@ -1102,6 +1120,10 @@ async def main() -> None:
 
     if args.type == 'yarn' and (args.no_devel or args.no_autopatch):
         sys.exit('--no-devel and --no-autopatch do not apply to Yarn.')
+
+    if args.electron_chromedriver:
+        print('WARNING: --electron-chromedriver is deprecated', file=sys.stderr)
+        print('  (Use --node-chromedriver-from-electron instead.)', file=sys.stderr)
 
     if args.stub_requests:
         Requests.instance = StubRequests()
@@ -1143,8 +1165,9 @@ async def main() -> None:
 
     gen = ManifestGenerator()
     with gen:
-        special = SpecialSourceProvider(gen, args.electron_chromedriver,
-                                        args.electron_ffmpeg, args.electron_node_headers)
+        special = SpecialSourceProvider(
+            gen, args.node_chromedriver_from_electron or args.electron_chromedriver,
+            args.electron_ffmpeg, args.electron_node_headers)
 
         with provider_factory.create_module_provider(gen, special) as module_provider:
             with GeneratorProgress(packages, module_provider) as progress:
