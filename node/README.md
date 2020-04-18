@@ -30,8 +30,9 @@ get npm with electron-builder.
 usage: flatpak-node-generator.py [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN]
                                  [--registry REGISTRY] [--no-devel]
                                  [--no-aiohttp] [--retries RETRIES] [-P] [-s]
-                                 [--electron-chromedriver ELECTRON_CHROMEDRIVER]
-                                 [--electron-non-patented-ffmpeg]
+                                 [--node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON]
+                                 [--electron-ffmpeg {archive,lib}]
+                                 [--electron-node-headers]
                                  {npm,yarn} lockfile
 
 Flatpak Node generator
@@ -57,11 +58,13 @@ optional arguments:
   -P, --no-autopatch    Don't automatically patch Git sources from
                         package*.json
   -s, --split           Split the sources file to fit onto GitHub.
-  --electron-chromedriver ELECTRON_CHROMEDRIVER
+  --node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON
                         Use the ChromeDriver version associated with the given
-                        Electron version
-  --electron-non-patented-ffmpeg
-                        Download the non-patented ffmpeg binaries
+                        Electron version for node-chromedriver
+  --electron-ffmpeg {archive,lib}
+                        Download the ffmpeg binaries
+  --electron-node-headers
+                        Download the electron node headers
 ```
 
 flatpak-node-generator.py takes the package manager (npm or yarn), and a path to a lockfile for
