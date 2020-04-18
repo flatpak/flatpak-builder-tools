@@ -851,7 +851,7 @@ class NpmLockfileProvider(LockfileProvider):
 
         for npm_prefix, url_prefix in git_prefixes.items():
             if original.startswith(npm_prefix):
-                url = url_prefix + original[len(npm_prefix) + 1:]
+                url = url_prefix + original[len(npm_prefix):]
                 break
         else:
             return None
