@@ -695,12 +695,16 @@ class ElectronBinaryManager:
 
 
 class SpecialSourceProvider:
-    def __init__(self, gen: ManifestGenerator, node_chromedriver_from_electron: str,
-                 electron_ffmpeg: str, electron_node_headers: bool):
+    class Options(NamedTuple):
+        node_chromedriver_from_electron: str
+        electron_ffmpeg: str
+        electron_node_headers: bool
+
+    def __init__(self, gen: ManifestGenerator, options: Options):
         self.gen = gen
-        self.node_chromedriver_from_electron = node_chromedriver_from_electron
-        self.electron_ffmpeg = electron_ffmpeg
-        self.electron_node_headers = electron_node_headers
+        self.node_chromedriver_from_electron = options.node_chromedriver_from_electron
+        self.electron_ffmpeg = options.electron_ffmpeg
+        self.electron_node_headers = options.electron_node_headers
 
     @property
     def electron_cache_dir(self) -> Path:
@@ -824,8 +828,11 @@ class SpecialSourceProvider:
 
 
 class NpmLockfileProvider(LockfileProvider):
-    def __init__(self, no_devel: bool):
-        self.no_devel = no_devel
+    class Options(NamedTuple):
+        no_devel: bool
+
+    def __init__(self, options: Options):
+        self.no_devel = options.no_devel
 
     def parse_git_source(self, version: str, from_: str) -> Optional[GitSource]:
         git_prefixes = {
@@ -886,13 +893,17 @@ class NpmLockfileProvider(LockfileProvider):
 
 
 class NpmModuleProvider(ModuleProvider):
+    class Options(NamedTuple):
+        registry: str
+        no_autopatch: bool
+
     def __init__(self, gen: ManifestGenerator, special: SpecialSourceProvider,
-                 lockfile_root: Path, registry: str, no_autopatch: bool) -> None:
+                 lockfile_root: Path, options: Options) -> None:
         self.gen = gen
         self.special_source_provider = special
         self.lockfile_root = lockfile_root
-        self.registry = registry
-        self.no_autopatch = no_autopatch
+        self.registry = options.registry
+        self.no_autopatch = options.no_autopatch
         self.npm_cache_dir = self.gen.data_root / 'npm-cache'
         self.cacache_dir = self.npm_cache_dir / '_cacache'
         self.cached_registry_data: Dict[str, Awaitable[dict]] = {}
@@ -1223,20 +1234,20 @@ class ProviderFactory:
 
 
 class NpmProviderFactory(ProviderFactory):
-    def __init__(self, lockfile_root: Path, registry: str, no_devel: bool,
-                 no_autopatch: bool) -> None:
+    class Options(NamedTuple):
+        lockfile: NpmLockfileProvider.Options
+        module: NpmModuleProvider.Options
+
+    def __init__(self, lockfile_root: Path, options: Options) -> None:
         self.lockfile_root = lockfile_root
-        self.registry = registry
-        self.no_devel = no_devel
-        self.no_autopatch = no_autopatch
+        self.options = options
 
     def create_lockfile_provider(self) -> NpmLockfileProvider:
-        return NpmLockfileProvider(self.no_devel)
+        return NpmLockfileProvider(self.options.lockfile)
 
     def create_module_provider(self, gen: ManifestGenerator,
                                special: SpecialSourceProvider) -> NpmModuleProvider:
-        return NpmModuleProvider(gen, special, self.lockfile_root, self.registry,
-                                 self.no_autopatch)
+        return NpmModuleProvider(gen, special, self.lockfile_root, self.options.module)
 
 
 class YarnProviderFactory(ProviderFactory):
@@ -1403,8 +1414,11 @@ async def main() -> None:
 
     provider_factory: ProviderFactory
     if args.type == 'npm':
-        provider_factory = NpmProviderFactory(lockfile_root, args.registry, args.no_devel,
-                                              args.no_autopatch)
+        npm_options = NpmProviderFactory.Options(
+            NpmLockfileProvider.Options(no_devel=args.no_devel),
+            NpmModuleProvider.Options(registry=args.registry,
+                                      no_autopatch=args.no_autopatch))
+        provider_factory = NpmProviderFactory(lockfile_root, npm_options)
     elif args.type == 'yarn':
         provider_factory = YarnProviderFactory()
     else:
@@ -1421,9 +1435,12 @@ async def main() -> None:
 
     gen = ManifestGenerator()
     with gen:
-        special = SpecialSourceProvider(
-            gen, args.node_chromedriver_from_electron or args.electron_chromedriver,
-            args.electron_ffmpeg, args.electron_node_headers)
+        options = SpecialSourceProvider.Options(
+            node_chromedriver_from_electron=args.node_chromedriver_from_electron
+            or args.electron_chromedriver,
+            electron_ffmpeg=args.electron_ffmpeg,
+            electron_node_headers=args.electron_node_headers)
+        special = SpecialSourceProvider(gen, options)
 
         with provider_factory.create_module_provider(gen, special) as module_provider:
             with GeneratorProgress(packages, module_provider) as progress:
