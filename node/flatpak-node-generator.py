@@ -794,6 +794,32 @@ class SpecialSourceProvider:
                                         destination=destination,
                                         only_arches=['x86_64'])
 
+    async def _handle_ripgrep_prebuilt(self, package: Package) -> None:
+        async def get_ripgrep_tag(version):
+            url = f'https://github.com/microsoft/vscode-ripgrep/raw/v{version}/lib/postinstall.js'
+            tag_re = re.compile(r"VERSION\s+=\s+'(v[\d.-]+)';")
+            resp = await Requests.instance.read_all(url, cachable=True)
+            match = tag_re.search(resp.decode())
+            assert match is not None
+            return match.group(1)
+
+        tag = await get_ripgrep_tag(package.version)
+        ripgrep_arch_map = {
+            'x86_64': 'x86_64-unknown-linux-musl',
+            'i386': 'i686-unknown-linux-musl',
+            'arm': 'arm-unknown-linux-gnueabihf',
+            'aarch64': 'aarch64-unknown-linux-gnu'
+        }
+        destdir = self.gen.data_root / 'tmp' / f'vscode-ripgrep-cache-{package.version}'
+        for arch, ripgrep_arch in ripgrep_arch_map.items():
+            filename = f'ripgrep-{tag}-{ripgrep_arch}.tar.gz'
+            url = f'https://github.com/microsoft/ripgrep-prebuilt/releases/download/{tag}/{filename}'
+            metadata = await RemoteUrlMetadata.get(url, cachable=True)
+            self.gen.add_url_source(url,
+                                    metadata.integrity,
+                                    destination=destdir / filename,
+                                    only_arches=[arch])
+
     def _handle_electron_builder(self, package: Package) -> None:
         destination = self.gen.data_root / 'electron-builder-arch-args.sh'
 
@@ -825,6 +851,8 @@ class SpecialSourceProvider:
             await self._handle_node_chromedriver(package)
         elif package.name == 'electron-builder':
             self._handle_electron_builder(package)
+        elif package.name == 'vscode-ripgrep':
+            await self._handle_ripgrep_prebuilt(package)
 
 
 class NpmLockfileProvider(LockfileProvider):
