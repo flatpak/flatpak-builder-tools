@@ -9,6 +9,8 @@ import glob
 import subprocess
 import argparse
 import logging
+import asyncio
+import aiohttp
 import toml
 
 CRATES_IO = 'https://static.crates.io/crates'
@@ -55,7 +57,7 @@ def fetch_git_repo(git_url, commit):
         subprocess.run(['git', 'checkout', commit], cwd=clone_dir, check=True)
     return clone_dir
 
-def get_git_cargo_packages(git_url, commit):
+async def get_git_cargo_packages(git_url, commit):
     logging.info(f'Loading packages from git {git_url}')
     git_repo_dir = fetch_git_repo(git_url, commit)
     with open(os.path.join(git_repo_dir, 'Cargo.toml'), 'r') as r:
@@ -74,7 +76,7 @@ def get_git_cargo_packages(git_url, commit):
     logging.debug(f'Packages in repo: {packages}')
     return packages
 
-def get_git_sources(package):
+async def get_git_sources(package):
     name = package['name']
     source = package['source']
     commit = urlparse(source).fragment
@@ -109,7 +111,7 @@ def get_git_sources(package):
             'dest': f'{CARGO_CRATES}/{name}',
         }
     ]
-    git_cargo_packages = get_git_cargo_packages(repo_url, commit)
+    git_cargo_packages = await get_git_cargo_packages(repo_url, commit)
     pkg_subpath = git_cargo_packages[name]
     if pkg_subpath != '.':
         git_sources.append(
@@ -133,12 +135,13 @@ def get_git_sources(package):
 
     return (git_sources, cargo_vendored_entry)
 
-def generate_sources(cargo_lock):
+async def generate_sources(cargo_lock):
     sources = []
     cargo_vendored_sources = {
         VENDORED_SOURCES: {'directory': f'{CARGO_CRATES}'},
         'crates-io': {'replace-with': VENDORED_SOURCES},
     }
+    git_pkg_coros = []
     metadata = cargo_lock.get('metadata')
     for package in cargo_lock['package']:
         name = package['name']
@@ -146,9 +149,7 @@ def generate_sources(cargo_lock):
         if 'source' in package:
             source = package['source']
             if source.startswith('git+'):
-                git_sources, cargo_vendored_entry = get_git_sources(package)
-                sources += git_sources
-                cargo_vendored_sources.update(cargo_vendored_entry)
+                git_pkg_coros.append(get_git_sources(package))
                 continue
             else:
                 key = f'checksum {name} {version} ({source})'
@@ -178,6 +179,10 @@ def generate_sources(cargo_lock):
                 'dest-filename': '.cargo-checksum.json',
             },
         ]
+    git_pkgs = await asyncio.gather(*git_pkg_coros)
+    for git_sources, cargo_vendored_entry in git_pkgs:
+        sources += git_sources
+        cargo_vendored_sources.update(cargo_vendored_entry)
 
     sources.append({
         'type': 'shell',
@@ -214,7 +219,7 @@ def main():
         loglevel = logging.INFO
     logging.basicConfig(level=loglevel)
 
-    generated_sources = generate_sources(load_toml(args.cargo_lock))
+    generated_sources = asyncio.run(generate_sources(load_toml(args.cargo_lock)))
     with open(outfile, 'w') as out:
         json.dump(generated_sources, out, indent=4, sort_keys=False)
 
