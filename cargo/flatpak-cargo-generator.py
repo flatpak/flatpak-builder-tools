@@ -40,20 +40,32 @@ def load_toml(tomlfile='Cargo.lock'):
         toml_data = toml.load(f)
     return toml_data
 
-def get_git_cargo_packages(git_url, commit):
+def get_file_from_git(git_url, commit, filepath):
     clone_dir = git_url.replace('://', '_').replace('/', '_')
     tmdir = os.path.join(tempfile.gettempdir(), 'flatpak-cargo', clone_dir)
     if not os.path.isdir(os.path.join(tmdir, '.git')):
         subprocess.run(['git', 'clone', git_url, tmdir], check=True)
+    else:
+        rev_parse_proc = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=tmdir, check=True,
+                                        stdout=subprocess.PIPE)
+        head = rev_parse_proc.stdout.decode().strip()
+        #TODO match long commit with short one, too
+        if head != commit:
+            subprocess.run(['git', 'fetch'], cwd=tmdir, check=True)
     subprocess.run(['git', 'checkout', commit], cwd=tmdir, check=True)
-    root_toml = load_toml(os.path.join(tmdir, 'Cargo.toml'))
+    with open(os.path.join(tmdir, filepath), 'r') as f:
+        return f.read()
+
+def get_git_cargo_packages(git_url, commit):
+    root_toml = toml.loads(get_file_from_git(git_url, commit, 'Cargo.toml'))
     assert 'package' in root_toml or 'workspace' in root_toml
     packages = {}
     if 'package' in root_toml:
         packages[root_toml['package']['name']] = '.'
     if 'workspace' in root_toml:
         for subpkg in root_toml['workspace']['members']:
-            pkg_toml = load_toml(os.path.join(tmdir, subpkg, 'Cargo.toml'))
+            pkg_toml = toml.loads(get_file_from_git(git_url, commit,
+                                                    os.path.join(subpkg, 'Cargo.toml')))
             packages[pkg_toml['package']['name']] = subpkg
     return packages
 
