@@ -794,6 +794,23 @@ class SpecialSourceProvider:
                                         destination=destination,
                                         only_arches=['x86_64'])
 
+    async def _handle_dugite_native(self, package: Package) -> None:
+        dl_json_url = f'https://github.com/desktop/dugite/raw/v{package.version}/script/embedded-git.json'
+        dl_json = json.loads(await Requests.instance.read_all(dl_json_url, cachable=True))
+        dugite_arch_map = {
+            'x86_64': 'linux-x64',
+        }
+        destdir = self.gen.data_root / 'tmp'
+        for arch, dugite_arch in dugite_arch_map.items():
+            url = dl_json[dugite_arch]['url']
+            filename = dl_json[dugite_arch]['name']
+            integrity = Integrity(algorithm='sha256', digest=dl_json[dugite_arch]['checksum'])
+
+            self.gen.add_url_source(url,
+                                    integrity,
+                                    destination=destdir / filename,
+                                    only_arches=[arch])
+
     async def _handle_ripgrep_prebuilt(self, package: Package) -> None:
         async def get_ripgrep_tag(version):
             url = f'https://github.com/microsoft/vscode-ripgrep/raw/v{version}/lib/postinstall.js'
@@ -851,6 +868,8 @@ class SpecialSourceProvider:
             await self._handle_node_chromedriver(package)
         elif package.name == 'electron-builder':
             self._handle_electron_builder(package)
+        elif package.name == 'dugite':
+            await self._handle_dugite_native(package)
         elif package.name == 'vscode-ripgrep':
             await self._handle_ripgrep_prebuilt(package)
 
