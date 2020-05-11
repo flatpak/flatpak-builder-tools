@@ -39,7 +39,8 @@ class GoModule:
 def parse_modules(fh):
     for line in (l.strip() for l in fh if l.strip()):
         if line.startswith("#"):
-            _, name, version = line.split(" ")
+            splits = line.split(" ")
+            name, version = splits[-2], splits[-1]
             if '-' in version:
                 version, date, revision = version.strip().split("-")
             else:
