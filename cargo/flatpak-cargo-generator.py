@@ -15,6 +15,7 @@ CRATES_IO = 'https://static.crates.io/crates'
 CARGO_HOME = 'cargo'
 CARGO_CRATES = f'{CARGO_HOME}/vendor'
 VENDORED_SOURCES = 'vendored-sources'
+COMMIT_LEN = 7
 
 def canonical_url(url):
     'Converts a string to a Cargo Canonical URL, as per https://github.com/rust-lang/cargo/blob/35c55a93200c84a4de4627f1770f76a8ad268a39/src/cargo/util/canonical_url.rs#L19'
@@ -47,12 +48,11 @@ def get_file_from_git(git_url, commit, filepath):
         subprocess.run(['git', 'clone', git_url, tmdir], check=True)
     else:
         rev_parse_proc = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=tmdir, check=True,
-                                        stdout=subprocess.PIPE)
-        head = rev_parse_proc.stdout.decode().strip()
-        #TODO match long commit with short one, too
-        if head != commit:
+                                        stdout=subprocess.PIPE, text=True)
+        head = rev_parse_proc.stdout.strip()
+        if head[:COMMIT_LEN] != commit[:COMMIT_LEN]:
             subprocess.run(['git', 'fetch'], cwd=tmdir, check=True)
-    subprocess.run(['git', 'checkout', commit], cwd=tmdir, check=True)
+            subprocess.run(['git', 'checkout', commit], cwd=tmdir, check=True)
     with open(os.path.join(tmdir, filepath), 'r') as f:
         return f.read()
 
