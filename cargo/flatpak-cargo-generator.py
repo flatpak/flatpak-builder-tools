@@ -42,18 +42,19 @@ def load_toml(tomlfile='Cargo.lock'):
     return toml_data
 
 def get_file_from_git(git_url, commit, filepath):
-    clone_dir = git_url.replace('://', '_').replace('/', '_')
-    tmdir = os.path.join(tempfile.gettempdir(), 'flatpak-cargo', clone_dir)
-    if not os.path.isdir(os.path.join(tmdir, '.git')):
-        subprocess.run(['git', 'clone', git_url, tmdir], check=True)
+    repo_dir = git_url.replace('://', '_').replace('/', '_')
+    cache_dir = os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache'))
+    clone_dir = os.path.join(cache_dir, 'flatpak-cargo', repo_dir)
+    if not os.path.isdir(os.path.join(clone_dir, '.git')):
+        subprocess.run(['git', 'clone', git_url, clone_dir], check=True)
     else:
-        rev_parse_proc = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=tmdir, check=True,
+        rev_parse_proc = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=clone_dir, check=True,
                                         stdout=subprocess.PIPE, text=True)
         head = rev_parse_proc.stdout.strip()
         if head[:COMMIT_LEN] != commit[:COMMIT_LEN]:
-            subprocess.run(['git', 'fetch'], cwd=tmdir, check=True)
-            subprocess.run(['git', 'checkout', commit], cwd=tmdir, check=True)
-    with open(os.path.join(tmdir, filepath), 'r') as f:
+            subprocess.run(['git', 'fetch'], cwd=clone_dir, check=True)
+            subprocess.run(['git', 'checkout', commit], cwd=clone_dir, check=True)
+    with open(os.path.join(clone_dir, filepath), 'r') as f:
         return f.read()
 
 def get_git_cargo_packages(git_url, commit):
