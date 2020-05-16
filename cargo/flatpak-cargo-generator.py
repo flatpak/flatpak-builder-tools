@@ -5,7 +5,6 @@ import json
 from urllib.parse import quote as urlquote
 from urllib.parse import urlparse, ParseResult, parse_qs
 import os
-import tempfile
 import subprocess
 import argparse
 import logging
