@@ -5,7 +5,6 @@ import json
 from urllib.parse import quote as urlquote
 from urllib.parse import urlparse, ParseResult, parse_qs
 import os
-import tempfile
 import subprocess
 import argparse
 import logging
@@ -15,6 +14,7 @@ CRATES_IO = 'https://static.crates.io/crates'
 CARGO_HOME = 'cargo'
 CARGO_CRATES = f'{CARGO_HOME}/vendor'
 VENDORED_SOURCES = 'vendored-sources'
+COMMIT_LEN = 7
 
 def canonical_url(url):
     'Converts a string to a Cargo Canonical URL, as per https://github.com/rust-lang/cargo/blob/35c55a93200c84a4de4627f1770f76a8ad268a39/src/cargo/util/canonical_url.rs#L19'
@@ -40,20 +40,31 @@ def load_toml(tomlfile='Cargo.lock'):
         toml_data = toml.load(f)
     return toml_data
 
+def get_file_from_git(git_url, commit, filepath):
+    repo_dir = git_url.replace('://', '_').replace('/', '_')
+    cache_dir = os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache'))
+    clone_dir = os.path.join(cache_dir, 'flatpak-cargo', repo_dir)
+    if not os.path.isdir(os.path.join(clone_dir, '.git')):
+        subprocess.run(['git', 'clone', git_url, clone_dir], check=True)
+    rev_parse_proc = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=clone_dir, check=True,
+                                    stdout=subprocess.PIPE, text=True)
+    head = rev_parse_proc.stdout.strip()
+    if head[:COMMIT_LEN] != commit[:COMMIT_LEN]:
+        subprocess.run(['git', 'fetch'], cwd=clone_dir, check=True)
+        subprocess.run(['git', 'checkout', commit], cwd=clone_dir, check=True)
+    with open(os.path.join(clone_dir, filepath), 'r') as f:
+        return f.read()
+
 def get_git_cargo_packages(git_url, commit):
-    clone_dir = git_url.replace('://', '_').replace('/', '_')
-    tmdir = os.path.join(tempfile.gettempdir(), 'flatpak-cargo', clone_dir)
-    if not os.path.isdir(os.path.join(tmdir, '.git')):
-        subprocess.run(['git', 'clone', git_url, tmdir], check=True)
-    subprocess.run(['git', 'checkout', commit], cwd=tmdir, check=True)
-    root_toml = load_toml(os.path.join(tmdir, 'Cargo.toml'))
+    root_toml = toml.loads(get_file_from_git(git_url, commit, 'Cargo.toml'))
     assert 'package' in root_toml or 'workspace' in root_toml
     packages = {}
     if 'package' in root_toml:
         packages[root_toml['package']['name']] = '.'
     if 'workspace' in root_toml:
         for subpkg in root_toml['workspace']['members']:
-            pkg_toml = load_toml(os.path.join(tmdir, subpkg, 'Cargo.toml'))
+            pkg_toml = toml.loads(get_file_from_git(git_url, commit,
+                                                    os.path.join(subpkg, 'Cargo.toml')))
             packages[pkg_toml['package']['name']] = subpkg
     return packages
 
