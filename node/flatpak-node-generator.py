@@ -1242,7 +1242,9 @@ class YarnLockfileProvider(LockfileProvider):
             elif line.startswith('resolved'):
                 resolved = self.unquote(line.split(' ', 1)[1])
             elif line.startswith('integrity'):
-                integrity = Integrity.parse(line.split(' ', 1)[1])
+                _, values_str = line.split(' ', 1)
+                values = self.unquote(values_str).split(' ')
+                integrity = Integrity.parse(values[0])
 
         assert version and resolved, line
 
