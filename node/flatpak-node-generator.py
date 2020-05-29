@@ -582,7 +582,7 @@ class ManifestGenerator(contextlib.AbstractContextManager):
         source: Dict[str, Any] = {
             'type': 'archive',
             'url': url,
-            'strip-components': 1,
+            'strip-components': strip_components,
             integrity.algorithm: integrity.digest
         }
         self._add_source_with_destination(source,
