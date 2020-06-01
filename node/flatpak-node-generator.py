@@ -838,6 +838,31 @@ class SpecialSourceProvider:
                                     destination=destdir / filename,
                                     only_arches=[arch])
 
+    async def _handle_playwright(self, package: Package) -> None:
+        base_url = f'https://github.com/microsoft/playwright/raw/v{package.version}/'
+        browsers_json_url = base_url + 'browsers.json'
+        browsers_json = json.loads(await Requests.instance.read_all(browsers_json_url,
+                                                                    cachable=True))
+        dl_urls = {
+            'chromium':
+                'https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/%d/chrome-linux.zip',
+            'firefox':
+                'https://playwright.azureedge.net/builds/firefox/%s/firefox-linux.zip',
+            'webkit':
+                'https://playwright.azureedge.net/builds/webkit/%s/minibrowser-gtk-wpe.zip',
+        }
+        for browser in browsers_json['browsers']:
+            name = browser['name']
+            revision = browser['revision']
+            dl_url = dl_urls[name] % (int(revision))
+            metadata = await RemoteUrlMetadata.get(dl_url, cachable=True)
+            destdir = self.gen.data_root / 'cache' / 'ms-playwright' / f'{name}-{revision}'
+            self.gen.add_archive_source(dl_url,
+                                        metadata.integrity,
+                                        destination=destdir,
+                                        strip_components=0,
+                                        only_arches=['x86_64'])
+
     def _handle_electron_builder(self, package: Package) -> None:
         destination = self.gen.data_root / 'electron-builder-arch-args.sh'
 
@@ -873,6 +898,8 @@ class SpecialSourceProvider:
             await self._handle_dugite_native(package)
         elif package.name == 'vscode-ripgrep':
             await self._handle_ripgrep_prebuilt(package)
+        elif package.name == 'playwright':
+            await self._handle_playwright(package)
 
 
 class NpmLockfileProvider(LockfileProvider):
