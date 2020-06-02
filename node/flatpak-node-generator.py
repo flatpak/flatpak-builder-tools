@@ -860,8 +860,7 @@ class SpecialSourceProvider:
             self.gen.add_archive_source(dl_url,
                                         metadata.integrity,
                                         destination=destdir,
-                                        strip_components=0,
-                                        only_arches=['x86_64'])
+                                        strip_components=0)
 
     def _handle_electron_builder(self, package: Package) -> None:
         destination = self.gen.data_root / 'electron-builder-arch-args.sh'
