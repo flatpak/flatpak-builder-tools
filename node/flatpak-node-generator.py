@@ -7,6 +7,7 @@ from typing import *
 from typing import cast, IO
 
 from pathlib import Path
+from distutils.version import StrictVersion
 
 import argparse
 import asyncio
@@ -748,6 +749,13 @@ class SpecialSourceProvider:
             else:
                 assert False, self.electron_ffmpeg
 
+    def _handle_gulp_atom_electron(self, package: Package) -> None:
+        # Versions after 1.22.0 use @electron/get and don't need this
+        if StrictVersion(package.version) <= StrictVersion('1.22.0'):
+            cache_path = self.gen.data_root / 'tmp' / 'gulp-electron-cache' / 'atom' / 'electron'
+            self.gen.add_command(f'mkdir -p "{cache_path.parent}"')
+            self.gen.add_command(f'ln -sfTr "{self.electron_cache_dir}" "{cache_path}"')
+
     async def _handle_node_headers(self, package: Package) -> None:
         node_gyp_headers_dir = self.gen.data_root / 'node-gyp' / 'electron-current'
         url = f'https://www.electronjs.org/headers/v{package.version}/node-v{package.version}-headers.tar.gz'
@@ -893,6 +901,8 @@ class SpecialSourceProvider:
             await self._handle_node_chromedriver(package)
         elif package.name == 'electron-builder':
             self._handle_electron_builder(package)
+        elif package.name == 'gulp-atom-electron':
+            self._handle_gulp_atom_electron(package)
         elif package.name == 'dugite':
             await self._handle_dugite_native(package)
         elif package.name == 'vscode-ripgrep':
