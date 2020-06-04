@@ -743,10 +743,11 @@ class NodeHeadersProvider:
     def gyp_dir(self) -> Path:
         return self.gen.data_root / 'cache' / 'node-gyp'
 
-    async def generate_node_headers(self, node_headers: NodeHeaders):
+    async def generate_node_headers(self, node_headers: NodeHeaders, dest: Path = None):
         url = node_headers.url
         install_version = node_headers.install_version
-        dest = self.gyp_dir / node_headers.target
+        if dest is None:
+            dest = self.gyp_dir / node_headers.target
         metadata = await RemoteUrlMetadata.get(url, cachable=True)
         self.gen.add_archive_source(url,
                                     metadata.integrity,
@@ -916,19 +917,13 @@ class SpecialSourceProvider:
             self.gen.add_command(f'ln -sfTr "{self.electron_cache_dir}" "{cache_path}"')
 
     async def _handle_electron_headers(self, package: Package) -> None:
+        provider = NodeHeadersProvider(self.gen)
+        node_headers = NodeHeaders(runtime='electron', target=package.version)
         if self.xdg_layout:
             node_gyp_headers_dir = self.gen.data_root / 'cache' / 'node-gyp' / package.version
         else:
             node_gyp_headers_dir = self.gen.data_root / 'node-gyp' / 'electron-current'
-        url = f'https://www.electronjs.org/headers/v{package.version}/node-v{package.version}-headers.tar.gz'
-        metadata = await RemoteUrlMetadata.get(url, cachable=True)
-        self.gen.add_archive_source(url,
-                                    metadata.integrity,
-                                    destination=node_gyp_headers_dir)
-        if self.xdg_layout:
-            install_version_data = "9"
-            self.gen.add_data_source(install_version_data,
-                                     destination=node_gyp_headers_dir / 'installVersion')
+        await provider.generate_node_headers(node_headers, dest=node_gyp_headers_dir)
 
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
         # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
