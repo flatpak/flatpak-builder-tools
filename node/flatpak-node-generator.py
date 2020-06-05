@@ -700,15 +700,19 @@ class SpecialSourceProvider:
         node_chromedriver_from_electron: str
         electron_ffmpeg: str
         electron_node_headers: bool
+        xdg_layout: bool
 
     def __init__(self, gen: ManifestGenerator, options: Options):
         self.gen = gen
         self.node_chromedriver_from_electron = options.node_chromedriver_from_electron
         self.electron_ffmpeg = options.electron_ffmpeg
         self.electron_node_headers = options.electron_node_headers
+        self.xdg_layout = options.xdg_layout
 
     @property
     def electron_cache_dir(self) -> Path:
+        if self.xdg_layout:
+            return self.gen.data_root / 'cache' / 'electron'
         return self.gen.data_root / 'electron-cache'
 
     def _add_electron_cache_downloads(self,
@@ -757,12 +761,19 @@ class SpecialSourceProvider:
             self.gen.add_command(f'ln -sfTr "{self.electron_cache_dir}" "{cache_path}"')
 
     async def _handle_node_headers(self, package: Package) -> None:
-        node_gyp_headers_dir = self.gen.data_root / 'node-gyp' / 'electron-current'
+        if self.xdg_layout:
+            node_gyp_headers_dir = self.gen.data_root / 'cache' / 'node-gyp' / package.version
+        else:
+            node_gyp_headers_dir = self.gen.data_root / 'node-gyp' / 'electron-current'
         url = f'https://www.electronjs.org/headers/v{package.version}/node-v{package.version}-headers.tar.gz'
         metadata = await RemoteUrlMetadata.get(url, cachable=True)
         self.gen.add_archive_source(url,
                                     metadata.integrity,
                                     destination=node_gyp_headers_dir)
+        if self.xdg_layout:
+            install_version_data = "9"
+            self.gen.add_data_source(install_version_data,
+                                     destination=node_gyp_headers_dir / 'installVersion')
 
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
         # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
@@ -1494,6 +1505,9 @@ async def main() -> None:
     parser.add_argument('--electron-node-headers',
                         action='store_true',
                         help='Download the electron node headers')
+    parser.add_argument('--xdg-layout',
+                        action='store_true',
+                        help='Use XDG layout for caches')
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
 
@@ -1558,6 +1572,7 @@ async def main() -> None:
         options = SpecialSourceProvider.Options(
             node_chromedriver_from_electron=args.node_chromedriver_from_electron
             or args.electron_chromedriver,
+            xdg_layout=args.xdg_layout,
             electron_ffmpeg=args.electron_ffmpeg,
             electron_node_headers=args.electron_node_headers)
         special = SpecialSourceProvider(gen, options)
