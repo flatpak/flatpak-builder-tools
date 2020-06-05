@@ -760,7 +760,7 @@ class SpecialSourceProvider:
             self.gen.add_command(f'mkdir -p "{cache_path.parent}"')
             self.gen.add_command(f'ln -sfTr "{self.electron_cache_dir}" "{cache_path}"')
 
-    async def _handle_node_headers(self, package: Package) -> None:
+    async def _handle_electron_headers(self, package: Package) -> None:
         if self.xdg_layout:
             node_gyp_headers_dir = self.gen.data_root / 'cache' / 'node-gyp' / package.version
         else:
@@ -904,8 +904,8 @@ class SpecialSourceProvider:
 
         if package.name == 'electron':
             await self._handle_electron(package)
-            if self.electron_node_headers:
-                await self._handle_node_headers(package)
+            if self.electron_node_headers or self.xdg_layout:
+                await self._handle_electron_headers(package)
         elif package.name == 'electron-chromedriver':
             await self._handle_electron_chromedriver(package)
         elif package.name == 'chromedriver':
