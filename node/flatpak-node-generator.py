@@ -738,6 +738,13 @@ class SpecialSourceProvider:
                                     binary.integrity,
                                     electron_cache_dir / binary.filename,
                                     only_arches=[binary.arch.flatpak])
+            #Symlinks for @electron/get, which stores electron zips in a subdir
+            if self.xdg_layout:
+                sanitized_url = ''.join(c for c in binary.url if c not in '/:')
+                self.gen.add_shell_source(
+                    [f'ln -s "../{binary.filename}" "{binary.filename}"'],
+                    destination=electron_cache_dir / sanitized_url,
+                    only_arches=[binary.arch.flatpak])
 
         if add_integrities:
             integrity_file = manager.integrity_file
