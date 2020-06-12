@@ -606,6 +606,16 @@ class ManifestGenerator(contextlib.AbstractContextManager):
         source = {'type': 'script', 'commands': tuple(commands)}
         self._add_source_with_destination(source, destination, is_dir=False)
 
+    def add_shell_source(self,
+                         commands: List[str],
+                         destination: Optional[Path] = None,
+                         only_arches: Optional[List[str]] = None):
+        source = {'type': 'shell', 'commands': tuple(commands)}
+        self._add_source_with_destination(source,
+                                          destination=destination,
+                                          only_arches=only_arches,
+                                          is_dir=True)
+
     def add_command(self, command: str) -> None:
         self._commands.append(command)
 
