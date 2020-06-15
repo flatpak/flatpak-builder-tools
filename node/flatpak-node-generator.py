@@ -1166,7 +1166,7 @@ class SpecialSourceProvider:
 
         if package.name == 'electron':
             await self._handle_electron(package)
-            if self.electron_node_headers or self.xdg_layout:
+            if self.electron_node_headers:
                 await self._handle_electron_headers(package)
         elif package.name == 'electron-chromedriver':
             await self._handle_electron_chromedriver(package)
