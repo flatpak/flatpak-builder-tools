@@ -47,15 +47,15 @@ def get_pypi_url(name: str, filename: str) -> str:
 
 def get_package_name(filename: str) -> str:
     if filename.endswith(('bz2', 'gz', 'xz', 'zip')):
-        segments = filename.split("-")
+        segments = filename.split('-')
         if len(segments) == 2:
             return segments[0]
-        return "-".join(segments[:len(segments) - 1])
+        return '-'.join(segments[:len(segments) - 1])
     elif filename.endswith('whl'):
-        segments = filename.split("-")
+        segments = filename.split('-')
         if len(segments) == 5:
             return segments[0]
-        return "-".join(segments[:len(segments) - 4])
+        return '-'.join(segments[:len(segments) - 4])
     else:
         raise Exception(
             'Downloaded filename: {} does not end with bz2, gz, xz, zip, or whl'.format(filename)
@@ -73,20 +73,16 @@ def get_file_hash(filename: str) -> str:
             sha.update(data)
         return sha.hexdigest()
 
-
-if not opts.packages and not opts.requirements_file:
-    exit("Please specifiy either packages or requirements file argument")
-
 packages = []
 if opts.requirements_file and os.path.exists(opts.requirements_file):
-    with open(opts.requirements_file, "r") as req_file:
+    with open(opts.requirements_file, 'r') as req_file:
         packages = list(requirements.parse(req_file))
 elif opts.packages:
-    packages = list(requirements.parse("\n".join(opts.packages)))
+    packages = list(requirements.parse('\n'.join(opts.packages)))
 else:
-    exit("Please specifiy either packages or requirements file argument")
+    exit('Please specifiy either packages or requirements file argument')
 
-python_version = "2" if opts.python2 else "3"
+python_version = '2' if opts.python2 else '3'
 if opts.python2:
     pip_executable = 'pip2'
 else:
@@ -95,22 +91,22 @@ else:
 if opts.output:
     output_package = opts.output
 elif opts.requirements_file:
-    output_package = "python{}-{}".format(
-        python_version, opts.requirements_file.replace(".txt", ""),
+    output_package = 'python{}-{}'.format(
+        python_version, opts.requirements_file.replace('.txt', ''),
     )
 elif len(packages) == 1:
-    output_package = "python{}-{}".format(
+    output_package = 'python{}-{}'.format(
         python_version, packages[0].name,
     )
 else:
-    output_package = "python{}-modules".format(python_version)
-output_filename = output_package + ".json"
+    output_package = 'python{}-modules'.format(python_version)
+output_filename = output_package + '.json'
 
 modules = []
 
 for package in packages:
 
-    package_name = "python{}-{}".format(python_version, package.name)
+    package_name = 'python{}-{}'.format(python_version, package.name)
     tempdir_prefix = 'pip-generator-{}-'.format(package_name)
     with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         pip_download = [
@@ -149,13 +145,13 @@ for package in packages:
             # platform generic, then it forces pip to download the sdist (using
             # the --no-binary option).
             version_list = [x[0] + x[1] for x in package.specs]
-            version = ",".join(version_list)
+            version = ','.join(version_list)
 
             if package.vcs:
                 revision = ''
                 if package.revision:
                     revision = '@' + package.revision
-                pkg = package.uri + revision + "#egg=" + package.name
+                pkg = package.uri + revision + '#egg=' + package.name
             else:
                 pkg =  package.name + version
 
@@ -173,7 +169,7 @@ for package in packages:
                 sha256 = get_file_hash(os.path.join(tempdir, filename))
 
                 if package.vcs and name == package.name:
-                    url = "https://" + package.uri.split('://', 1)[1]
+                    url = 'https://' + package.uri.split('://', 1)[1]
                     s = 'commit'
                     if package.vcs == 'svn':
                         s = 'revision'
@@ -191,8 +187,8 @@ for package in packages:
                     ])
                 module['sources'].append(source)
         except subprocess.CalledProcessError:
-            print("Failed to download {}".format(package.name))
-            print("Please fix the module manually in the generated file")
+            print('Failed to download {}'.format(package.name))
+            print('Please fix the module manually in the generated file')
         modules.append(module)
 
 if len(modules) == 1:
@@ -207,4 +203,4 @@ else:
 
 with open(output_filename, 'w') as output:
     output.write(json.dumps(pypi_module, indent=4))
-    print("Output saved to {}".format(output_filename))
+    print('Output saved to {}'.format(output_filename))
