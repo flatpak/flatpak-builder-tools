@@ -118,6 +118,9 @@ for package in packages:
         ]
 
         name_for_pip = package.name
+        if len(package.extras) > 0:
+            extras = ', '.join(extra for extra in package.extras)
+            name_for_pip = name_for_pip + '[' + extras + ']'
         if package.vcs:
             name_for_pip = '.'
 
