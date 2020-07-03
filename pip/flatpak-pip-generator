@@ -124,9 +124,10 @@ for package in packages:
         ]
 
         name_for_pip = package.name
+        extras = ''
         if len(package.extras) > 0:
-            extras = ', '.join(extra for extra in package.extras)
-            name_for_pip = name_for_pip + '[' + extras + ']'
+            extras = '[' + ','.join(extra for extra in package.extras) + ']'
+            name_for_pip = name_for_pip + extras
         if package.vcs:
             name_for_pip = '.'
 
@@ -167,7 +168,7 @@ for package in packages:
                     revision = '@' + package.revision
                 pkg = package.uri + revision + '#egg=' + package.name
             else:
-                pkg =  package.name + version
+                pkg = package.name + extras + version
 
             subprocess.run(pip_download + [pkg], check=True)
             for filename in os.listdir(tempdir):
