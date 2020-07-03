@@ -122,6 +122,11 @@ for package in packages:
             '--dest',
             tempdir
         ]
+
+        name_for_pip = package.name
+        if package.vcs:
+            name_for_pip = '.'
+
         pip_command = [
             pip_executable,
             'install',
@@ -129,7 +134,7 @@ for package in packages:
             '--no-index',
             '--find-links="file://${PWD}"',
             '--prefix=${FLATPAK_DEST}',
-            package.name
+            name_for_pip
         ]
         if opts.no_build_isolation:
             pip_command.append('--no-build-isolation')
