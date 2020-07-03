@@ -10,6 +10,7 @@ import requirements
 import subprocess
 import tempfile
 import urllib.request
+import sys
 
 from collections import OrderedDict
 
@@ -105,6 +106,11 @@ output_filename = output_package + '.json'
 modules = []
 
 for package in packages:
+
+    if package.name is None:
+        print('Warning: skipping invalid requirement specification {} because it is missing a name'.format(package.line), file=sys.stderr)
+        print('Append #egg=<pkgname> to the end of the requirement line to fix', file=sys.stderr)
+        continue
 
     package_name = 'python{}-{}'.format(python_version, package.name)
     tempdir_prefix = 'pip-generator-{}-'.format(package_name)
