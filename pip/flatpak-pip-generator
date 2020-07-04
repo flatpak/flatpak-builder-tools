@@ -106,8 +106,12 @@ if opts.requirements_file and os.path.exists(opts.requirements_file):
                 reqs[i] = package_name
         reqs_as_str = "\n".join(reqs)
         packages = list(requirements.parse(reqs_as_str))
+        requirements_file = opts.requirements_file
 elif opts.packages:
     packages = list(requirements.parse('\n'.join(opts.packages)))
+    requirements_file = '/tmp/flatpak-pip-generator-requirements.txt'
+    with open(requirements_file, 'w') as req_file:
+        req_file.writelines('\n'.join(opts.packages))
 else:
     exit('Please specifiy either packages or requirements file argument')
 
