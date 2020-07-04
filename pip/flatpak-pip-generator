@@ -151,13 +151,26 @@ for package in packages:
             tempdir
         ]
 
-        name_for_pip = package.name
-        extras = ''
         if len(package.extras) > 0:
             extras = '[' + ','.join(extra for extra in package.extras) + ']'
-            name_for_pip = name_for_pip + extras
+        else:
+            extras = ''
+
+        version_list = [x[0] + x[1] for x in package.specs]
+        version = ','.join(version_list)
+
+        if package.vcs:
+            revision = ''
+            if package.revision:
+                revision = '@' + package.revision
+            pkg = package.uri + revision + '#egg=' + package.name
+        else:
+            pkg = package.name + extras + version
+
         if package.vcs:
             name_for_pip = '.'
+        else:
+            name_for_pip = pkg
 
         pip_command = [
             pip_executable,
@@ -166,7 +179,7 @@ for package in packages:
             '--no-index',
             '--find-links="file://${PWD}"',
             '--prefix=${FLATPAK_DEST}',
-            name_for_pip
+            '"{}"'.format(name_for_pip)
         ]
         if opts.no_build_isolation:
             pip_command.append('--no-build-isolation')
@@ -187,16 +200,6 @@ for package in packages:
             # select the preferred package, if the package downloaded is not
             # platform generic, then it forces pip to download the sdist (using
             # the --no-binary option).
-            version_list = [x[0] + x[1] for x in package.specs]
-            version = ','.join(version_list)
-
-            if package.vcs:
-                revision = ''
-                if package.revision:
-                    revision = '@' + package.revision
-                pkg = package.uri + revision + '#egg=' + package.name
-            else:
-                pkg = package.name + extras + version
 
             subprocess.run(pip_download + [pkg], check=True)
             for filename in os.listdir(tempdir):
