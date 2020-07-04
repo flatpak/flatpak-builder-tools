@@ -74,10 +74,20 @@ def get_file_hash(filename: str) -> str:
             sha.update(data)
         return sha.hexdigest()
 
+
+def parse_continuation_lines(fin):
+    for line in fin:
+        line = line.rstrip('\n')
+        while line.endswith('\\'):
+            line = line[:-1] + next(fin).rstrip('\n')
+        yield line
+
+
 packages = []
 if opts.requirements_file and os.path.exists(opts.requirements_file):
     with open(opts.requirements_file, 'r') as req_file:
-        packages = list(requirements.parse(req_file))
+        reqs = parse_continuation_lines(req_file)
+        packages = list(requirements.parse(reqs))
 elif opts.packages:
     packages = list(requirements.parse('\n'.join(opts.packages)))
 else:
