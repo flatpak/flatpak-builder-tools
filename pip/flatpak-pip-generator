@@ -21,14 +21,14 @@ parser.add_argument('--python2', action='store_true',
                     help='Look for a Python 2 package')
 parser.add_argument('--cleanup', choices=['scripts', 'all'],
                     help='Select what to clean up after build')
-parser.add_argument('--requirements-file',
+parser.add_argument('--requirements-file', '-r',
                     help='Specify requirements.txt file')
 parser.add_argument('--build-only', action='store_const',
                     dest='cleanup', const='all',
                     help='Clean up all files after build')
 parser.add_argument('--no-build-isolation',
                     help='https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support')
-parser.add_argument('--output',
+parser.add_argument('--output', '-o',
                     help='Specify output file name')
 opts = parser.parse_args()
 
