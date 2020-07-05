@@ -87,35 +87,36 @@ def parse_continuation_lines(fin):
 
 
 def parse_hashes(line):
-    name = line.split(" ")[0]
+    name = line.split(' ')[0]
     hash_requirements = []
-    while "--hash=" in line:
-        split = line.split("--hash=", 1)
-        hash_algorithm = split[1].split(":", 1)[0]
-        hash_value = split[1].split(":", 1)[1].split(" ", 1)[0]
-        line = line.replace('--hash=' + hash_algorithm + ":" + hash_value, '')
+    while '--hash=' in line:
+        split = line.split('--hash=', 1)
+        hash_algorithm = split[1].split(':', 1)[0]
+        hash_value = split[1].split(':', 1)[1].split(' ', 1)[0]
+        line = line.replace('--hash=' + hash_algorithm + ':' + hash_value, '')
         hash_requirements.append([hash_algorithm.lower(), hash_value])
     return name, hash_requirements
 
 
 packages = []
-use_hash = None
+use_hash = False
 if opts.requirements_file and os.path.exists(opts.requirements_file):
     with open(opts.requirements_file, 'r') as req_file:
         reqs = list(parse_continuation_lines(req_file))
         for i, line in enumerate(reqs):
             if '--hash' in line:
-                use_hash = '--require-hashes'
+                use_hash = True
                 package_name, hash_requirements = parse_hashes(line)
                 reqs[i] = package_name
-        reqs_as_str = "\n".join(reqs)
+        reqs_as_str = '\n'.join(reqs)
         packages = list(requirements.parse(reqs_as_str))
         requirements_file = opts.requirements_file
 elif opts.packages:
     packages = list(requirements.parse('\n'.join(opts.packages)))
-    requirements_file = '/tmp/flatpak-pip-generator-requirements.txt'
-    with open(requirements_file, 'w') as req_file:
-        req_file.writelines('\n'.join(opts.packages))
+    with tempfile.NamedTemporaryFile('w', delete=False) as req_file:
+        req_file.write('\n'.join(opts.packages))
+        requirements_file = req_file.name
+
 else:
     exit('Please specifiy either packages or requirements file argument')
 
@@ -156,7 +157,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     ]
 
     if use_hash:
-        pip_download.append(use_hash)
+        pip_download.append('--require-hashes')
 
     try:
         # May download the package twice, the first time it allows pip to
