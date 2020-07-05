@@ -311,8 +311,11 @@ for package in packages:
     else:
         modules.append(module)
 
-if not opts.requirements_file and os.path.exists(requirements_file):
-    os.remove(requirements_file)
+if not opts.requirements_file:
+    try:
+        os.remove(requirements_file)
+    except FileNotFoundError:
+        pass
 
 modules = vcs_modules + modules
 if len(modules) == 1:
