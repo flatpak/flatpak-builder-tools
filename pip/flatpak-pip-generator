@@ -79,7 +79,10 @@ def parse_continuation_lines(fin):
     for line in fin:
         line = line.rstrip('\n')
         while line.endswith('\\'):
-            line = line[:-1] + next(fin).rstrip('\n')
+            try:
+                line = line[:-1] + next(fin).rstrip('\n')
+            except StopIteration:
+                exit('Requirements have a wrong number of line continuation characters "\\"')
         yield line
 
 
