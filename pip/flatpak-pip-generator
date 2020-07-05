@@ -7,6 +7,7 @@ import json
 import hashlib
 import os
 import requirements
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -46,6 +47,15 @@ def get_pypi_url(name: str, filename: str) -> str:
             raise Exception('Failed to extract url from {}'.format(url))
 
 
+def get_tar_package_url_pypi(name: str, version: str) -> str:
+    url = 'https://pypi.org/pypi/{}/{}/json'.format(name, version)
+    with urllib.request.urlopen(url) as response:
+        body = json.loads(response.read().decode('utf-8'))
+        for url in body['urls']:
+            if url['url'].endswith(('any.whl', 'gz', 'zip')):
+                return url['url']
+
+
 def get_package_name(filename: str) -> str:
     if filename.endswith(('bz2', 'gz', 'xz', 'zip')):
         segments = filename.split('-')
@@ -63,6 +73,15 @@ def get_package_name(filename: str) -> str:
         )
 
 
+def get_file_version(filename: str) -> str:
+    name = get_package_name(filename)
+    segments = filename.split(name + '-')
+    version = segments[1].split('-')[0]
+    for ext in ['tar.gz', 'whl', 'tar.xz', 'tar.gz', 'tar.bz2', 'zip']:
+        version = version.replace('.' + ext, '')
+    return version
+
+
 def get_file_hash(filename: str) -> str:
     sha = hashlib.sha256()
     print('Generating hash for', filename)
@@ -73,6 +92,13 @@ def get_file_hash(filename: str) -> str:
                 break
             sha.update(data)
         return sha.hexdigest()
+
+
+def download_tar_pypi(url: str, tempdir: str) -> None:
+    with urllib.request.urlopen(url) as response:
+        file_path = os.path.join(tempdir, url.split('/')[-1])
+        with open(file_path, 'x+b') as tar_file:
+            shutil.copyfileobj(response, tar_file)
 
 
 def parse_continuation_lines(fin):
@@ -144,23 +170,23 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         pip_download.append('--require-hashes')
 
     try:
-        # May download the package twice, the first time it allows pip to
-        # select the preferred package, if the package downloaded is not
-        # platform generic, then it forces pip to download the sdist (using
-        # the --no-binary option).
-
         subprocess.run(pip_download, check=True)
-        for filename in os.listdir(tempdir):
-            if not filename.endswith(('gz', 'any.whl', 'zip')):
-                os.remove(os.path.join(tempdir, filename))
-
-        subprocess.run(pip_download + [
-            '--no-binary', ':all:'
-            ], check=True)
-
     except subprocess.CalledProcessError:
         print('Failed to download')
         print('Please fix the module manually in the generated file')
+
+    for filename in os.listdir(tempdir):
+        if not filename.endswith(('gz', 'any.whl', 'zip')):
+            version = get_file_version(filename)
+            name = get_package_name(filename)
+            url = get_tar_package_url_pypi(name, version)
+            print('Deleting', filename)
+            try:
+                os.remove(os.path.join(tempdir, filename))
+            except FileNotFoundError:
+                pass
+            print('Downloading {}'.format(url))
+            download_tar_pypi(url, tempdir)
 
     files = {get_package_name(f): [] for f in os.listdir(tempdir)}
 
@@ -168,25 +194,20 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         name = get_package_name(filename)
         files[name].append(filename)
 
-    # Delete redundant sources, where .zip (vcs sources) take precedence
-    # over .whl, and .whl over tar.gz sources.
+    # Delete redundant sources, for vcs sources
     for name in files:
         if len(files[name]) > 1:
-            whl_source = False
             zip_source = False
             for f in files[name]:
-                if f.endswith(('any.whl')):
-                    whl_source = True
-                if f.endswith(('.zip')):
+                if f.endswith('.zip'):
                     zip_source = True
             if zip_source:
                 for f in files[name]:
-                    if not f.endswith(('.zip')):
-                        os.remove(os.path.join(tempdir, f))
-            elif whl_source:
-                for f in files[name]:
-                    if not f.endswith(('any.whl')):
-                        os.remove(os.path.join(tempdir, f))
+                    if not f.endswith('.zip'):
+                        try:
+                            os.remove(os.path.join(tempdir, f))
+                        except FileNotFoundError:
+                            pass
 
     vcs_packages = {
         x.name: {'vcs': x.vcs, 'revision': x.revision, 'uri': x.uri}
