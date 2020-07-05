@@ -137,7 +137,9 @@ else:
 output_filename = output_package + '.json'
 
 modules = []
+vcs_modules = []
 sources = []
+vcs_sources = []
 
 tempdir_prefix = 'pip-generator-{}'.format(output_filename.replace('.json', ''))
 
@@ -223,13 +225,14 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 ('url', url),
                 (s, revision),
             ])
+            vcs_sources.append(source)
         else:
             url = get_pypi_url(name, filename)
             source = OrderedDict([
                 ('type', 'file'),
                 ('url', url),
                 ('sha256', sha256)])
-        sources.append(source)
+            sources.append(source)
 
 # Python3 packages that come as part of org.freedesktop.Sdk.
 system_packages = ['Mako', 'Markdown', 'meson', 'pip', 'setuptools', 'six']
@@ -260,8 +263,10 @@ for package in packages:
 
     if package.vcs:
         name_for_pip = '.'
+        vcs_s = vcs_sources
     else:
         name_for_pip = pkg
+        vcs_s = []
 
     module_name = 'python{}-{}'.format(python_version, package.name)
 
@@ -276,23 +281,28 @@ for package in packages:
     ]
     if opts.no_build_isolation:
         pip_command.append('--no-build-isolation')
+
     module = OrderedDict([
         ('name', module_name),
         ('buildsystem', 'simple'),
         ('build-commands', [' '.join(pip_command)]),
-        ('sources', sources),
+        ('sources', vcs_s + sources),
     ])
     if opts.cleanup == 'all':
         module['cleanup'] = ['*']
     elif opts.cleanup == 'scripts':
         module['cleanup'] = ['/bin', '/share/man/man1']
 
-    modules.append(module)
+    if package.vcs:
+        vcs_modules.append(module)
+    else:
+        modules.append(module)
 
 if requirements_file == '/tmp/flatpak-pip-generator-requirements.txt':
     if os.path.exists(requirements_file):
         os.remove(requirements_file)
 
+modules = vcs_modules + modules
 if len(modules) == 1:
     pypi_module = modules[0]
 else:
