@@ -311,9 +311,8 @@ for package in packages:
     else:
         modules.append(module)
 
-if requirements_file == '/tmp/flatpak-pip-generator-requirements.txt':
-    if os.path.exists(requirements_file):
-        os.remove(requirements_file)
+if not opts.requirements_file and os.path.exists(requirements_file):
+    os.remove(requirements_file)
 
 modules = vcs_modules + modules
 if len(modules) == 1:
