@@ -8,9 +8,9 @@ import hashlib
 import os
 import requirements
 import subprocess
+import sys
 import tempfile
 import urllib.request
-import sys
 
 from collections import OrderedDict
 
@@ -96,12 +96,13 @@ def parse_hashes(line):
 
 
 packages = []
+use_hash = None
 if opts.requirements_file and os.path.exists(opts.requirements_file):
     with open(opts.requirements_file, 'r') as req_file:
         reqs = list(parse_continuation_lines(req_file))
         for i, line in enumerate(reqs):
             if '--hash' in line:
-                use_hash = True
+                use_hash = '--require-hashes'
                 package_name, hash_requirements = parse_hashes(line)
                 reqs[i] = package_name
         reqs_as_str = "\n".join(reqs)
@@ -136,6 +137,101 @@ else:
 output_filename = output_package + '.json'
 
 modules = []
+sources = []
+
+tempdir_prefix = 'pip-generator-{}'.format(output_filename.replace('.json', ''))
+
+with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
+    pip_download = [
+        pip_executable,
+        'download',
+        '--exists-action=i',
+        '--dest',
+        tempdir,
+        '-r',
+        requirements_file
+    ]
+
+    if use_hash:
+        pip_download.append(use_hash)
+
+    try:
+        # May download the package twice, the first time it allows pip to
+        # select the preferred package, if the package downloaded is not
+        # platform generic, then it forces pip to download the sdist (using
+        # the --no-binary option).
+
+        subprocess.run(pip_download, check=True)
+        for filename in os.listdir(tempdir):
+            if not filename.endswith(('gz', 'any.whl', 'zip')):
+                os.remove(os.path.join(tempdir, filename))
+
+        subprocess.run(pip_download + [
+            '--no-binary', ':all:'
+            ], check=True)
+
+    except subprocess.CalledProcessError:
+        print('Failed to download')
+        print('Please fix the module manually in the generated file')
+
+    files = {get_package_name(f): [] for f in os.listdir(tempdir)}
+
+    for filename in os.listdir(tempdir):
+        name = get_package_name(filename)
+        files[name].append(filename)
+
+    # Delete redundant sources, where .zip (vcs sources) take precedence
+    # over .whl, and .whl over tar.gz sources.
+    for name in files:
+        if len(files[name]) > 1:
+            whl_source = False
+            zip_source = False
+            for f in files[name]:
+                if f.endswith(('any.whl')):
+                    whl_source = True
+                if f.endswith(('.zip')):
+                    zip_source = True
+            if zip_source:
+                for f in files[name]:
+                    if not f.endswith(('.zip')):
+                        os.remove(os.path.join(tempdir, f))
+            elif whl_source:
+                for f in files[name]:
+                    if not f.endswith(('any.whl')):
+                        os.remove(os.path.join(tempdir, f))
+
+    vcs_packages = {
+        x.name: {'vcs': x.vcs, 'revision': x.revision, 'uri': x.uri}
+        for x in packages
+        if x.vcs
+    }
+
+    for filename in os.listdir(tempdir):
+        name = get_package_name(filename)
+        if name == 'setuptools':  # Already installed
+            continue
+        sha256 = get_file_hash(os.path.join(tempdir, filename))
+
+        if name in vcs_packages:
+            uri = vcs_packages[name]['uri']
+            revision = vcs_packages[name]['revision']
+            vcs = vcs_packages[name]['vcs']
+            url = 'https://' + uri.split('://', 1)[1]
+            s = 'commit'
+            if vcs == 'svn':
+                s = 'revision'
+            source = OrderedDict([
+                ('type', vcs),
+                ('url', url),
+                (s, revision),
+            ])
+        else:
+            url = get_pypi_url(name, filename)
+            source = OrderedDict([
+                ('type', 'file'),
+                ('url', url),
+                ('sha256', sha256)])
+        sources.append(source)
 
 for package in packages:
 
@@ -144,102 +240,56 @@ for package in packages:
         print('Append #egg=<pkgname> to the end of the requirement line to fix', file=sys.stderr)
         continue
 
-    package_name = 'python{}-{}'.format(python_version, package.name)
-    tempdir_prefix = 'pip-generator-{}-'.format(package_name)
-    with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
-        pip_download = [
-            pip_executable,
-            'download',
-            '--exists-action=i',
-            '--dest',
-            tempdir
-        ]
+    if len(package.extras) > 0:
+        extras = '[' + ','.join(extra for extra in package.extras) + ']'
+    else:
+        extras = ''
 
-        if len(package.extras) > 0:
-            extras = '[' + ','.join(extra for extra in package.extras) + ']'
-        else:
-            extras = ''
+    version_list = [x[0] + x[1] for x in package.specs]
+    version = ','.join(version_list)
 
-        version_list = [x[0] + x[1] for x in package.specs]
-        version = ','.join(version_list)
+    if package.vcs:
+        revision = ''
+        if package.revision:
+            revision = '@' + package.revision
+        pkg = package.uri + revision + '#egg=' + package.name
+    else:
+        pkg = package.name + extras + version
 
-        if package.vcs:
-            revision = ''
-            if package.revision:
-                revision = '@' + package.revision
-            pkg = package.uri + revision + '#egg=' + package.name
-        else:
-            pkg = package.name + extras + version
+    if package.vcs:
+        name_for_pip = '.'
+    else:
+        name_for_pip = pkg
 
-        if package.vcs:
-            name_for_pip = '.'
-        else:
-            name_for_pip = pkg
+    module_name = 'python{}-{}'.format(python_version, package.name)
 
-        pip_command = [
-            pip_executable,
-            'install',
-            '--exists-action=i',
-            '--no-index',
-            '--find-links="file://${PWD}"',
-            '--prefix=${FLATPAK_DEST}',
-            '"{}"'.format(name_for_pip)
-        ]
-        if opts.no_build_isolation:
-            pip_command.append('--no-build-isolation')
-        module = OrderedDict([
-            ('name', package_name),
-            ('buildsystem', 'simple'),
-            ('build-commands', [' '.join(pip_command)]),
-            ('sources', []),
-        ])
+    pip_command = [
+        pip_executable,
+        'install',
+        '--exists-action=i',
+        '--no-index',
+        '--find-links="file://${PWD}"',
+        '--prefix=${FLATPAK_DEST}',
+        '"{}"'.format(name_for_pip)
+    ]
+    if opts.no_build_isolation:
+        pip_command.append('--no-build-isolation')
+    module = OrderedDict([
+        ('name', module_name),
+        ('buildsystem', 'simple'),
+        ('build-commands', [' '.join(pip_command)]),
+        ('sources', sources),
+    ])
+    if opts.cleanup == 'all':
+        module['cleanup'] = ['*']
+    elif opts.cleanup == 'scripts':
+        module['cleanup'] = ['/bin', '/share/man/man1']
 
-        if opts.cleanup == 'all':
-            module['cleanup'] = ['*']
-        elif opts.cleanup == 'scripts':
-            module['cleanup'] = ['/bin', '/share/man/man1']
+    modules.append(module)
 
-        try:
-            # May download the package twice, the first time it allows pip to
-            # select the preferred package, if the package downloaded is not
-            # platform generic, then it forces pip to download the sdist (using
-            # the --no-binary option).
-
-            subprocess.run(pip_download + [pkg], check=True)
-            for filename in os.listdir(tempdir):
-                if not filename.endswith(('gz', 'any.whl')):
-                    os.remove(os.path.join(tempdir, filename))
-                    subprocess.run(pip_download + [
-                        '--no-binary', ':all:', pkg
-                    ], check=True)
-            for filename in os.listdir(tempdir):
-                name = get_package_name(filename)
-                if name == 'setuptools':  # Already installed
-                    continue
-                sha256 = get_file_hash(os.path.join(tempdir, filename))
-
-                if package.vcs and name == package.name:
-                    url = 'https://' + package.uri.split('://', 1)[1]
-                    s = 'commit'
-                    if package.vcs == 'svn':
-                        s = 'revision'
-                    source = OrderedDict([
-                        ('type', package.vcs),
-                        ('url', url),
-                        (s, package.revision),
-                    ])
-                else:
-                    url = get_pypi_url(name, filename)
-                    source = OrderedDict([
-                        ('type', 'file'),
-                        ('url', url),
-                        ('sha256', sha256),
-                    ])
-                module['sources'].append(source)
-        except subprocess.CalledProcessError:
-            print('Failed to download {}'.format(package.name))
-            print('Please fix the module manually in the generated file')
-        modules.append(module)
+if requirements_file == '/tmp/flatpak-pip-generator-requirements.txt':
+    if os.path.exists(requirements_file):
+        os.remove(requirements_file)
 
 if len(modules) == 1:
     pypi_module = modules[0]
