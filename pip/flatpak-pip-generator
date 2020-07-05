@@ -138,11 +138,10 @@ output_filename = output_package + '.json'
 
 modules = []
 vcs_modules = []
-sources = []
-vcs_sources = []
+sources = {}
+vcs_sources = {}
 
 tempdir_prefix = 'pip-generator-{}'.format(output_filename.replace('.json', ''))
-
 with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     pip_download = [
         pip_executable,
@@ -225,14 +224,14 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 ('url', url),
                 (s, revision),
             ])
-            vcs_sources.append(source)
+            vcs_sources[name] = {'source': source}
         else:
             url = get_pypi_url(name, filename)
             source = OrderedDict([
                 ('type', 'file'),
                 ('url', url),
                 ('sha256', sha256)])
-            sources.append(source)
+            sources[name] = {'source': source}
 
 # Python3 packages that come as part of org.freedesktop.Sdk.
 system_packages = ['Mako', 'Markdown', 'meson', 'pip', 'setuptools', 'six']
@@ -261,9 +260,33 @@ for package in packages:
     else:
         pkg = package.name + extras + version
 
+    dependencies = []
+    # Downloads the package again to list dependencies
+
+    tempdir_prefix = 'pip-generator-{}'.format(package.name)
+    with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
+        pip_download = [
+            pip_executable,
+            'download',
+            '--exists-action=i',
+            '--dest',
+            tempdir,
+        ]
+        try:
+            print('Generating dependencies for {}'.format(package.name))
+            subprocess.run(pip_download + [pkg], check=True, stdout=subprocess.DEVNULL)
+            for filename in os.listdir(tempdir):
+                dependencies.append(get_package_name(filename))
+
+        except subprocess.CalledProcessError:
+            print('Failed to download {}'.format(package.name))
+
+    package_sources = [sources[x]['source'] for x in dependencies if x in sources]
+    vcs_package_sources = [vcs_sources[x]['source'] for x in dependencies if x in vcs_sources]
+
     if package.vcs:
         name_for_pip = '.'
-        vcs_s = vcs_sources
+        vcs_s = vcs_package_sources
     else:
         name_for_pip = pkg
         vcs_s = []
@@ -286,7 +309,7 @@ for package in packages:
         ('name', module_name),
         ('buildsystem', 'simple'),
         ('build-commands', [' '.join(pip_command)]),
-        ('sources', vcs_s + sources),
+        ('sources', vcs_s + package_sources),
     ])
     if opts.cleanup == 'all':
         module['cleanup'] = ['*']
