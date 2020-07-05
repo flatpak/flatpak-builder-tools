@@ -208,8 +208,6 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
 
     for filename in os.listdir(tempdir):
         name = get_package_name(filename)
-        if name == 'setuptools':  # Already installed
-            continue
         sha256 = get_file_hash(os.path.join(tempdir, filename))
 
         if name in vcs_packages:
@@ -233,11 +231,15 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 ('sha256', sha256)])
         sources.append(source)
 
+# Python3 packages that come as part of org.freedesktop.Sdk.
+system_packages = ['Mako', 'Markdown', 'meson', 'pip', 'setuptools', 'six']
 for package in packages:
 
     if package.name is None:
         print('Warning: skipping invalid requirement specification {} because it is missing a name'.format(package.line), file=sys.stderr)
         print('Append #egg=<pkgname> to the end of the requirement line to fix', file=sys.stderr)
+        continue
+    elif package.name in system_packages:
         continue
 
     if len(package.extras) > 0:
