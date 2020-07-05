@@ -139,7 +139,6 @@ output_filename = output_package + '.json'
 modules = []
 vcs_modules = []
 sources = {}
-vcs_sources = {}
 
 tempdir_prefix = 'pip-generator-{}'.format(output_filename.replace('.json', ''))
 with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
@@ -224,14 +223,15 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 ('url', url),
                 (s, revision),
             ])
-            vcs_sources[name] = {'source': source}
+            is_vcs = True
         else:
             url = get_pypi_url(name, filename)
             source = OrderedDict([
                 ('type', 'file'),
                 ('url', url),
                 ('sha256', sha256)])
-            sources[name] = {'source': source}
+            is_vcs = False
+        sources[name] = {'source': source, 'vcs': is_vcs}
 
 # Python3 packages that come as part of org.freedesktop.Sdk.
 system_packages = ['Mako', 'Markdown', 'meson', 'pip', 'setuptools', 'six']
@@ -281,15 +281,17 @@ for package in packages:
         except subprocess.CalledProcessError:
             print('Failed to download {}'.format(package.name))
 
-    package_sources = [sources[x]['source'] for x in dependencies if x in sources]
-    vcs_package_sources = [vcs_sources[x]['source'] for x in dependencies if x in vcs_sources]
+    is_vcs = True if package.vcs else False
+    package_sources = [sources[x]['source']
+                       for x in dependencies
+                       if x in sources
+                       # Add vcs source only if package is vcs
+                       and (not sources[x]['vcs'] or is_vcs)]
 
     if package.vcs:
         name_for_pip = '.'
-        vcs_s = vcs_package_sources
     else:
         name_for_pip = pkg
-        vcs_s = []
 
     module_name = 'python{}-{}'.format(python_version, package.name)
 
@@ -309,7 +311,7 @@ for package in packages:
         ('name', module_name),
         ('buildsystem', 'simple'),
         ('build-commands', [' '.join(pip_command)]),
-        ('sources', vcs_s + package_sources),
+        ('sources', package_sources),
     ])
     if opts.cleanup == 'all':
         module['cleanup'] = ['*']
