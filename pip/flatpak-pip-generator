@@ -84,7 +84,7 @@ def get_file_version(filename: str) -> str:
 
 def get_file_hash(filename: str) -> str:
     sha = hashlib.sha256()
-    print('Generating hash for', filename)
+    print('Generating hash for', filename.split('/')[-1])
     with open(filename, 'rb') as f:
         while True:
             data = f.read(1024 * 1024 * 32)
@@ -111,6 +111,34 @@ def parse_continuation_lines(fin):
                 exit('Requirements have a wrong number of line continuation characters "\\"')
         yield line
 
+
+def fprint(string: str) -> None:
+    separator = '=' * 72  # Same as `flatpak-builder`
+    print(separator)
+    print(string)
+    print(separator)
+
+
+if not opts.python2:
+    minor_version = str(sys.version_info[1])
+    command = [
+        'flatpak',
+        'run',
+        '--command=python3',
+        'org.freedesktop.Platform',
+        '--version'
+    ]
+    try:
+        result = subprocess.run(command, check=True, capture_output=True)
+        f_version = result.stdout.decode('utf-8')
+        f_minor_version = f_version.split('.')[1]
+        if minor_version != f_minor_version:
+            print('WARNING: the Python version on your host does not match the Python version in org.freedesktop.Platform')
+            print('host version: 3.{}, Freedesktop version: 3.{}'.format(minor_version, f_minor_version))
+            print('some packages are Python 3.{} specific'.format(f_minor_version))
+    except FileNotFoundError:
+        print('flatpak command not found')
+        print('Could not determine Python version of org.freedesktop.Platform')
 
 packages = []
 if opts.requirements_file and os.path.exists(opts.requirements_file):
@@ -169,12 +197,14 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     if use_hash:
         pip_download.append('--require-hashes')
 
+    fprint('Downloading sources')
     try:
         subprocess.run(pip_download, check=True)
     except subprocess.CalledProcessError:
         print('Failed to download')
         print('Please fix the module manually in the generated file')
 
+    fprint('Downloading arch independent packages')
     for filename in os.listdir(tempdir):
         if not filename.endswith(('gz', 'any.whl', 'zip')):
             version = get_file_version(filename)
@@ -215,6 +245,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         if x.vcs
     }
 
+    fprint('Obtaining hashes and urls')
     for filename in os.listdir(tempdir):
         name = get_package_name(filename)
         sha256 = get_file_hash(os.path.join(tempdir, filename))
@@ -244,6 +275,8 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
 
 # Python3 packages that come as part of org.freedesktop.Sdk.
 system_packages = ['Mako', 'Markdown', 'meson', 'pip', 'setuptools', 'six']
+
+fprint('Generating dependencies')
 for package in packages:
 
     if package.name is None:
@@ -349,6 +382,7 @@ else:
         'modules': modules,
     }
 
+print()
 with open(output_filename, 'w') as output:
     output.write(json.dumps(pypi_module, indent=4))
     print('Output saved to {}'.format(output_filename))
