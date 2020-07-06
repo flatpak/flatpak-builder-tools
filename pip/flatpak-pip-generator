@@ -68,7 +68,11 @@ def get_package_name(filename: str) -> str:
         segments = filename.split('-')
         if len(segments) == 5:
             return segments[0]
-        return '-'.join(segments[:len(segments) - 4])
+        candidate = segments[:len(segments) - 4]
+        # Some packages list the version number twice
+        if candidate[-1] == segments[len(segments) - 4]:
+            return '-'.join(candidate[:-1])
+        return '-'.join(candidate)
     else:
         raise Exception(
             'Downloaded filename: {} does not end with bz2, gz, xz, zip, or whl'.format(filename)
