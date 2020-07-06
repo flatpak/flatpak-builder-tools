@@ -43,17 +43,19 @@ def get_pypi_url(name: str, filename: str) -> str:
             for source in release:
                 if source['filename'] == filename:
                     return source['url']
-        else:
-            raise Exception('Failed to extract url from {}'.format(url))
+        raise Exception('Failed to extract url from {}'.format(url))
 
 
 def get_tar_package_url_pypi(name: str, version: str) -> str:
     url = 'https://pypi.org/pypi/{}/{}/json'.format(name, version)
     with urllib.request.urlopen(url) as response:
         body = json.loads(response.read().decode('utf-8'))
-        for url in body['urls']:
-            if url['url'].endswith(('any.whl', 'gz', 'zip')):
-                return url['url']
+        for ext in ['any.whl', 'gz', 'zip']:
+            for source in body['urls']:
+                if source['url'].endswith(ext):
+                    return source['url']
+        err = 'Failed to get {}-{} source from {}'.format(name, version, url)
+        raise Exception(err)
 
 
 def get_package_name(filename: str) -> str:
