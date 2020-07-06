@@ -70,6 +70,7 @@ def get_package_name(filename: str) -> str:
             return segments[0]
         candidate = segments[:len(segments) - 4]
         # Some packages list the version number twice
+        # e.g. PyQt5-5.15.0-5.15.0-cp35.cp36.cp37.cp38-abi3-manylinux2014_x86_64.whl
         if candidate[-1] == segments[len(segments) - 4]:
             return '-'.join(candidate[:-1])
         return '-'.join(candidate)
