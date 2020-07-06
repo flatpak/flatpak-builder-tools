@@ -610,6 +610,7 @@ class ManifestGenerator(contextlib.AbstractContextManager):
                          commands: List[str],
                          destination: Optional[Path] = None,
                          only_arches: Optional[List[str]] = None):
+        """This might be slow for multiple instances. Use `add_command()` instead."""
         source = {'type': 'shell', 'commands': tuple(commands)}
         self._add_source_with_destination(source,
                                           destination=destination,
