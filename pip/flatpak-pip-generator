@@ -34,6 +34,8 @@ parser.add_argument('--no-build-isolation',
                     help='https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support')
 parser.add_argument('--output', '-o',
                     help='Specify output file name')
+parser.add_argument('--runtime',
+                    help='Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility')
 opts = parser.parse_args()
 
 
@@ -129,31 +131,6 @@ def fprint(string: str) -> None:
     print(separator)
 
 
-if not opts.python2:
-    minor_version = str(sys.version_info[1])
-    command = [
-        'flatpak',
-        'run',
-        '--command=python3',
-        'org.freedesktop.Platform',
-        '--version'
-    ]
-    try:
-        result = subprocess.run(command, check=True, capture_output=True)
-        f_version = result.stdout.decode('utf-8')
-        f_minor_version = f_version.split('.')[1]
-        if minor_version != f_minor_version:
-            print('WARNING: the Python version on your host does not match the Python version in org.freedesktop.Platform')
-            print('host version: 3.{}, Freedesktop version: 3.{}'.format(minor_version, f_minor_version))
-            print('some packages are Python 3.{} specific'.format(f_minor_version))
-    except FileNotFoundError:
-        print('flatpak command not found')
-        print('Could not determine Python version of org.freedesktop.Platform')
-        print('Verify that your python version coincides with the one in your flatpak runtime')
-    except subprocess.CalledProcessError:
-        print('Could not determine Python version of org.freedesktop.Platform')
-        print('Verify that your python version coincides with the one in your flatpak runtime')
-
 packages = []
 if opts.requirements_file and os.path.exists(opts.requirements_file):
     with open(opts.requirements_file, 'r') as req_file:
@@ -163,7 +140,7 @@ if opts.requirements_file and os.path.exists(opts.requirements_file):
         requirements_file = opts.requirements_file
 elif opts.packages:
     packages = list(requirements.parse('\n'.join(opts.packages)))
-    with tempfile.NamedTemporaryFile('w', delete=False) as req_file:
+    with tempfile.NamedTemporaryFile('w', delete=False, prefix='requirements.') as req_file:
         req_file.write('\n'.join(opts.packages))
         requirements_file = req_file.name
 else:
@@ -177,6 +154,23 @@ if opts.python2:
     pip_executable = 'pip2'
 else:
     pip_executable = 'pip3'
+
+if opts.runtime:
+    flatpak_cmd = [
+        'flatpak',
+        '--devel',
+        '--share=network',
+        '--filesystem=/tmp',
+        '--command={}'.format(pip_executable),
+        'run',
+        opts.runtime
+    ]
+    if opts.requirements_file and os.path.exists(opts.requirements_file):
+        prefix = os.path.realpath(opts.requirements_file)
+        flag = '--filesystem={}'.format(prefix)
+        flatpak_cmd.insert(1,flag)
+else:
+    flatpak_cmd = [pip_executable]
 
 if opts.output:
     output_package = opts.output
@@ -198,8 +192,7 @@ sources = {}
 
 tempdir_prefix = 'pip-generator-{}'.format(output_filename.replace('.json', ''))
 with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
-    pip_download = [
-        pip_executable,
+    pip_download = flatpak_cmd + [
         'download',
         '--exists-action=i',
         '--dest',
@@ -212,11 +205,19 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         pip_download.append('--require-hashes')
 
     fprint('Downloading sources')
+    cmd = ' '.join(pip_download)
+    print('Running: "{}"'.format(cmd))
     try:
         subprocess.run(pip_download, check=True)
     except subprocess.CalledProcessError:
         print('Failed to download')
         print('Please fix the module manually in the generated file')
+
+    if not opts.requirements_file:
+        try:
+            os.remove(requirements_file)
+        except FileNotFoundError:
+            pass
 
     fprint('Downloading arch independent packages')
     for filename in os.listdir(tempdir):
@@ -320,9 +321,8 @@ for package in packages:
     # Downloads the package again to list dependencies
 
     tempdir_prefix = 'pip-generator-{}'.format(package.name)
-    with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
-        pip_download = [
-            pip_executable,
+    with tempfile.TemporaryDirectory(prefix='{}-{}'.format(tempdir_prefix, package.name)) as tempdir:
+        pip_download = flatpak_cmd + [
             'download',
             '--exists-action=i',
             '--dest',
@@ -378,12 +378,6 @@ for package in packages:
         vcs_modules.append(module)
     else:
         modules.append(module)
-
-if not opts.requirements_file:
-    try:
-        os.remove(requirements_file)
-    except FileNotFoundError:
-        pass
 
 modules = vcs_modules + modules
 if len(modules) == 1:
