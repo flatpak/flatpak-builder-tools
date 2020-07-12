@@ -35,7 +35,7 @@ parser.add_argument('--no-build-isolation',
 parser.add_argument('--output', '-o',
                     help='Specify output file name')
 parser.add_argument('--runtime',
-                    help='Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility')
+                    help='Select a flatpak to run pip inside of a sandbox, ensures python version compatibility')
 opts = parser.parse_args()
 
 
@@ -150,27 +150,62 @@ with open(requirements_file, 'r') as req_file:
     use_hash = '--hash=' in req_file.read()
 
 python_version = '2' if opts.python2 else '3'
+# Prefer to use Sdk as they bundle `git`.
+possible_runtimes = [
+    'org.freedesktop.Sdk',
+    'org.freedesktop.Platform',
+    'org.gnome.Sdk',
+    'org.gnome.Platform',
+    'org.kde.Sdk',
+    'org.kde.Platform',
+    # If multiple branches are available, the script won't select any.
+    'org.freedesktop.Sdk//19.08',
+    'org.freedesktop.Platform//19.08',
+]
+if opts.runtime:
+    runtime = opts.runtime
+else:
+    for flatpak in possible_runtimes:
+        try:
+            flatpak_info = ['flatpak', 'info', '--show-runtime'] + [flatpak]
+            if subprocess.run(flatpak_info, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL):
+                runtime = flatpak
+                break
+        except subprocess.CalledProcessError:
+            pass
+    else:
+        if not opts.requirements:
+            # The temporal requirements file is still around.
+            try:
+                os.remove(requirements_file)
+            except FileNotFoundError:
+                pass
+        print('No flatpak runtime could be found, try specifying a flatpak or runtime version')
+        exit('e.g. "flatpak-pip-generator --runtime domain.developer.app-id//branch [packages]"')
+
+    print('Using {} as a sandbox'.format(runtime))
+
 if opts.python2:
     pip_executable = 'pip2'
 else:
     pip_executable = 'pip3'
 
-if opts.runtime:
+if opts.python2 and not opts.runtime:
+    print('WARNING: --python2 requires a flatpak or runtime that bundles pip2 to be specified with --runtime for this script to be run inside a sandbox')
+    flatpak_cmd = [pip_executable]
+else:
     flatpak_cmd = [
         'flatpak',
-        '--devel',
         '--share=network',
         '--filesystem=/tmp',
         '--command={}'.format(pip_executable),
         'run',
-        opts.runtime
+        runtime
     ]
     if opts.requirements_file and os.path.exists(opts.requirements_file):
         prefix = os.path.realpath(opts.requirements_file)
         flag = '--filesystem={}'.format(prefix)
         flatpak_cmd.insert(1,flag)
-else:
-    flatpak_cmd = [pip_executable]
 
 if opts.output:
     output_package = opts.output
@@ -200,7 +235,6 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         '-r',
         requirements_file
     ]
-
     if use_hash:
         pip_download.append('--require-hashes')
 
