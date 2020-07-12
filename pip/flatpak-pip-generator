@@ -191,7 +191,7 @@ else:
     pip_executable = 'pip3'
 
 if opts.python2 and not opts.runtime:
-    print('WARNING: --python2 requires a flatpak or runtime that bundles pip2 to be specified with --runtime for this script to be run inside a sandbox')
+    print('Warning: --python2 requires a flatpak app that bundles pip2 to be specified with --runtime for this script to be run inside a sandbox')
     flatpak_cmd = [pip_executable]
 else:
     flatpak_cmd = [
