@@ -6,7 +6,6 @@ import argparse
 import json
 import hashlib
 import os
-import requirements
 import shutil
 import subprocess
 import sys
@@ -149,6 +148,10 @@ if not opts.python2:
 
 packages = []
 if opts.requirements_file and os.path.exists(opts.requirements_file):
+    try:
+        import requirements
+    except ImportError:
+        exit('Requirements modules is not installed. Run "pip install requirements-parser"')
     with open(opts.requirements_file, 'r') as req_file:
         reqs = parse_continuation_lines(req_file)
         reqs_as_str = '\n'.join([r.split('--hash')[0] for r in reqs])
