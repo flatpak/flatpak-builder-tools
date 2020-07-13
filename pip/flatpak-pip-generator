@@ -14,6 +14,10 @@ import urllib.request
 
 from collections import OrderedDict
 
+try:
+    import requirements
+except ImportError:
+    exit('Requirements modules is not installed. Run "pip install requirements-parser"')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('packages', nargs='*')
@@ -145,13 +149,13 @@ if not opts.python2:
     except FileNotFoundError:
         print('flatpak command not found')
         print('Could not determine Python version of org.freedesktop.Platform')
+        print('Verify that your python version coincides with the one in your flatpak runtime')
+    except subprocess.CalledProcessError:
+        print('Could not determine Python version of org.freedesktop.Platform')
+        print('Verify that your python version coincides with the one in your flatpak runtime')
 
 packages = []
 if opts.requirements_file and os.path.exists(opts.requirements_file):
-    try:
-        import requirements
-    except ImportError:
-        exit('Requirements modules is not installed. Run "pip install requirements-parser"')
     with open(opts.requirements_file, 'r') as req_file:
         reqs = parse_continuation_lines(req_file)
         reqs_as_str = '\n'.join([r.split('--hash')[0] for r in reqs])
