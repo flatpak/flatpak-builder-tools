@@ -486,6 +486,26 @@ class GitSource(NamedTuple):
     commit: str
     from_: Optional[str]
 
+    @property
+    def tarball_url(self) -> Optional[str]:
+        url = urllib.parse.urlparse(self.url)
+        path = url.path.split('/')[1:]
+        #FIXME this is correct only for some git hosting providers
+        assert len(path) == 2
+        owner = path[0]
+        if path[1].endswith('.git'):
+            repo = path[1].replace('.git', '')
+        else:
+            repo = path[1]
+        if url.hostname == 'github.com':
+            return f'https://codeload.{url.hostname}/{owner}/{repo}/tar.gz/{self.commit}'
+        elif url.hostname == 'gitlab.com':
+            return f'https://{url.hostname}/{owner}/{repo}/repository/archive.tar.gz?ref={self.commit}'
+        elif url.hostname == 'bitbucket.org':
+            return f'https://{url.hostname}/{owner}/{repo}/get/{self.commit}.tar.gz'
+        else:
+            return None
+
 
 PackageSource = Union[ResolvedSource, UnresolvedRegistrySource, GitSource]
 
@@ -1313,7 +1333,13 @@ class YarnLockfileProvider(LockfileProvider):
 
         assert version and resolved, line
 
-        source = ResolvedSource(resolved=resolved, integrity=integrity)
+        source: PackageSource
+        #TODO find more accurate way to check if we have git pkg here
+        if any(resolved.startswith(p) for p in GIT_PREFIXES):
+            source = self.parse_git_source(version=resolved)
+        else:
+            source = ResolvedSource(resolved=resolved, integrity=integrity)
+
         return Package(name=name, version=version, source=source, lockfile=lockfile)
 
     def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
@@ -1350,21 +1376,29 @@ class YarnModuleProvider(ModuleProvider):
 
     async def generate_package(self, package: Package) -> None:
         source = package.source
-        # Yarn doesn't use GitSource.
-        assert isinstance(source, ResolvedSource)
 
-        integrity = await source.retrieve_integrity()
+        if isinstance(source, ResolvedSource):
+            integrity = await source.retrieve_integrity()
+            url_parts = urllib.parse.urlparse(source.resolved)
+            match = self._PACKAGE_TARBALL_URL_RE.search(url_parts.path)
+            if match is not None:
+                scope, filename = match.groups()
+                if scope:
+                    filename = f'{scope}-{filename}'
+            else:
+                filename = os.path.basename(url_parts.path)
 
-        url_parts = urllib.parse.urlparse(source.resolved)
-        match = self._PACKAGE_TARBALL_URL_RE.search(url_parts.path)
-        if match is not None:
-            scope, filename = match.groups()
-            if scope:
-                filename = f'{scope}-{filename}'
-        else:
-            filename = os.path.basename(url_parts.path)
+            self.gen.add_url_source(source.resolved, integrity, self.mirror_dir / filename)
 
-        self.gen.add_url_source(source.resolved, integrity, self.mirror_dir / filename)
+        elif isinstance(source, GitSource):
+            tarball_url = source.tarball_url
+            assert tarball_url is not None
+            metadata = await RemoteUrlMetadata.get(tarball_url, cachable=True)
+            filename = f'{package.name}.git-{source.commit}'
+
+            #XXX Yarn wants uncompressed tar, why?
+            self.gen.add_url_source(tarball_url, metadata.integrity, self.mirror_dir / f'{filename}.gz')
+            self.gen.add_command(f'gunzip "{self.mirror_dir}/{filename}.gz"')
 
         await self.special_source_provider.generate_special_sources(package)
 
