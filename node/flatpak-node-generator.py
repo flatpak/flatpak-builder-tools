@@ -484,7 +484,7 @@ class GitSource(NamedTuple):
     original: str
     url: str
     commit: str
-    from_: str
+    from_: Optional[str]
 
 
 PackageSource = Union[ResolvedSource, UnresolvedRegistrySource, GitSource]
@@ -1206,6 +1206,7 @@ class NpmModuleProvider(ModuleProvider):
                 for path, source in sources.items():
                     original_version = f'{source.original}#{source.commit}'
                     new_version = f'{path}#{source.commit}'
+                    assert source.from_ is not None
                     data['package.json'][source.from_] = new_version
                     data['package-lock.json'][original_version] = new_version
 
