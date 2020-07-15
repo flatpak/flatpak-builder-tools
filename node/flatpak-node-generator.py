@@ -30,6 +30,15 @@ import urllib.request
 
 DEFAULT_PART_SIZE = 4096
 
+GIT_PREFIXES = {
+    'github:': 'https://github.com/',
+    'gitlab:': 'https://gitlab.com/',
+    'bitbucket:': 'https://bitbucket.com/',
+    'git:': 'git://',
+    'git+http:': 'http:',
+    'git+https:': 'https:',
+}
+
 
 class Cache:
     instance: 'Cache'
@@ -626,6 +635,21 @@ class ManifestGenerator(contextlib.AbstractContextManager):
 
 
 class LockfileProvider:
+    def parse_git_source(self, version: str, from_: str = None) -> GitSource:
+        assert version.count('#') == 1, version
+        original, commit = version.split('#')
+
+        url: Optional[str] = None
+
+        for npm_prefix, url_prefix in GIT_PREFIXES.items():
+            if original.startswith(npm_prefix):
+                url = url_prefix + original[len(npm_prefix):]
+                break
+        else:
+            raise ValueError(f'{version} doesn\'t match any Git prefix')
+
+        return GitSource(original=original, url=url, commit=commit, from_=from_)
+
     def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
         raise NotImplementedError()
 
@@ -947,30 +971,6 @@ class NpmLockfileProvider(LockfileProvider):
     def __init__(self, options: Options):
         self.no_devel = options.no_devel
 
-    def parse_git_source(self, version: str, from_: str) -> Optional[GitSource]:
-        git_prefixes = {
-            'github:': 'https://github.com/',
-            'gitlab:': 'https://gitlab.com/',
-            'bitbucket:': 'https://bitbucket.com/',
-            'git:': 'git://',
-            'git+http:': 'http:',
-            'git+https:': 'https:',
-        }
-
-        assert version.count('#') == 1, version
-        original, commit = version.split('#')
-
-        url: Optional[str] = None
-
-        for npm_prefix, url_prefix in git_prefixes.items():
-            if original.startswith(npm_prefix):
-                url = url_prefix + original[len(npm_prefix):]
-                break
-        else:
-            return None
-
-        return GitSource(original=original, url=url, commit=commit, from_=from_)
-
     def process_dependencies(self, lockfile: Path,
                              dependencies: Dict[str, Dict]) -> Iterator[Package]:
         for name, info in dependencies.items():
@@ -984,7 +984,6 @@ class NpmLockfileProvider(LockfileProvider):
             source: PackageSource
             if info.get('from'):
                 git_source = self.parse_git_source(version, info['from'])
-                assert git_source is not None, f'{name} is not a valid Git source'
                 source = git_source
             else:
                 # NOTE: npm ignores the resolved field and just uses the provided
