@@ -158,6 +158,7 @@ else:
 if opts.runtime:
     flatpak_cmd = [
         'flatpak',
+        '--devel',
         '--share=network',
         '--filesystem=/tmp',
         '--command={}'.format(pip_executable),
