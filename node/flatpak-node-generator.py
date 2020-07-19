@@ -769,6 +769,7 @@ class SpecialSourceProvider:
         node_chromedriver_from_electron: str
         electron_ffmpeg: str
         electron_node_headers: bool
+        nwjs_version: str
         xdg_layout: bool
 
     def __init__(self, gen: ManifestGenerator, options: Options):
@@ -776,6 +777,7 @@ class SpecialSourceProvider:
         self.node_chromedriver_from_electron = options.node_chromedriver_from_electron
         self.electron_ffmpeg = options.electron_ffmpeg
         self.electron_node_headers = options.electron_node_headers
+        self.nwjs_version = options.nwjs_version
         self.xdg_layout = options.xdg_layout
 
     @property
@@ -899,6 +901,41 @@ class SpecialSourceProvider:
                                         metadata.integrity,
                                         destination=destination,
                                         only_arches=['x86_64'])
+
+    async def _add_nwjs_cache_downloads(self, version: str, flavor: str = 'normal'):
+        assert not version.startswith('v')
+        nwjs_mirror = 'https://dl.nwjs.io'
+
+        if flavor == 'normal':
+            filename_base = 'nwjs'
+        else:
+            filename_base = f'nwjs-{flavor}'
+
+        destdir = self.gen.data_root / 'nwjs-cache'
+        nwjs_arch_map = [
+            ('x86_64', 'linux-x64', 'linux64'),
+            ('i386', 'linux-ia32', 'linux32'),
+        ]
+        for flatpak_arch, nwjs_arch, platform in nwjs_arch_map:
+            filename = f'{filename_base}-v{version}-{nwjs_arch}.tar.gz'
+            dl_url = f'{nwjs_mirror}/v{version}/{filename}'
+            metadata = await RemoteUrlMetadata.get(dl_url, cachable=True)
+            dest = destdir / f'{version}-{flavor}' / platform
+
+            self.gen.add_archive_source(dl_url,
+                                        metadata.integrity,
+                                        destination=dest,
+                                        only_arches=[flatpak_arch])
+
+    async def _handle_nw_builder(self, package: Package) -> None:
+        if self.nwjs_version:
+            version = self.nwjs_version
+        else:
+            versions_json = json.loads(await Requests.instance.read_all(
+                'https://nwjs.io/versions.json', cachable=False))
+            version = versions_json['latest'].lstrip('v')
+        await self._add_nwjs_cache_downloads(version)
+        self.gen.add_data_source(version, destination=self.gen.data_root / 'nwjs-version')
 
     async def _handle_dugite_native(self, package: Package) -> None:
         dl_json_url = f'https://github.com/desktop/dugite/raw/v{package.version}/script/embedded-git.json'
@@ -1056,6 +1093,8 @@ class SpecialSourceProvider:
             self._handle_electron_builder(package)
         elif package.name == 'gulp-atom-electron':
             self._handle_gulp_atom_electron(package)
+        elif package.name == 'nw-builder':
+            await self._handle_nw_builder(package)
         elif package.name == 'dugite':
             await self._handle_dugite_native(package)
         elif package.name == 'vscode-ripgrep':
@@ -1659,6 +1698,8 @@ async def main() -> None:
     parser.add_argument('--electron-node-headers',
                         action='store_true',
                         help='Download the electron node headers')
+    parser.add_argument('--nwjs-version',
+                        help='Specify NW.js version (will use latest otherwise)')
     parser.add_argument('--xdg-layout',
                         action='store_true',
                         help='Use XDG layout for caches')
@@ -1726,6 +1767,7 @@ async def main() -> None:
         options = SpecialSourceProvider.Options(
             node_chromedriver_from_electron=args.node_chromedriver_from_electron
             or args.electron_chromedriver,
+            nwjs_version=args.nwjs_version,
             xdg_layout=args.xdg_layout,
             electron_ffmpeg=args.electron_ffmpeg,
             electron_node_headers=args.electron_node_headers)
