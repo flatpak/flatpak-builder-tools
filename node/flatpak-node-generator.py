@@ -771,6 +771,7 @@ class SpecialSourceProvider:
         electron_node_headers: bool
         nwjs_version: str
         nwjs_node_headers: bool
+        nwjs_ffmpeg: bool
         xdg_layout: bool
 
     def __init__(self, gen: ManifestGenerator, options: Options):
@@ -780,6 +781,7 @@ class SpecialSourceProvider:
         self.electron_node_headers = options.electron_node_headers
         self.nwjs_version = options.nwjs_version
         self.nwjs_node_headers = options.nwjs_node_headers
+        self.nwjs_ffmpeg = options.nwjs_ffmpeg
         self.xdg_layout = options.xdg_layout
 
     @property
@@ -907,6 +909,7 @@ class SpecialSourceProvider:
     async def _add_nwjs_cache_downloads(self, version: str, flavor: str = 'normal'):
         assert not version.startswith('v')
         nwjs_mirror = 'https://dl.nwjs.io'
+        ffmpeg_dl_base = 'https://github.com/iteufel/nwjs-ffmpeg-prebuilt/releases/download'
 
         if self.nwjs_node_headers:
             headers_dl_url = f'{nwjs_mirror}/v{version}/nw-headers-v{version}.tar.gz'
@@ -936,6 +939,15 @@ class SpecialSourceProvider:
                                         metadata.integrity,
                                         destination=dest,
                                         only_arches=[flatpak_arch])
+
+            if self.nwjs_ffmpeg:
+                ffmpeg_dl_url = f'{ffmpeg_dl_base}/{version}/{version}-{nwjs_arch}.zip'
+                ffmpeg_metadata = await RemoteUrlMetadata.get(ffmpeg_dl_url, cachable=True)
+                self.gen.add_archive_source(ffmpeg_dl_url,
+                                            ffmpeg_metadata.integrity,
+                                            destination=dest,
+                                            strip_components=0,
+                                            only_arches=[flatpak_arch])
 
     async def _handle_nw_builder(self, package: Package) -> None:
         if self.nwjs_version:
@@ -1704,7 +1716,7 @@ async def main() -> None:
     parser.add_argument('--electron-chromedriver', help=argparse.SUPPRESS)
     parser.add_argument('--electron-ffmpeg',
                         choices=['archive', 'lib'],
-                        help='Download the ffmpeg binaries')
+                        help='Download prebuilt ffmpeg for matching electron version')
     parser.add_argument('--electron-node-headers',
                         action='store_true',
                         help='Download the electron node headers')
@@ -1713,6 +1725,8 @@ async def main() -> None:
     parser.add_argument('--nwjs-node-headers',
                         action='store_true',
                         help='Download the NW.js node headers')
+    parser.add_argument('--nwjs-ffmpeg', action='store_true',
+                        help='Download prebuilt ffmpeg for current NW.js version')
     parser.add_argument('--xdg-layout',
                         action='store_true',
                         help='Use XDG layout for caches')
@@ -1782,6 +1796,7 @@ async def main() -> None:
             or args.electron_chromedriver,
             nwjs_version=args.nwjs_version,
             nwjs_node_headers=args.nwjs_node_headers,
+            nwjs_ffmpeg=args.nwjs_ffmpeg,
             xdg_layout=args.xdg_layout,
             electron_ffmpeg=args.electron_ffmpeg,
             electron_node_headers=args.electron_node_headers)
