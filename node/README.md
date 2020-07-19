@@ -237,3 +237,20 @@ use to overwrite the default Electron ffmpeg, e.g.:
 ```
 
 An short example of this is again in the electron-webpack-quick-start
+
+## NW.js
+
+This scripts assumes NW.js is used if the lockfile contains `nw-builder` package.
+
+### Specifying NW.js version
+
+Unlike Electron, NW.js engine version is not reflected in NPM package.
+
+- If the app you're building uses specific NW.js version, specify it
+  using `--nwjs-version` argument
+- If any NW.js version will suffice, this script will use latest;
+  the version number will be stored in `flatpak-node/nwjs-version` file.
+  You can tell `nw-builder` to use this version by passing `-v` arg to `nwbuild`:
+  ```bash
+  nwbuild -v $(<$FLATPAK_BUILDER_BUILDDIR/flatpak-node/nwjs-version)
+  ```
