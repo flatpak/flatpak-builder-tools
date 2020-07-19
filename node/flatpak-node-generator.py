@@ -1391,10 +1391,11 @@ class YarnModuleProvider(ModuleProvider):
             self.gen.add_url_source(source.resolved, integrity, self.mirror_dir / filename)
 
         elif isinstance(source, GitSource):
+            repo_name = urllib.parse.urlparse(source.url).path.split('/')[-1]
             tarball_url = source.tarball_url
             assert tarball_url is not None
             metadata = await RemoteUrlMetadata.get(tarball_url, cachable=True)
-            filename = f'{package.name}.git-{source.commit}'
+            filename = f'{repo_name}-{source.commit}'
 
             #XXX Yarn wants uncompressed tar, why?
             self.gen.add_url_source(tarball_url, metadata.integrity, self.mirror_dir / f'{filename}.gz')
