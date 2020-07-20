@@ -178,53 +178,57 @@ async def get_git_sources(package, tarball=USE_GIT_TARBALLS):
 
     return (git_sources, cargo_vendored_entry)
 
+async def get_package_sources(package, cargo_lock):
+    metadata = cargo_lock.get('metadata')
+    name = package['name']
+    version = package['version']
+
+    if 'source' not in package:
+        logging.warning(f'{name} has no source')
+        logging.debug(f'Package for {name}: {package}')
+        return
+    source = package['source']
+
+    if source.startswith('git+'):
+        return await get_git_sources(package)
+
+    key = f'checksum {name} {version} ({source})'
+    if metadata is not None and key in metadata:
+        checksum = metadata[key]
+    elif 'checksum' in package:
+        checksum = package['checksum']
+    else:
+        logging.warning(f'{name} doesn\'t have checksum')
+        return
+    crate_sources = [
+        {
+            'type': 'file',
+            'url': f'{CRATES_IO}/{name}/{name}-{version}.crate',
+            'sha256': checksum,
+            'dest': CARGO_CRATES,
+            'dest-filename': f'{name}-{version}.crate'
+        },
+        {
+            'type': 'file',
+            'url': 'data:' + urlquote(json.dumps({'package': checksum, 'files': {}})),
+            'dest': f'{CARGO_CRATES}/{name}-{version}',
+            'dest-filename': '.cargo-checksum.json',
+        },
+    ]
+    return (crate_sources, {'crates-io': {'replace-with': VENDORED_SOURCES}})
+
 async def generate_sources(cargo_lock):
     sources = []
     cargo_vendored_sources = {
         VENDORED_SOURCES: {'directory': f'{CARGO_CRATES}'},
-        'crates-io': {'replace-with': VENDORED_SOURCES},
     }
-    git_pkg_coros = []
-    metadata = cargo_lock.get('metadata')
-    for package in cargo_lock['package']:
-        name = package['name']
-        version = package['version']
-        if 'source' in package:
-            source = package['source']
-            if source.startswith('git+'):
-                git_pkg_coros.append(get_git_sources(package))
-                continue
-            else:
-                key = f'checksum {name} {version} ({source})'
-                if metadata is not None and key in metadata:
-                    checksum = metadata[key]
-                elif 'checksum' in package:
-                    checksum = package['checksum']
-                else:
-                    logging.warning(f'{name} doesn\'t have checksum')
-                    continue
-        else:
-            logging.warning(f'{name} has no source')
-            logging.debug(f'Package for {name}: {package}')
+    pkg_coros = [get_package_sources(p, cargo_lock) for p in cargo_lock['package']]
+    for pkg in await asyncio.gather(*pkg_coros):
+        if pkg is None:
             continue
-        sources += [
-            {
-                'type': 'file',
-                'url': f'{CRATES_IO}/{name}/{name}-{version}.crate',
-                'sha256': checksum,
-                'dest': CARGO_CRATES,
-                'dest-filename': f'{name}-{version}.crate'
-            },
-            {
-                'type': 'file',
-                'url': 'data:' + urlquote(json.dumps({'package': checksum, 'files': {}})),
-                'dest': f'{CARGO_CRATES}/{name}-{version}',
-                'dest-filename': '.cargo-checksum.json',
-            },
-        ]
-    git_pkgs = await asyncio.gather(*git_pkg_coros)
-    for git_sources, cargo_vendored_entry in git_pkgs:
-        sources += git_sources
+        else:
+            pkg_sources, cargo_vendored_entry = pkg
+        sources += pkg_sources
         cargo_vendored_sources.update(cargo_vendored_entry)
 
     sources.append({
