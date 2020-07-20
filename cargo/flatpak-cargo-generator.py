@@ -9,6 +9,7 @@ import glob
 import subprocess
 import argparse
 import logging
+import hashlib
 import asyncio
 import aiohttp
 import toml
@@ -18,6 +19,8 @@ CARGO_HOME = 'cargo'
 CARGO_CRATES = f'{CARGO_HOME}/vendor'
 VENDORED_SOURCES = 'vendored-sources'
 COMMIT_LEN = 7
+
+USE_GIT_TARBALLS = True
 
 def canonical_url(url):
     'Converts a string to a Cargo Canonical URL, as per https://github.com/rust-lang/cargo/blob/35c55a93200c84a4de4627f1770f76a8ad268a39/src/cargo/util/canonical_url.rs#L19'
@@ -37,6 +40,38 @@ def canonical_url(url):
         u = u._replace(path = u.path[:-len('.git')])
 
     return u
+
+def get_git_tarball(repo_url, commit):
+    url = canonical_url(repo_url)
+    path = url.path.split('/')[1:]
+
+    assert len(path) == 2
+    owner = path[0]
+    if path[1].endswith('.git'):
+        repo = path[1].replace('.git', '')
+    else:
+        repo = path[1]
+    if url.hostname == 'github.com':
+        return f'https://codeload.{url.hostname}/{owner}/{repo}/tar.gz/{commit}'
+    elif url.hostname == 'gitlab.com':
+        return f'https://{url.hostname}/{owner}/{repo}/repository/archive.tar.gz?ref={commit}'
+    elif url.hostname == 'bitbucket.org':
+        return f'https://{url.hostname}/{owner}/{repo}/get/{commit}.tar.gz'
+    else:
+        raise ValueError(f'Don\'t know how to get tarball for {repo_url}')
+
+async def get_remote_sha256(url):
+    logging.info(f"started sha256({url})")
+    sha256 = hashlib.sha256()
+    async with aiohttp.ClientSession() as http_session:
+        async with http_session.get(url) as response:
+            while True:
+                data = await response.content.read(4096)
+                if not data:
+                    break
+                sha256.update(data)
+    logging.info(f"done sha256({url})")
+    return sha256.hexdigest()
 
 def load_toml(tomlfile='Cargo.lock'):
     with open(tomlfile, 'r') as f:
@@ -76,7 +111,7 @@ async def get_git_cargo_packages(git_url, commit):
     logging.debug(f'Packages in repo: {packages}')
     return packages
 
-async def get_git_sources(package):
+async def get_git_sources(package, tarball=USE_GIT_TARBALLS):
     name = package['name']
     source = package['source']
     commit = urlparse(source).fragment
@@ -103,14 +138,22 @@ async def get_git_sources(package):
         assert len(branch) == 1
         cargo_vendored_entry[repo_url]['branch'] = branch[0]
 
-    git_sources = [
-        {
+    if tarball:
+        tarball_url = get_git_tarball(source, commit)
+        git_sources = [{
+            'type': 'archive',
+            'archive-type': 'tar-gzip',
+            'url': tarball_url,
+            'sha256': await get_remote_sha256(tarball_url),
+            'dest': f'{CARGO_CRATES}/{name}',
+        }]
+    else:
+        git_sources = [{
             'type': 'git',
             'url': repo_url,
             'commit': commit,
             'dest': f'{CARGO_CRATES}/{name}',
-        }
-    ]
+        }]
     git_cargo_packages = await get_git_cargo_packages(repo_url, commit)
     pkg_subpath = git_cargo_packages[name]
     if pkg_subpath != '.':
