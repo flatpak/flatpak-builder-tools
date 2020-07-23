@@ -47,8 +47,8 @@ def get_file_from_git(git_url, commit, filepath):
     if not os.path.isdir(os.path.join(clone_dir, '.git')):
         subprocess.run(['git', 'clone', git_url, clone_dir], check=True)
     rev_parse_proc = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=clone_dir, check=True,
-                                    stdout=subprocess.PIPE, text=True)
-    head = rev_parse_proc.stdout.strip()
+                                    stdout=subprocess.PIPE)
+    head = rev_parse_proc.stdout.decode().strip()
     if head[:COMMIT_LEN] != commit[:COMMIT_LEN]:
         subprocess.run(['git', 'fetch'], cwd=clone_dir, check=True)
         subprocess.run(['git', 'checkout', commit], cwd=clone_dir, check=True)
