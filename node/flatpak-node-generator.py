@@ -30,13 +30,13 @@ import urllib.request
 
 DEFAULT_PART_SIZE = 4096
 
-GIT_PREFIXES = {
-    'github:': 'https://github.com/',
-    'gitlab:': 'https://gitlab.com/',
-    'bitbucket:': 'https://bitbucket.com/',
-    'git:': 'git://',
-    'git+http:': 'http:',
-    'git+https:': 'https:',
+GIT_SCHEMES = {
+    'github': {'scheme': 'https', 'netloc': 'github.com'},
+    'gitlab': {'scheme': 'https', 'netloc': 'gitlab.com'},
+    'bitbucket': {'scheme': 'https', 'netloc': 'bitbucket.com'},
+    'git': {},
+    'git+http': {'scheme': 'http'},
+    'git+https': {'scheme': 'https'},
 }
 
 
@@ -491,7 +491,7 @@ class GitSource(NamedTuple):
         url = urllib.parse.urlparse(self.url)
         path = url.path.split('/')[1:]
         #FIXME this is correct only for some git hosting providers
-        assert len(path) == 2
+        assert len(path) == 2, f'Can\'t get owner/repo from {self.url}'
         owner = path[0]
         if path[1].endswith('.git'):
             repo = path[1].replace('.git', '')
@@ -656,19 +656,25 @@ class ManifestGenerator(contextlib.AbstractContextManager):
 
 class LockfileProvider:
     def parse_git_source(self, version: str, from_: str = None) -> GitSource:
-        assert version.count('#') == 1, version
-        original, commit = version.split('#')
+        original_url = urllib.parse.urlparse(version)
+        assert original_url.scheme and original_url.path and original_url.fragment
 
-        url: Optional[str] = None
-
-        for npm_prefix, url_prefix in GIT_PREFIXES.items():
-            if original.startswith(npm_prefix):
-                url = url_prefix + original[len(npm_prefix):]
-                break
+        if original_url.scheme in GIT_SCHEMES:
+            replacements = GIT_SCHEMES[original_url.scheme]
+            print(f'Original URL: {original_url.geturl()}')
+            new_url = original_url._replace(**replacements)
+            # Replace e.g. git:github.com/owner/repo with git://github.com/owner/repo
+            if not new_url.netloc:
+                path = new_url.path.split('/')
+                new_url = new_url._replace(netloc=path[0], path='/'.join(path[1:]))
+            print(f'Replaced URL: {new_url.geturl()}')
         else:
             raise ValueError(f'{version} doesn\'t match any Git prefix')
 
-        return GitSource(original=original, url=url, commit=commit, from_=from_)
+        return GitSource(original=original_url.geturl(),
+                         url=new_url.geturl(),
+                         commit=original_url.fragment,
+                         from_=from_)
 
     def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
         raise NotImplementedError()
@@ -1334,8 +1340,7 @@ class YarnLockfileProvider(LockfileProvider):
         assert version and resolved, line
 
         source: PackageSource
-        #TODO find more accurate way to check if we have git pkg here
-        if any(resolved.startswith(p) for p in GIT_PREFIXES):
+        if urllib.parse.urlparse(resolved).scheme in GIT_SCHEMES:
             source = self.parse_git_source(version=resolved)
         else:
             source = ResolvedSource(resolved=resolved, integrity=integrity)
