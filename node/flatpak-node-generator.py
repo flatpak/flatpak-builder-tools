@@ -770,6 +770,7 @@ class SpecialSourceProvider:
         electron_ffmpeg: str
         electron_node_headers: bool
         nwjs_version: str
+        nwjs_node_headers: bool
         xdg_layout: bool
 
     def __init__(self, gen: ManifestGenerator, options: Options):
@@ -778,6 +779,7 @@ class SpecialSourceProvider:
         self.electron_ffmpeg = options.electron_ffmpeg
         self.electron_node_headers = options.electron_node_headers
         self.nwjs_version = options.nwjs_version
+        self.nwjs_node_headers = options.nwjs_node_headers
         self.xdg_layout = options.xdg_layout
 
     @property
@@ -905,6 +907,14 @@ class SpecialSourceProvider:
     async def _add_nwjs_cache_downloads(self, version: str, flavor: str = 'normal'):
         assert not version.startswith('v')
         nwjs_mirror = 'https://dl.nwjs.io'
+
+        if self.nwjs_node_headers:
+            headers_dl_url = f'{nwjs_mirror}/v{version}/nw-headers-v{version}.tar.gz'
+            headers_dest = self.gen.data_root / 'node-gyp' / 'nwjs-current'
+            headers_metadata = await RemoteUrlMetadata.get(headers_dl_url, cachable=True)
+            self.gen.add_archive_source(headers_dl_url,
+                                        headers_metadata.integrity,
+                                        destination=headers_dest)
 
         if flavor == 'normal':
             filename_base = 'nwjs'
@@ -1700,6 +1710,9 @@ async def main() -> None:
                         help='Download the electron node headers')
     parser.add_argument('--nwjs-version',
                         help='Specify NW.js version (will use latest otherwise)')
+    parser.add_argument('--nwjs-node-headers',
+                        action='store_true',
+                        help='Download the NW.js node headers')
     parser.add_argument('--xdg-layout',
                         action='store_true',
                         help='Use XDG layout for caches')
@@ -1768,6 +1781,7 @@ async def main() -> None:
             node_chromedriver_from_electron=args.node_chromedriver_from_electron
             or args.electron_chromedriver,
             nwjs_version=args.nwjs_version,
+            nwjs_node_headers=args.nwjs_node_headers,
             xdg_layout=args.xdg_layout,
             electron_ffmpeg=args.electron_ffmpeg,
             electron_node_headers=args.electron_node_headers)
