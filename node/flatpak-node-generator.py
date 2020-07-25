@@ -606,6 +606,17 @@ class ManifestGenerator(contextlib.AbstractContextManager):
         source = {'type': 'script', 'commands': tuple(commands)}
         self._add_source_with_destination(source, destination, is_dir=False)
 
+    def add_shell_source(self,
+                         commands: List[str],
+                         destination: Optional[Path] = None,
+                         only_arches: Optional[List[str]] = None):
+        """This might be slow for multiple instances. Use `add_command()` instead."""
+        source = {'type': 'shell', 'commands': tuple(commands)}
+        self._add_source_with_destination(source,
+                                          destination=destination,
+                                          only_arches=only_arches,
+                                          is_dir=True)
+
     def add_command(self, command: str) -> None:
         self._commands.append(command)
 
@@ -728,6 +739,13 @@ class SpecialSourceProvider:
                                     binary.integrity,
                                     electron_cache_dir / binary.filename,
                                     only_arches=[binary.arch.flatpak])
+            #Symlinks for @electron/get, which stores electron zips in a subdir
+            if self.xdg_layout:
+                sanitized_url = ''.join(c for c in binary.url if c not in '/:')
+                self.gen.add_shell_source(
+                    [f'ln -s "../{binary.filename}" "{binary.filename}"'],
+                    destination=electron_cache_dir / sanitized_url,
+                    only_arches=[binary.arch.flatpak])
 
         if add_integrities:
             integrity_file = manager.integrity_file
