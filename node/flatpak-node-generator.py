@@ -30,7 +30,7 @@ import urllib.request
 
 DEFAULT_PART_SIZE = 4096
 
-GIT_SCHEMES = {
+GIT_SCHEMES: Dict[str, Dict[str, str]] = {
     'github': {'scheme': 'https', 'netloc': 'github.com'},
     'gitlab': {'scheme': 'https', 'netloc': 'gitlab.com'},
     'bitbucket': {'scheme': 'https', 'netloc': 'bitbucket.com'},
