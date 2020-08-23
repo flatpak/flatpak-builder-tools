@@ -5,6 +5,7 @@ import json
 from urllib.parse import quote as urlquote
 from urllib.parse import urlparse, ParseResult, parse_qs
 import os
+import glob
 import subprocess
 import argparse
 import logging
@@ -40,7 +41,7 @@ def load_toml(tomlfile='Cargo.lock'):
         toml_data = toml.load(f)
     return toml_data
 
-def get_file_from_git(git_url, commit, filepath):
+def fetch_git_repo(git_url, commit):
     repo_dir = git_url.replace('://', '_').replace('/', '_')
     cache_dir = os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache'))
     clone_dir = os.path.join(cache_dir, 'flatpak-cargo', repo_dir)
@@ -52,20 +53,23 @@ def get_file_from_git(git_url, commit, filepath):
     if head[:COMMIT_LEN] != commit[:COMMIT_LEN]:
         subprocess.run(['git', 'fetch', 'origin', commit], cwd=clone_dir, check=True)
         subprocess.run(['git', 'checkout', commit], cwd=clone_dir, check=True)
-    with open(os.path.join(clone_dir, filepath), 'r') as f:
-        return f.read()
+    return clone_dir
 
 def get_git_cargo_packages(git_url, commit):
-    root_toml = toml.loads(get_file_from_git(git_url, commit, 'Cargo.toml'))
+    git_repo_dir = fetch_git_repo(git_url, commit)
+    with open(os.path.join(git_repo_dir, 'Cargo.toml'), 'r') as r:
+        root_toml = toml.loads(r.read())
     assert 'package' in root_toml or 'workspace' in root_toml
     packages = {}
     if 'package' in root_toml:
         packages[root_toml['package']['name']] = '.'
     if 'workspace' in root_toml:
-        for subpkg in root_toml['workspace']['members']:
-            pkg_toml = toml.loads(get_file_from_git(git_url, commit,
-                                                    os.path.join(subpkg, 'Cargo.toml')))
-            packages[pkg_toml['package']['name']] = subpkg
+        for member in root_toml['workspace']['members']:
+            for subpkg_toml in glob.glob(os.path.join(git_repo_dir, member, 'Cargo.toml')):
+                subpkg = os.path.relpath(os.path.dirname(subpkg_toml), git_repo_dir)
+                with open(subpkg_toml, 'r') as s:
+                    pkg_toml = toml.loads(s.read())
+                packages[pkg_toml['package']['name']] = subpkg
     return packages
 
 def get_git_sources(package):
