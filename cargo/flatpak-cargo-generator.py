@@ -50,7 +50,7 @@ def get_file_from_git(git_url, commit, filepath):
                                     stdout=subprocess.PIPE)
     head = rev_parse_proc.stdout.decode().strip()
     if head[:COMMIT_LEN] != commit[:COMMIT_LEN]:
-        subprocess.run(['git', 'fetch'], cwd=clone_dir, check=True)
+        subprocess.run(['git', 'fetch', 'origin', commit], cwd=clone_dir, check=True)
         subprocess.run(['git', 'checkout', commit], cwd=clone_dir, check=True)
     with open(os.path.join(clone_dir, filepath), 'r') as f:
         return f.read()
