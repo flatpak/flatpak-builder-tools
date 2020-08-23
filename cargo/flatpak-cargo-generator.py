@@ -56,6 +56,7 @@ def fetch_git_repo(git_url, commit):
     return clone_dir
 
 def get_git_cargo_packages(git_url, commit):
+    logging.info(f'Loading packages from git {git_url}')
     git_repo_dir = fetch_git_repo(git_url, commit)
     with open(os.path.join(git_repo_dir, 'Cargo.toml'), 'r') as r:
         root_toml = toml.loads(r.read())
@@ -70,6 +71,7 @@ def get_git_cargo_packages(git_url, commit):
                 with open(subpkg_toml, 'r') as s:
                     pkg_toml = toml.loads(s.read())
                 packages[pkg_toml['package']['name']] = subpkg
+    logging.debug(f'Packages in repo: {packages}')
     return packages
 
 def get_git_sources(package):
@@ -196,16 +198,21 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('cargo_lock', help='Path to the Cargo.lock file')
     parser.add_argument('-o', '--output', required=False, help='Where to write generated sources')
+    parser.add_argument('-d', '--debug', action='store_true')
     args = parser.parse_args()
     if args.output is not None:
         outfile = args.output
     else:
         outfile = 'generated-sources.json'
+    if args.debug:
+        loglevel = logging.DEBUG
+    else:
+        loglevel = logging.INFO
+    logging.basicConfig(level=loglevel)
 
     generated_sources = generate_sources(load_toml(args.cargo_lock))
     with open(outfile, 'w') as out:
         json.dump(generated_sources, out, indent=4, sort_keys=False)
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
     main()
