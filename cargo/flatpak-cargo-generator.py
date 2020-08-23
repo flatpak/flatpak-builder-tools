@@ -20,8 +20,6 @@ CARGO_CRATES = f'{CARGO_HOME}/vendor'
 VENDORED_SOURCES = 'vendored-sources'
 COMMIT_LEN = 7
 
-USE_GIT_TARBALLS = True
-
 def canonical_url(url):
     'Converts a string to a Cargo Canonical URL, as per https://github.com/rust-lang/cargo/blob/35c55a93200c84a4de4627f1770f76a8ad268a39/src/cargo/util/canonical_url.rs#L19'
     logging.debug('canonicalising %s', url)
@@ -111,7 +109,7 @@ async def get_git_cargo_packages(git_url, commit):
     logging.debug(f'Packages in repo: {packages}')
     return packages
 
-async def get_git_sources(package, tarball=USE_GIT_TARBALLS):
+async def get_git_sources(package, tarball=False):
     name = package['name']
     source = package['source']
     commit = urlparse(source).fragment
@@ -178,7 +176,7 @@ async def get_git_sources(package, tarball=USE_GIT_TARBALLS):
 
     return (git_sources, cargo_vendored_entry)
 
-async def get_package_sources(package, cargo_lock):
+async def get_package_sources(package, cargo_lock, git_tarballs=False):
     metadata = cargo_lock.get('metadata')
     name = package['name']
     version = package['version']
@@ -190,7 +188,7 @@ async def get_package_sources(package, cargo_lock):
     source = package['source']
 
     if source.startswith('git+'):
-        return await get_git_sources(package)
+        return await get_git_sources(package, tarball=git_tarballs)
 
     key = f'checksum {name} {version} ({source})'
     if metadata is not None and key in metadata:
@@ -217,12 +215,12 @@ async def get_package_sources(package, cargo_lock):
     ]
     return (crate_sources, {'crates-io': {'replace-with': VENDORED_SOURCES}})
 
-async def generate_sources(cargo_lock):
+async def generate_sources(cargo_lock, git_tarballs=False):
     sources = []
     cargo_vendored_sources = {
         VENDORED_SOURCES: {'directory': f'{CARGO_CRATES}'},
     }
-    pkg_coros = [get_package_sources(p, cargo_lock) for p in cargo_lock['package']]
+    pkg_coros = [get_package_sources(p, cargo_lock, git_tarballs) for p in cargo_lock['package']]
     for pkg in await asyncio.gather(*pkg_coros):
         if pkg is None:
             continue
@@ -254,6 +252,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('cargo_lock', help='Path to the Cargo.lock file')
     parser.add_argument('-o', '--output', required=False, help='Where to write generated sources')
+    parser.add_argument('-t', '--git-tarballs', action='store_true', help='Download git repos as tarballs')
     parser.add_argument('-d', '--debug', action='store_true')
     args = parser.parse_args()
     if args.output is not None:
@@ -266,7 +265,8 @@ def main():
         loglevel = logging.INFO
     logging.basicConfig(level=loglevel)
 
-    generated_sources = asyncio.run(generate_sources(load_toml(args.cargo_lock)))
+    generated_sources = asyncio.run(generate_sources(load_toml(args.cargo_lock),
+                                    git_tarballs=args.git_tarballs))
     with open(outfile, 'w') as out:
         json.dump(generated_sources, out, indent=4, sort_keys=False)
 
