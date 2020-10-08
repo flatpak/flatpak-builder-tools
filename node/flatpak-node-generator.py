@@ -930,24 +930,36 @@ class SpecialSourceProvider:
         browsers_json_url = base_url + 'browsers.json'
         browsers_json = json.loads(await Requests.instance.read_all(browsers_json_url,
                                                                     cachable=True))
-        dl_urls = {
-            'chromium':
-                'https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/%d/chrome-linux.zip',
-            'firefox':
-                'https://playwright.azureedge.net/builds/firefox/%s/firefox-linux.zip',
-            'webkit':
-                'https://playwright.azureedge.net/builds/webkit/%s/minibrowser-gtk-wpe.zip',
-        }
         for browser in browsers_json['browsers']:
             name = browser['name']
-            revision = browser['revision']
-            dl_url = dl_urls[name] % (int(revision))
+            revision = int(browser['revision'])
+
+            if name == 'chromium':
+                url_tp = 'https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/%d/%s'
+                dl_file = 'chrome-linux.zip'
+            elif name == 'firefox':
+                url_tp = 'https://playwright.azureedge.net/builds/firefox/%d/%s'
+                if revision < 1140:
+                    dl_file = 'firefox-linux.zip'
+                else:
+                    dl_file = 'firefox-ubuntu-18.04.zip'
+            elif name == 'webkit':
+                url_tp = 'https://playwright.azureedge.net/builds/webkit/%d/%s'
+                if revision < 1317:
+                    dl_file = 'minibrowser-gtk-wpe.zip'
+                else:
+                    dl_file = 'webkit-ubuntu-20.04.zip'
+
+            dl_url = url_tp % (revision, dl_file)
             metadata = await RemoteUrlMetadata.get(dl_url, cachable=True)
             destdir = self.gen.data_root / 'cache' / 'ms-playwright' / f'{name}-{revision}'
             self.gen.add_archive_source(dl_url,
                                         metadata.integrity,
                                         destination=destdir,
                                         strip_components=0)
+            # Arbitrary string here; flatpak-builder segfaults on empty data: url
+            self.gen.add_data_source("flatpak-node-cache",
+                                     destination=destdir / 'INSTALLATION_COMPLETE')
 
     def _handle_electron_builder(self, package: Package) -> None:
         destination = self.gen.data_root / 'electron-builder-arch-args.sh'
