@@ -1035,7 +1035,7 @@ class NpmLockfileProvider(LockfileProvider):
 
         assert data['lockfileVersion'] == 1, data['lockfileVersion']
 
-        yield from self.process_dependencies(lockfile, data['dependencies'])
+        yield from self.process_dependencies(lockfile, data.get('dependencies', {}))
 
 
 class NpmModuleProvider(ModuleProvider):
