@@ -660,14 +660,12 @@ class LockfileProvider:
         assert original_url.scheme and original_url.path and original_url.fragment
         assert original_url.scheme in GIT_SCHEMES, f'{version} doesn\'t match any Git prefix'
 
-        print(f'Original URL: {original_url.geturl()}')
         replacements = GIT_SCHEMES[original_url.scheme]
         new_url = original_url._replace(fragment='', **replacements)
         # Replace e.g. git:github.com/owner/repo with git://github.com/owner/repo
         if not new_url.netloc:
             path = new_url.path.split('/')
             new_url = new_url._replace(netloc=path[0], path='/'.join(path[1:]))
-        print(f'Replaced URL: {new_url.geturl()}')
 
         return GitSource(original=original_url.geturl(),
                          url=new_url.geturl(),
