@@ -662,7 +662,7 @@ class LockfileProvider:
         if original_url.scheme in GIT_SCHEMES:
             replacements = GIT_SCHEMES[original_url.scheme]
             print(f'Original URL: {original_url.geturl()}')
-            new_url = original_url._replace(**replacements)
+            new_url = original_url._replace(fragment='', **replacements)
             # Replace e.g. git:github.com/owner/repo with git://github.com/owner/repo
             if not new_url.netloc:
                 path = new_url.path.split('/')
