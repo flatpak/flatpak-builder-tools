@@ -89,10 +89,14 @@ def get_git_sources(package):
         }
     }
     rev = parse_qs(urlparse(source).query).get('rev')
+    tag = parse_qs(urlparse(source).query).get('tag')
     branch = parse_qs(urlparse(source).query).get('branch', ['master'])
     if rev:
         assert len(rev) == 1
         cargo_vendored_entry[repo_url]['rev'] = rev[0]
+    elif tag:
+        assert len(tag) == 1
+        cargo_vendored_entry[repo_url]['tag'] = tag[0]
     else:
         assert len(branch) == 1
         cargo_vendored_entry[repo_url]['branch'] = branch[0]
