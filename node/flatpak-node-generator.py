@@ -1385,10 +1385,10 @@ class YarnModuleProvider(ModuleProvider):
 
         elif isinstance(source, GitSource):
             repo_name = urllib.parse.urlparse(source.url).path.split('/')[-1]
-            repo_dir = self.gen.tmp_root / repo_name
-            target_tar = self.mirror_dir / f'{repo_name}-{source.commit}'
+            name = f'{repo_name}-{source.commit}'
+            repo_dir = self.gen.tmp_root / name
+            target_tar = self.mirror_dir / name
 
-            #XXX Yarn wants uncompressed tar, why?
             self.gen.add_git_source(source.url, source.commit, repo_dir)
             self.gen.add_command(f'cd {repo_dir}; git archive --format tar -o ../../../{target_tar} HEAD')
 
