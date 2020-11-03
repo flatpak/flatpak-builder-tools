@@ -486,26 +486,6 @@ class GitSource(NamedTuple):
     commit: str
     from_: Optional[str]
 
-    @property
-    def tarball_url(self) -> Optional[str]:
-        url = urllib.parse.urlparse(self.url)
-        path = url.path.split('/')[1:]
-        #FIXME this is correct only for some git hosting providers
-        assert len(path) == 2, f'Can\'t get owner/repo from {self.url}'
-        owner = path[0]
-        if path[1].endswith('.git'):
-            repo = path[1].replace('.git', '')
-        else:
-            repo = path[1]
-        if url.hostname == 'github.com':
-            return f'https://codeload.{url.hostname}/{owner}/{repo}/tar.gz/{self.commit}'
-        elif url.hostname == 'gitlab.com':
-            return f'https://{url.hostname}/{owner}/{repo}/repository/archive.tar.gz?ref={self.commit}'
-        elif url.hostname == 'bitbucket.org':
-            return f'https://{url.hostname}/{owner}/{repo}/get/{self.commit}.tar.gz'
-        else:
-            return None
-
 
 PackageSource = Union[ResolvedSource, UnresolvedRegistrySource, GitSource]
 
@@ -1405,14 +1385,12 @@ class YarnModuleProvider(ModuleProvider):
 
         elif isinstance(source, GitSource):
             repo_name = urllib.parse.urlparse(source.url).path.split('/')[-1]
-            tarball_url = source.tarball_url
-            assert tarball_url is not None
-            metadata = await RemoteUrlMetadata.get(tarball_url, cachable=True)
-            filename = f'{repo_name}-{source.commit}'
+            repo_dir = self.gen.tmp_root / repo_name
+            target_tar = self.mirror_dir / f'{repo_name}-{source.commit}'
 
             #XXX Yarn wants uncompressed tar, why?
-            self.gen.add_url_source(tarball_url, metadata.integrity, self.mirror_dir / f'{filename}.gz')
-            self.gen.add_command(f'gunzip "{self.mirror_dir}/{filename}.gz"')
+            self.gen.add_git_source(source.url, source.commit, repo_dir)
+            self.gen.add_command(f'cd {repo_dir}; git archive --format tar -o ../../../{target_tar} HEAD')
 
         await self.special_source_provider.generate_special_sources(package)
 
