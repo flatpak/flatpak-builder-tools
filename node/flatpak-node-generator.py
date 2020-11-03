@@ -1387,10 +1387,10 @@ class YarnModuleProvider(ModuleProvider):
             repo_name = urllib.parse.urlparse(source.url).path.split('/')[-1]
             name = f'{repo_name}-{source.commit}'
             repo_dir = self.gen.tmp_root / name
-            target_tar = self.mirror_dir / name
+            target_tar = os.path.relpath(self.mirror_dir / name, repo_dir)
 
             self.gen.add_git_source(source.url, source.commit, repo_dir)
-            self.gen.add_command(f'cd {repo_dir}; git archive --format tar -o ../../../{target_tar} HEAD')
+            self.gen.add_command(f'cd {repo_dir}; git archive --format tar -o {target_tar} HEAD')
 
         await self.special_source_provider.generate_special_sources(package)
 
