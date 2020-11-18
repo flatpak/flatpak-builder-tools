@@ -32,6 +32,7 @@ sub get_url_sha256 {
 
   my $state = Digest::SHA->new(256);
   my $ua = LWP::UserAgent->new;
+  $ua->env_proxy;
 
   my $resp = $ua->get($url, ':read_size_hint' => 1024,
                       ':content_cb' => sub {
