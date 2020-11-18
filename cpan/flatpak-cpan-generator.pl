@@ -21,7 +21,7 @@ sub scan_deps {
 
   for (@deps)
   {
-      s/^Successfully installed (.*)/$1/;
+      s/^Successfully installed (\S+).*/$1/;
   }
 
    @deps
