@@ -65,7 +65,7 @@ sub get_source_for_dep {
 sub write_module_to_file {
   my ($output, $root) = @_;
 
-  my $serializer = JSON::MaybeXS->new(indent => 1, space_after => 1);
+  my $serializer = JSON::MaybeXS->new(indent => 1, space_after => 1, canonical => 1);
   my $json = $serializer->encode($root);
 
   open my $fh, '>', $output or die "Could not open $output for writing\n";
