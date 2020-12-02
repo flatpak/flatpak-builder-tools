@@ -38,7 +38,7 @@ class GoModule:
 
 def parse_modules(fh):
     for line in (l.strip() for l in fh if l.strip()):
-        if line.startswith("#"):
+        if line.startswith("# "):
             _, name, version = line.split(" ")
             if '-' in version:
                 version, date, revision = version.strip().split("-")
@@ -58,6 +58,7 @@ def go_module_to_flatpak(m):
         else:
             url = m.name
     url = url.replace('golang.org/x/', 'go.googlesource.com/')
+    url = url.replace('google.golang.org/protobuf', 'github.com/protocolbuffers/protobuf-go')
     url = "https://" + url
 
     if not '+' in m.version:
