@@ -340,11 +340,19 @@ for package in packages:
             print('Failed to download {}'.format(package.name))
 
     is_vcs = True if package.vcs else False
-    package_sources = [sources[x]['source']
-                       for x in dependencies
-                       if x in sources
-                       # Add vcs source only if package is vcs
-                       and (not sources[x]['vcs'] or is_vcs)]
+    package_sources = []
+    for dependency in dependencies:
+        if dependency in sources:
+            source = sources[dependency]
+        elif dependency.replace('_', '-') in sources:
+            source = sources[dependency.replace('_', '-')]
+        else:
+            continue
+
+        if not (not source['vcs'] or is_vcs):
+            continue
+
+        package_sources.append(source['source'])
 
     if package.vcs:
         name_for_pip = '.'
