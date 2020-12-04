@@ -288,7 +288,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         sources[name] = {'source': source, 'vcs': is_vcs}
 
 # Python3 packages that come as part of org.freedesktop.Sdk.
-system_packages = ['Mako', 'Markdown', 'meson', 'pip', 'setuptools', 'six']
+system_packages = ['cython', 'easy_install', 'mako', 'markdown', 'meson', 'pip', 'pygments', 'setuptools', 'six', 'wheel']
 
 fprint('Generating dependencies')
 for package in packages:
@@ -297,7 +297,7 @@ for package in packages:
         print('Warning: skipping invalid requirement specification {} because it is missing a name'.format(package.line), file=sys.stderr)
         print('Append #egg=<pkgname> to the end of the requirement line to fix', file=sys.stderr)
         continue
-    elif package.name in system_packages:
+    elif package.name.casefold() in system_packages:
         continue
 
     if len(package.extras) > 0:
