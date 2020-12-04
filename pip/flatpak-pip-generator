@@ -331,7 +331,10 @@ for package in packages:
             print('Generating dependencies for {}'.format(package.name))
             subprocess.run(pip_download + [pkg], check=True, stdout=subprocess.DEVNULL)
             for filename in os.listdir(tempdir):
-                dependencies.append(get_package_name(filename))
+                dep_name = get_package_name(filename)
+                if dep_name.casefold() in system_packages:
+                    continue
+                dependencies.append(dep_name)
 
         except subprocess.CalledProcessError:
             print('Failed to download {}'.format(package.name))
