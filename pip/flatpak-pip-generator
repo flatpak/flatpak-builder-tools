@@ -30,8 +30,6 @@ parser.add_argument('--requirements-file', '-r',
 parser.add_argument('--build-only', action='store_const',
                     dest='cleanup', const='all',
                     help='Clean up all files after build')
-parser.add_argument('--no-build-isolation', action='store_true', default=False,
-                    help='https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support')
 parser.add_argument('--output', '-o',
                     help='Specify output file name')
 parser.add_argument('--runtime',
@@ -195,6 +193,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     pip_download = flatpak_cmd + [
         'download',
         '--exists-action=i',
+        '--no-binary=:all',
         '--dest',
         tempdir,
         '-r',
@@ -217,20 +216,6 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             os.remove(requirements_file)
         except FileNotFoundError:
             pass
-
-    fprint('Downloading arch independent packages')
-    for filename in os.listdir(tempdir):
-        if not filename.endswith(('bz2', 'gz', 'xz', 'zip')):
-            version = get_file_version(filename)
-            name = get_package_name(filename)
-            url = get_tar_package_url_pypi(name, version)
-            print('Deleting', filename)
-            try:
-                os.remove(os.path.join(tempdir, filename))
-            except FileNotFoundError:
-                pass
-            print('Downloading {}'.format(url))
-            download_tar_pypi(url, tempdir)
 
     files = {get_package_name(f): [] for f in os.listdir(tempdir)}
 
@@ -275,6 +260,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             source = OrderedDict([
                 ('type', vcs),
                 ('url', url),
+                ('dest', name),
                 (s, revision),
             ])
             is_vcs = True
@@ -287,17 +273,15 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             is_vcs = False
         sources[name] = {'source': source, 'vcs': is_vcs}
 
-# Python3 packages that come as part of org.freedesktop.Sdk.
-system_packages = ['cython', 'easy_install', 'mako', 'markdown', 'meson', 'pip', 'pygments', 'setuptools', 'six', 'wheel']
-
 fprint('Generating dependencies')
+package_sources = []
+names = []
+
 for package in packages:
 
     if package.name is None:
         print('Warning: skipping invalid requirement specification {} because it is missing a name'.format(package.line), file=sys.stderr)
         print('Append #egg=<pkgname> to the end of the requirement line to fix', file=sys.stderr)
-        continue
-    elif package.name.casefold() in system_packages:
         continue
 
     if len(package.extras) > 0:
@@ -313,7 +297,9 @@ for package in packages:
         if package.revision:
             revision = '@' + package.revision
         pkg = package.uri + revision + '#egg=' + package.name
+        names.append("./" + package.name)
     else:
+        names.append(package.name)
         pkg = package.name + extras + version
 
     dependencies = []
@@ -332,15 +318,13 @@ for package in packages:
             subprocess.run(pip_download + [pkg], check=True, stdout=subprocess.DEVNULL)
             for filename in os.listdir(tempdir):
                 dep_name = get_package_name(filename)
-                if dep_name.casefold() in system_packages:
-                    continue
                 dependencies.append(dep_name)
 
         except subprocess.CalledProcessError:
             print('Failed to download {}'.format(package.name))
 
     is_vcs = True if package.vcs else False
-    package_sources = []
+
     for dependency in dependencies:
         if dependency in sources:
             source = sources[dependency]
@@ -354,53 +338,28 @@ for package in packages:
 
         package_sources.append(source['source'])
 
-    if package.vcs:
-        name_for_pip = '.'
-    else:
-        name_for_pip = pkg
 
-    module_name = 'python{}-{}'.format(python_version, package.name)
+pip_command = [
+    pip_executable,
+    'install',
+    '--exists-action=i',
+    '--no-index',
+    '--find-links="file://${PWD}"',
+    '--prefix=${FLATPAK_DEST}',
+] + names
 
-    pip_command = [
-        pip_executable,
-        'install',
-        '--exists-action=i',
-        '--no-index',
-        '--find-links="file://${PWD}"',
-        '--prefix=${FLATPAK_DEST}',
-        '"{}"'.format(name_for_pip)
-    ]
-    if opts.no_build_isolation:
-        pip_command.append('--no-build-isolation')
-
-    module = OrderedDict([
-        ('name', module_name),
-        ('buildsystem', 'simple'),
-        ('build-commands', [' '.join(pip_command)]),
-        ('sources', package_sources),
-    ])
-    if opts.cleanup == 'all':
-        module['cleanup'] = ['*']
-    elif opts.cleanup == 'scripts':
-        module['cleanup'] = ['/bin', '/share/man/man1']
-
-    if package.vcs:
-        vcs_modules.append(module)
-    else:
-        modules.append(module)
-
-modules = vcs_modules + modules
-if len(modules) == 1:
-    pypi_module = modules[0]
-else:
-    pypi_module = {
-        'name': output_package,
-        'buildsystem': 'simple',
-        'build-commands': [],
-        'modules': modules,
-    }
+module = OrderedDict([
+    ('name', output_package),
+    ('buildsystem', 'simple'),
+    ('build-commands', [' '.join(pip_command)]),
+    ('sources', package_sources),
+])
+if opts.cleanup == 'all':
+    module['cleanup'] = ['*']
+elif opts.cleanup == 'scripts':
+    module['cleanup'] = ['/bin', '/share/man/man1']
 
 print()
 with open(output_filename, 'w') as output:
-    output.write(json.dumps(pypi_module, indent=4))
+    output.write(json.dumps(module, indent=4))
     print('Output saved to {}'.format(output_filename))
