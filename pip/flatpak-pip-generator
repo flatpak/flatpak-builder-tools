@@ -30,6 +30,8 @@ parser.add_argument('--requirements-file', '-r',
 parser.add_argument('--build-only', action='store_const',
                     dest='cleanup', const='all',
                     help='Clean up all files after build')
+parser.add_argument('--shared-download-cache', action='store_true',
+                    help='Allow sandbox mode share host pip download cache')
 parser.add_argument('--output', '-o',
                     help='Specify output file name')
 parser.add_argument('--runtime',
@@ -166,7 +168,9 @@ if opts.runtime:
     if opts.requirements_file and os.path.exists(opts.requirements_file):
         prefix = os.path.realpath(opts.requirements_file)
         flag = '--filesystem={}'.format(prefix)
-        flatpak_cmd.insert(1,flag)
+        flatpak_cmd.insert(1, flag)
+    if opts.shared_download_cache:
+        flatpak_cmd.insert(1, '--filesystem=xdg-cache/pip/http')
 else:
     flatpak_cmd = [pip_executable]
 
