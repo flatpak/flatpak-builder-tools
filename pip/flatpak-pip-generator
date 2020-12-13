@@ -30,7 +30,7 @@ parser.add_argument('--requirements-file', '-r',
 parser.add_argument('--build-only', action='store_const',
                     dest='cleanup', const='all',
                     help='Clean up all files after build')
-parser.add_argument('--no-build-isolation', action='store_true', default=False
+parser.add_argument('--no-build-isolation', action='store_true', default=False,
                     help='https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support')
 parser.add_argument('--output', '-o',
                     help='Specify output file name')
