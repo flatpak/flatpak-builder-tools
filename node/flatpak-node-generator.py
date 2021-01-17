@@ -999,9 +999,9 @@ class NpmLockfileProvider(LockfileProvider):
             if info.get('from'):
                 git_source = self.parse_git_source(version, info['from'])
                 source = git_source
+            elif info.get('resolved'):
+                source = ResolvedSource(resolved=info['resolved'],integrity=Integrity.parse(info['integrity']))
             else:
-                # NOTE: npm ignores the resolved field and just uses the provided
-                # registry instead. We follow the same behavior here.
                 source = UnresolvedRegistrySource()
 
             yield Package(name=name, version=version, source=source, lockfile=lockfile)
@@ -1135,7 +1135,15 @@ class NpmModuleProvider(ModuleProvider):
         self.all_lockfiles.add(package.lockfile)
         source = package.source
 
-        assert not isinstance(source, ResolvedSource)
+        if isinstance(source,  ResolvedSource):
+            integrity = await source.retrieve_integrity()
+            size = await RemoteUrlMetadata.get_size(source.resolved, cachable=True)
+            metadata = RemoteUrlMetadata(integrity=integrity, size=size)
+            content_path = self.get_cacache_content_path(integrity)
+            self.gen.add_url_source(source.resolved, integrity, content_path)
+            self.add_index_entry(source.resolved, metadata)
+            await self.special_source_provider.generate_special_sources(package)
+
 
         if isinstance(source, UnresolvedRegistrySource):
             source = await self.resolve_source(package)
