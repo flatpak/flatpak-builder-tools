@@ -1203,7 +1203,7 @@ class NpmModuleProvider(ModuleProvider):
                     walk(
                         if type == "object" and (.version | type == "string") and $data[.version]
                         then
-                            .version = "git+file:\($buildroot)/\($data[.version])"
+                            .version = "git+file:\($buildroot)/\($data[.version])" | .from = .version
                         else .
                         end
                     )
@@ -1218,11 +1218,16 @@ class NpmModuleProvider(ModuleProvider):
                 }
 
                 for path, source in sources.items():
-                    original_version = f'{source.original}#{source.commit}'
+                    # original is urllib.parse.urlparse(version).geturl(), which contains the '#commit'
+                    original_version = f'{source.original}'
+                    original_version_nocommit = original_version.replace('#'+source.commit,'')
                     new_version = f'{path}#{source.commit}'
                     assert source.from_ is not None
                     data['package.json'][source.from_] = new_version
                     data['package-lock.json'][original_version] = new_version
+                    # Add nocommit match for the git url no commit, which mean at master
+                    if original_version != original_version_nocommit:
+                        data['package-lock.json'][original_version_nocommit] = new_version
 
                 for filename, script in scripts.items():
                     target = Path('$FLATPAK_BUILDER_BUILDDIR') / prefix / filename
