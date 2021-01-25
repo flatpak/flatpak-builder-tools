@@ -1201,9 +1201,22 @@ class NpmModuleProvider(ModuleProvider):
                 'package-lock.json':
                     '''
                     walk(
-                        if type == "object" and (.version | type == "string") and $data[.version]
+                        if type == "object"
                         then
-                            .version = "git+file:\($buildroot)/\($data[.version])"
+                            if (.version | type == "string") and $data[.version]
+                            then
+                                .version = "git+file:\($buildroot)/\($data[.version])"
+                            elif (.requires | type == "object")
+                            then
+                                .requires = (.requires | with_entries(
+                                    if (.value | type == "string") and $data[.value]
+                                    then
+                                        .value = "git+file:\($buildroot)/\($data[.value])"
+                                    else .
+                                    end
+                                ))
+                            else .
+                            end
                         else .
                         end
                     )
