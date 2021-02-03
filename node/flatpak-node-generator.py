@@ -1231,10 +1231,11 @@ class NpmModuleProvider(ModuleProvider):
                 }
 
                 for path, source in sources.items():
-                    original_version = f'{source.original}#{source.commit}'
+                    original_version = f'{source.original}'
                     new_version = f'{path}#{source.commit}'
                     assert source.from_ is not None
                     data['package.json'][source.from_] = new_version
+                    data['package-lock.json'][source.from_] = new_version
                     data['package-lock.json'][original_version] = new_version
 
                 for filename, script in scripts.items():
