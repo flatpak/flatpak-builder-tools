@@ -1205,7 +1205,7 @@ class NpmModuleProvider(ModuleProvider):
                         then
                             if (.version | type == "string") and $data[.version]
                             then
-                                .version = "git+file:\($buildroot)/\($data[.version])"
+                                .version = "git+file:\($buildroot)/\($data[.version])" | .from = .version
                             elif (.requires | type == "object")
                             then
                                 .requires = (.requires | with_entries(
