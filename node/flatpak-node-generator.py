@@ -960,6 +960,38 @@ class SpecialSourceProvider:
             self.gen.add_data_source("flatpak-node-cache",
                                      destination=destdir / 'INSTALLATION_COMPLETE')
 
+    async def _handle_esbuild(self, package: Package) -> None:
+        pkg_names = {
+            'x86_64': 'esbuild-linux-64',
+            'i386': 'esbuild-linux-32',
+            'arm': 'esbuild-linux-arm',
+            'aarch64': 'esbuild-linux-arm64'
+        }
+
+        for flatpak_arch, pkg_name in pkg_names.items():
+            dl_url = f'https://registry.npmjs.org/{pkg_name}/-/{pkg_name}-{package.version}.tgz'
+            metadata = await RemoteUrlMetadata.get(dl_url, cachable=True)
+
+            cache_dst = self.gen.data_root / 'cache' / 'esbuild'
+            archive_dst = cache_dst / '.package' / f'{pkg_name}@{package.version}'
+            bin_src = archive_dst / 'bin' / 'esbuild'
+            bin_dst = cache_dst / 'bin' / f'{pkg_name}@{package.version}'
+
+            self.gen.add_archive_source(dl_url,
+                                        metadata.integrity,
+                                        destination=archive_dst,
+                                        only_arches=[flatpak_arch],
+                                        strip_components=1)
+
+            cmd = [
+                f'mkdir -p "{bin_dst.parent.relative_to(cache_dst)}"',
+                f'cp "{bin_src.relative_to(cache_dst)}" "{bin_dst.relative_to(cache_dst)}"',
+                f'ln -sf "{bin_dst.name}" "bin/esbuild-current"'
+            ]
+            self.gen.add_shell_source(cmd,
+                                      only_arches=[flatpak_arch],
+                                      destination=cache_dst)
+
     def _handle_electron_builder(self, package: Package) -> None:
         destination = self.gen.data_root / 'electron-builder-arch-args.sh'
 
@@ -999,6 +1031,8 @@ class SpecialSourceProvider:
             await self._handle_ripgrep_prebuilt(package)
         elif package.name == 'playwright':
             await self._handle_playwright(package)
+        elif package.name == 'esbuild':
+            await self._handle_esbuild(package)
 
 
 class NpmLockfileProvider(LockfileProvider):
