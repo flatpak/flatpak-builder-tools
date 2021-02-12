@@ -38,6 +38,19 @@ GIT_SCHEMES: Dict[str, Dict[str, str]] = {
     'git+http': {'scheme': 'http'},
     'git+https': {'scheme': 'https'},
 }
+GIT_URL_PATTERNS = [
+    re.compile(r'^git:'),
+    re.compile(r'^git\+.+:'),
+    re.compile(r'^ssh:'),
+    re.compile(r'^https?:.+\.git$'),
+    re.compile(r'^https?:.+\.git#.+'),
+]
+GIT_URL_HOSTS = [
+    'github.com',
+    'gitlab.com',
+    'bitbucket.com',
+    'bitbucket.org'
+]
 
 
 class Cache:
@@ -638,9 +651,8 @@ class LockfileProvider:
     def parse_git_source(self, version: str, from_: str = None) -> GitSource:
         original_url = urllib.parse.urlparse(version)
         assert original_url.scheme and original_url.path and original_url.fragment
-        assert original_url.scheme in GIT_SCHEMES, f'{version} doesn\'t match any Git prefix'
 
-        replacements = GIT_SCHEMES[original_url.scheme]
+        replacements = GIT_SCHEMES.get(original_url.scheme, {})
         new_url = original_url._replace(fragment='', **replacements)
         # Replace e.g. git:github.com/owner/repo with git://github.com/owner/repo
         if not new_url.netloc:
@@ -1281,6 +1293,16 @@ class NpmModuleProvider(ModuleProvider):
 
 
 class YarnLockfileProvider(LockfileProvider):
+    @staticmethod
+    def is_git_version(version) -> bool:
+        for pattern in GIT_URL_PATTERNS:
+            if pattern.match(version):
+                return True
+        url = urllib.parse.urlparse(version)
+        if url.netloc in GIT_URL_HOSTS:
+            return len([p for p in url.path.split("/") if p]) == 2
+        return False
+
     def unquote(self, string: str) -> str:
         if string.startswith('"'):
             assert string.endswith('"')
@@ -1328,7 +1350,7 @@ class YarnLockfileProvider(LockfileProvider):
         assert version and resolved, line
 
         source: PackageSource
-        if urllib.parse.urlparse(resolved).scheme in GIT_SCHEMES:
+        if self.is_git_version(resolved):
             source = self.parse_git_source(version=resolved)
         else:
             source = ResolvedSource(resolved=resolved, integrity=integrity)
