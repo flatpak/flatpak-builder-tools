@@ -768,9 +768,20 @@ class SpecialSourceProvider:
             #Symlinks for @electron/get, which stores electron zips in a subdir
             if self.xdg_layout:
                 sanitized_url = ''.join(c for c in binary.url if c not in '/:')
+
+                #And for @electron/get >= 1.12.4 its sha256 hash of url dirname
+                url = urllib.parse.urlparse(binary.url)
+                url_dir = urllib.parse.urlunparse(url._replace(path=os.path.dirname(url.path)))
+                url_hash = hashlib.sha256(url_dir.encode()).hexdigest()
+
                 self.gen.add_shell_source(
-                    [f'ln -s "../{binary.filename}" "{binary.filename}"'],
-                    destination=electron_cache_dir / sanitized_url,
+                    [
+                        f'mkdir -p "{sanitized_url}"',
+                        f'ln -s "../{binary.filename}" "{sanitized_url}/{binary.filename}"',
+                        f'mkdir -p "{url_hash}"',
+                        f'ln -s "../{binary.filename}" "{url_hash}/{binary.filename}"'
+                    ],
+                    destination=electron_cache_dir,
                     only_arches=[binary.arch.flatpak])
 
         if add_integrities:
