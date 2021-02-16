@@ -69,6 +69,7 @@ optional arguments:
                         Download the ffmpeg binaries
   --electron-node-headers
                         Download the electron node headers
+  --xdg-layout          Use XDG layout for caches
 ```
 
 flatpak-node-generator.py takes the package manager (npm or yarn), and a path to a lockfile for

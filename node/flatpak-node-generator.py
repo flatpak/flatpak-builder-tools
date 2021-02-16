@@ -1658,6 +1658,21 @@ async def main() -> None:
             with GeneratorProgress(packages, module_provider) as progress:
                 await progress.run()
 
+        if args.xdg_layout:
+            script_name = "setup_sdk_node_headers.sh"
+            node_gyp_dir = gen.data_root / "cache" / "node-gyp"
+            gen.add_script_source(
+                [   
+                    'version=$(node --version | sed "s/^v//")',
+                    'nodedir=$(dirname "$(dirname "$(which node)")")',
+                    f'mkdir -p "{node_gyp_dir}/$version"',
+                    f'ln -s "$nodedir/include" "{node_gyp_dir}/$version/include"',
+                    f'echo 9 > "{node_gyp_dir}/$version/installVersion"',
+                ],
+                destination=gen.data_root / script_name
+            )
+            gen.add_command(f"bash {gen.data_root / script_name}")
+
     if args.split:
         for i, part in enumerate(gen.split_sources()):
             output = Path(args.output)
