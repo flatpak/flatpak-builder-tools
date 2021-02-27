@@ -31,13 +31,27 @@ import urllib.request
 DEFAULT_PART_SIZE = 4096
 
 GIT_SCHEMES: Dict[str, Dict[str, str]] = {
-    'github': {'scheme': 'https', 'netloc': 'github.com'},
-    'gitlab': {'scheme': 'https', 'netloc': 'gitlab.com'},
-    'bitbucket': {'scheme': 'https', 'netloc': 'bitbucket.com'},
+    'github': {
+        'scheme': 'https',
+        'netloc': 'github.com'
+    },
+    'gitlab': {
+        'scheme': 'https',
+        'netloc': 'gitlab.com'
+    },
+    'bitbucket': {
+        'scheme': 'https',
+        'netloc': 'bitbucket.com'
+    },
     'git': {},
-    'git+http': {'scheme': 'http'},
-    'git+https': {'scheme': 'https'},
+    'git+http': {
+        'scheme': 'http'
+    },
+    'git+https': {
+        'scheme': 'https'
+    },
 }
+
 GIT_URL_PATTERNS = [
     re.compile(r'^git:'),
     re.compile(r'^git\+.+:'),
@@ -45,12 +59,8 @@ GIT_URL_PATTERNS = [
     re.compile(r'^https?:.+\.git$'),
     re.compile(r'^https?:.+\.git#.+'),
 ]
-GIT_URL_HOSTS = [
-    'github.com',
-    'gitlab.com',
-    'bitbucket.com',
-    'bitbucket.org'
-]
+
+GIT_URL_HOSTS = ['github.com', 'gitlab.com', 'bitbucket.com', 'bitbucket.org']
 
 
 class Cache:
@@ -783,18 +793,18 @@ class SpecialSourceProvider:
 
                 #And for @electron/get >= 1.12.4 its sha256 hash of url dirname
                 url = urllib.parse.urlparse(binary.url)
-                url_dir = urllib.parse.urlunparse(url._replace(path=os.path.dirname(url.path)))
+                url_dir = urllib.parse.urlunparse(
+                    url._replace(path=os.path.dirname(url.path)))
                 url_hash = hashlib.sha256(url_dir.encode()).hexdigest()
 
-                self.gen.add_shell_source(
-                    [
-                        f'mkdir -p "{sanitized_url}"',
-                        f'ln -s "../{binary.filename}" "{sanitized_url}/{binary.filename}"',
-                        f'mkdir -p "{url_hash}"',
-                        f'ln -s "../{binary.filename}" "{url_hash}/{binary.filename}"'
-                    ],
-                    destination=electron_cache_dir,
-                    only_arches=[binary.arch.flatpak])
+                self.gen.add_shell_source([
+                    f'mkdir -p "{sanitized_url}"',
+                    f'ln -s "../{binary.filename}" "{sanitized_url}/{binary.filename}"',
+                    f'mkdir -p "{url_hash}"',
+                    f'ln -s "../{binary.filename}" "{url_hash}/{binary.filename}"'
+                ],
+                                          destination=electron_cache_dir,
+                                          only_arches=[binary.arch.flatpak])
 
         if add_integrities:
             integrity_file = manager.integrity_file
@@ -1459,7 +1469,8 @@ class YarnModuleProvider(ModuleProvider):
             else:
                 filename = os.path.basename(url_parts.path)
 
-            self.gen.add_url_source(source.resolved, integrity, self.mirror_dir / filename)
+            self.gen.add_url_source(source.resolved, integrity,
+                                    self.mirror_dir / filename)
 
         elif isinstance(source, GitSource):
             repo_name = urllib.parse.urlparse(source.url).path.split('/')[-1]
@@ -1468,7 +1479,8 @@ class YarnModuleProvider(ModuleProvider):
             target_tar = os.path.relpath(self.mirror_dir / name, repo_dir)
 
             self.gen.add_git_source(source.url, source.commit, repo_dir)
-            self.gen.add_command(f'cd {repo_dir}; git archive --format tar -o {target_tar} HEAD')
+            self.gen.add_command(
+                f'cd {repo_dir}; git archive --format tar -o {target_tar} HEAD')
 
         await self.special_source_provider.generate_special_sources(package)
 
@@ -1706,16 +1718,14 @@ async def main() -> None:
         if args.xdg_layout:
             script_name = "setup_sdk_node_headers.sh"
             node_gyp_dir = gen.data_root / "cache" / "node-gyp"
-            gen.add_script_source(
-                [   
-                    'version=$(node --version | sed "s/^v//")',
-                    'nodedir=$(dirname "$(dirname "$(which node)")")',
-                    f'mkdir -p "{node_gyp_dir}/$version"',
-                    f'ln -s "$nodedir/include" "{node_gyp_dir}/$version/include"',
-                    f'echo 9 > "{node_gyp_dir}/$version/installVersion"',
-                ],
-                destination=gen.data_root / script_name
-            )
+            gen.add_script_source([
+                'version=$(node --version | sed "s/^v//")',
+                'nodedir=$(dirname "$(dirname "$(which node)")")',
+                f'mkdir -p "{node_gyp_dir}/$version"',
+                f'ln -s "$nodedir/include" "{node_gyp_dir}/$version/include"',
+                f'echo 9 > "{node_gyp_dir}/$version/installVersion"',
+            ],
+                                  destination=gen.data_root / script_name)
             gen.add_command(f"bash {gen.data_root / script_name}")
 
     if args.split:
