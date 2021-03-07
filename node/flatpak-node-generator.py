@@ -1570,7 +1570,8 @@ class GeneratorProgress(contextlib.AbstractContextManager):
 
     async def run(self) -> None:
         self._update()
-        await asyncio.wait(map(self._generate, self.packages))
+        await asyncio.wait(
+            [asyncio.create_task(self._generate(pkg)) for pkg in self.packages])
 
 
 def scan_for_lockfiles(base: Path, patterns: List[str]) -> Iterator[Path]:
