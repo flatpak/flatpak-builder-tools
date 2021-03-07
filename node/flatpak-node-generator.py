@@ -1183,7 +1183,7 @@ class NpmModuleProvider(ModuleProvider):
             cache_future = asyncio.get_event_loop().create_future()
             self.registry_packages[package.name] = cache_future
 
-            data_url = f'{self.registry}/{package.name}'
+            data_url = f'{self.registry}/{package.name.replace("/", "%2f")}'
             # NOTE: Not cachable, because this is an API call.
             raw_data = await Requests.instance.read_all(data_url, cachable=False)
             data = json.loads(raw_data)
