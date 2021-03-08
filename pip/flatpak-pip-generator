@@ -36,7 +36,7 @@ parser.add_argument('--build-isolation', action='store_true',
                         'Do not disable build isolation. '
                         'Mostly useful on pip that does\'t '
                         'support the feature.'
-                    )
+                    ))
 parser.add_argument('--output', '-o',
                     help='Specify output file name')
 parser.add_argument('--runtime',
