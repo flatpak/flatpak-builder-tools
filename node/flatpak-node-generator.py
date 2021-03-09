@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+# pyright: strict
+
 __license__ = 'MIT'
 
-from typing import *
+from typing import *  # pyright: reportWildcardImportFromLibrary=false
 # Explictly import these.
 from typing import cast, IO
 
@@ -85,7 +87,7 @@ class Cache:
 
         def __exit__(self, exc_type: Optional[Type[BaseException]],
                      exc_value: Optional[BaseException],
-                     traceback: Optional[types.TracebackType]):
+                     traceback: Optional[types.TracebackType]) -> None:
             self.close()
 
     class BucketWriter:
@@ -103,7 +105,7 @@ class Cache:
 
         def __exit__(self, exc_type: Optional[Type[BaseException]],
                      exc_value: Optional[BaseException],
-                     traceback: Optional[types.TracebackType]):
+                     traceback: Optional[types.TracebackType]) -> None:
             if traceback is None:
                 self.seal()
             else:
@@ -390,7 +392,7 @@ class Integrity(NamedTuple):
         return Integrity('sha1', sha1)
 
     @staticmethod
-    def generate(data: AnyStr, *, algorithm: str = 'sha256') -> 'Integrity':
+    def generate(data: Union[str, bytes], *, algorithm: str = 'sha256') -> 'Integrity':
         builder = IntegrityBuilder(algorithm)
         builder.update(data)
         return builder.build()
@@ -411,7 +413,7 @@ class IntegrityBuilder:
         self.algorithm = algorithm
         self._hasher = hashlib.new(algorithm)
 
-    def update(self, data: AnyStr) -> None:
+    def update(self, data: Union[str, bytes]) -> None:
         data_bytes: bytes
         if isinstance(data, str):
             data_bytes = data.encode()
@@ -530,7 +532,9 @@ class ManifestGenerator(contextlib.AbstractContextManager):
         self._sources: Set[Tuple[Tuple[str, Any], ...]] = set()
         self._commands: List[str] = []
 
-    def __exit__(self, *_: Any) -> None:
+    def __exit__(self, exc_type: Optional[Type[BaseException]],
+                 exc_value: Optional[BaseException],
+                 tb: Optional[types.TracebackType]) -> None:
         self._finalize()
 
     @property
@@ -545,13 +549,13 @@ class ManifestGenerator(contextlib.AbstractContextManager):
     def source_count(self) -> int:
         return len(self._sources)
 
-    def ordered_sources(self) -> Iterator[Dict]:
+    def ordered_sources(self) -> Iterator[Dict[Any, Any]]:
         return map(dict, sorted(self._sources))  # type: ignore
 
-    def split_sources(self) -> Iterator[List[Dict]]:
+    def split_sources(self) -> Iterator[List[Dict[Any, Any]]]:
         BASE_CURRENT_SIZE = len('[\n]')
         current_size = BASE_CURRENT_SIZE
-        current: List[Dict] = []
+        current: List[Dict[Any, Any]] = []
 
         for source in self.ordered_sources():
             # Generate one source by itself, then check the length without the closing and
@@ -623,8 +627,9 @@ class ManifestGenerator(contextlib.AbstractContextManager):
                                           is_dir=True,
                                           only_arches=only_arches)
 
-    def add_data_source(self, data: AnyStr, destination: Path) -> None:
-        source = {'type': 'file', 'url': 'data:' + urllib.parse.quote(data)}
+    def add_data_source(self, data: Union[str, bytes], destination: Path) -> None:
+        quoted = urllib.parse.quote(data)
+        source = {'type': 'file', 'url': 'data:' + quoted}
         self._add_source_with_destination(source, destination, is_dir=False)
 
     def add_git_source(self,
@@ -641,7 +646,7 @@ class ManifestGenerator(contextlib.AbstractContextManager):
     def add_shell_source(self,
                          commands: List[str],
                          destination: Optional[Path] = None,
-                         only_arches: Optional[List[str]] = None):
+                         only_arches: Optional[List[str]] = None) -> None:
         """This might be slow for multiple instances. Use `add_command()` instead."""
         source = {'type': 'shell', 'commands': tuple(commands)}
         self._add_source_with_destination(source,
@@ -658,7 +663,10 @@ class ManifestGenerator(contextlib.AbstractContextManager):
 
 
 class LockfileProvider:
-    def parse_git_source(self, version: str, from_: str = None) -> GitSource:
+    def parse_git_source(self, version: str, from_: Optional[str] = None) -> GitSource:
+        # https://github.com/microsoft/pyright/issues/1589
+        # pyright: reportPrivateUsage=false
+
         original_url = urllib.parse.urlparse(version)
         assert original_url.scheme and original_url.path and original_url.fragment
 
@@ -678,7 +686,7 @@ class LockfileProvider:
         raise NotImplementedError()
 
 
-class ModuleProvider(contextlib.AbstractContextManager):
+class ModuleProvider(contextlib.AbstractContextManager['ModuleProvider']):
     async def generate_package(self, package: Package) -> None:
         raise NotImplementedError()
 
@@ -778,7 +786,7 @@ class SpecialSourceProvider:
                                       manager: ElectronBinaryManager,
                                       binary_name: str,
                                       *,
-                                      add_integrities=True) -> None:
+                                      add_integrities: bool = True) -> None:
         electron_cache_dir = self.electron_cache_dir
 
         for binary in manager.find_binaries(binary_name):
@@ -909,7 +917,7 @@ class SpecialSourceProvider:
                                     only_arches=[arch])
 
     async def _handle_ripgrep_prebuilt(self, package: Package) -> None:
-        async def get_ripgrep_tag(version):
+        async def get_ripgrep_tag(version: str) -> str:
             url = f'https://github.com/microsoft/vscode-ripgrep/raw/v{version}/lib/postinstall.js'
             tag_re = re.compile(r"VERSION\s+=\s+'(v[\d.-]+)';")
             resp = await Requests.instance.read_all(url, cachable=True)
@@ -1016,7 +1024,7 @@ class SpecialSourceProvider:
     def _handle_electron_builder(self, package: Package) -> None:
         destination = self.gen.data_root / 'electron-builder-arch-args.sh'
 
-        script = []
+        script: List[str] = []
         script.append('case "$FLATPAK_ARCH" in')
 
         for electron_arch, flatpak_arch in (
@@ -1063,8 +1071,9 @@ class NpmLockfileProvider(LockfileProvider):
     def __init__(self, options: Options):
         self.no_devel = options.no_devel
 
-    def process_dependencies(self, lockfile: Path,
-                             dependencies: Dict[str, Dict]) -> Iterator[Package]:
+    def process_dependencies(
+            self, lockfile: Path,
+            dependencies: Dict[str, Dict[Any, Any]]) -> Iterator[Package]:
         for name, info in dependencies.items():
             if info.get('dev') and self.no_devel:
                 continue
@@ -1104,7 +1113,7 @@ class NpmModuleProvider(ModuleProvider):
 
     class RegistryPackageIndex(NamedTuple):
         url: str
-        data: Dict
+        data: Dict[Any, Any]
         used_versions: Set[str]
 
     def __init__(self, gen: ManifestGenerator, special: SpecialSourceProvider,
@@ -1126,7 +1135,9 @@ class NpmModuleProvider(ModuleProvider):
         self.git_sources: DefaultDict[Path, Dict[
             Path, GitSource]] = collections.defaultdict(lambda: {})
 
-    def __exit__(self, *_: Any) -> None:
+    def __exit__(self, exc_type: Optional[Type[BaseException]],
+                 exc_value: Optional[BaseException],
+                 tb: Optional[types.TracebackType]) -> None:
         self._finalize()
 
     def get_cacache_integrity_path(self, integrity: Integrity) -> Path:
@@ -1229,6 +1240,7 @@ class NpmModuleProvider(ModuleProvider):
 
             await self.special_source_provider.generate_special_sources(package)
 
+        # pyright: reportUnnecessaryIsInstance=false
         elif isinstance(source, GitSource):
             # Get a unique name to use for the Git repository folder.
             name = f'{package.name}-{source.commit}'
@@ -1240,7 +1252,7 @@ class NpmModuleProvider(ModuleProvider):
         return lockfile.parent.relative_to(self.lockfile_root)
 
     def _finalize(self) -> None:
-        for name, async_index in self.registry_packages.items():
+        for _, async_index in self.registry_packages.items():
             index = async_index.result()
 
             if not self.no_trim_index:
@@ -1262,7 +1274,7 @@ class NpmModuleProvider(ModuleProvider):
             # Generate jq scripts to patch the package*.json files.
             scripts = {
                 'package.json':
-                    '''
+                    r'''
                     walk(
                         if type == "object"
                         then
@@ -1277,7 +1289,7 @@ class NpmModuleProvider(ModuleProvider):
                     )
                 ''',
                 'package-lock.json':
-                    '''
+                    r'''
                     walk(
                         if type == "object" and (.version | type == "string") and $data[.version]
                         then
@@ -1360,7 +1372,7 @@ class NpmModuleProvider(ModuleProvider):
 
 class YarnLockfileProvider(LockfileProvider):
     @staticmethod
-    def is_git_version(version) -> bool:
+    def is_git_version(version: str) -> bool:
         for pattern in GIT_URL_PATTERNS:
             if pattern.match(version):
                 return True
@@ -1391,6 +1403,7 @@ class YarnLockfileProvider(LockfileProvider):
 
         section_indent = 0
 
+        line = None
         for line in section[1:]:
             indent = 0
             while line[indent].isspace():
@@ -1452,7 +1465,9 @@ class YarnModuleProvider(ModuleProvider):
         self.special_source_provider = special
         self.mirror_dir = self.gen.data_root / 'yarn-mirror'
 
-    def __exit__(self, *_: Any) -> None:
+    def __exit__(self, exc_type: Optional[Type[BaseException]],
+                 exc_value: Optional[BaseException],
+                 tb: Optional[types.TracebackType]) -> None:
         pass
 
     async def generate_package(self, package: Package) -> None:
@@ -1523,7 +1538,7 @@ class YarnProviderFactory(ProviderFactory):
         return YarnModuleProvider(gen, special)
 
 
-class GeneratorProgress(contextlib.AbstractContextManager):
+class GeneratorProgress(contextlib.AbstractContextManager['GeneratorProgress']):
     def __init__(self, packages: Collection[Package],
                  module_provider: ModuleProvider) -> None:
         self.finished = 0
@@ -1532,7 +1547,9 @@ class GeneratorProgress(contextlib.AbstractContextManager):
         self.previous_package: Optional[Package] = None
         self.current_package: Optional[Package] = None
 
-    def __exit__(self, *_: Any) -> None:
+    def __exit__(self, exc_type: Optional[Type[BaseException]],
+                 exc_value: Optional[BaseException],
+                 tb: Optional[types.TracebackType]) -> None:
         print()
 
     def _format_package(self, package: Package, max_width: int) -> str:
@@ -1575,7 +1592,7 @@ class GeneratorProgress(contextlib.AbstractContextManager):
 
 
 def scan_for_lockfiles(base: Path, patterns: List[str]) -> Iterator[Path]:
-    for root, dirs, files in os.walk(base.parent):
+    for root, _, files in os.walk(base.parent):
         if base.name in files:
             lockfile = Path(root) / base.name
             if not patterns or any(map(lockfile.match, patterns)):
@@ -1730,6 +1747,7 @@ async def main() -> None:
             gen.add_command(f"bash {gen.data_root / script_name}")
 
     if args.split:
+        i = 0
         for i, part in enumerate(gen.split_sources()):
             output = Path(args.output)
             output = output.with_suffix(f'.{i}{output.suffix}')
