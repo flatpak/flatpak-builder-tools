@@ -37,6 +37,7 @@ GIT_SCHEMES: Dict[str, Dict[str, str]] = {
     'git': {},
     'git+http': {'scheme': 'http'},
     'git+https': {'scheme': 'https'},
+    'git+ssh': {'scheme': 'ssh'},
 }
 GIT_URL_PATTERNS = [
     re.compile(r'^git:'),
