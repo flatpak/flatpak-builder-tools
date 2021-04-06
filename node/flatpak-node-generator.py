@@ -1325,7 +1325,7 @@ class NpmModuleProvider(ModuleProvider):
             index_commands.append(f'os.chdir({str(self.cacache_dir)!r})')
 
             for parent in sorted(parents, key=len):
-                index_commands.append(f'os.mkdir({parent!r})')
+                index_commands.append(f'os.makedirs({parent!r}, exist_ok=True)')
 
             for path, entry in self.index_entries.items():
                 path = path.relative_to(self.cacache_dir)
