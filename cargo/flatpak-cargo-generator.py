@@ -52,7 +52,7 @@ def get_git_tarball(repo_url, commit):
     if url.hostname == 'github.com':
         return f'https://codeload.{url.hostname}/{owner}/{repo}/tar.gz/{commit}'
     elif url.hostname.split('.')[0] == 'gitlab':
-        return f'https://{url.hostname}/api/v4/projects/{owner}%2F{repo}/repository/archive.tar.gz?ref={commit}'
+        return f'https://{url.hostname}/{owner}/{repo}/-/archive/{commit}/{repo}-{commit}.tar.gz'
     elif url.hostname == 'bitbucket.org':
         return f'https://{url.hostname}/{owner}/{repo}/get/{commit}.tar.gz'
     else:
