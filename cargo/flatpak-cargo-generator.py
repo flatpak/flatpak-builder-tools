@@ -61,7 +61,7 @@ def get_git_tarball(repo_url, commit):
 async def get_remote_sha256(url):
     logging.info(f"started sha256({url})")
     sha256 = hashlib.sha256()
-    async with aiohttp.ClientSession() as http_session:
+    async with aiohttp.ClientSession(raise_for_status=True) as http_session:
         async with http_session.get(url) as response:
             while True:
                 data = await response.content.read(4096)
