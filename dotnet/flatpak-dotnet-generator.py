@@ -29,12 +29,14 @@ def main():
         if args.runtime:
             runtime_args.extend(('-r', args.runtime))
 
-        subprocess.run(['flatpak', 'run', '--command=sh',
-                        '--runtime=org.freedesktop.Sdk//20.08', '--share=network',
-                        '--filesystem=host',
-                        'org.freedesktop.Sdk.Extension.dotnet5//20.08', '-c',
-                        '. /usr/lib/sdk/dotnet5/enable.sh; exec dotnet restore "$@"', '--',
-                        '--packages', tmp, args.project] + runtime_args)
+        subprocess.run([
+            'flatpak', 'run',
+            '--env=DOTNET_CLI_TELEMETRY_OPTOUT=true',
+            '--env=DOTNET_SKIP_FIRST_TIME_EXPERIENCE=true',
+            '--command=sh', '--runtime=org.freedesktop.Sdk//20.08', '--share=network',
+            '--filesystem=host', 'org.freedesktop.Sdk.Extension.dotnet5//20.08', '-c',
+            'PATH="${PATH}:/usr/lib/sdk/dotnet5/bin" LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/sdk/dotnet5/lib" exec dotnet restore "$@"',
+            '--', '--packages', tmp, args.project] + runtime_args)
 
         for path in Path(tmp).glob('**/*.nupkg.sha512'):
             name = path.parent.parent.name
