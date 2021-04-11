@@ -369,6 +369,7 @@ for package in packages:
     pip_command = [
         pip_executable,
         'install',
+        '--verbose',
         '--exists-action=i',
         '--no-index',
         '--find-links="file://${PWD}"',
