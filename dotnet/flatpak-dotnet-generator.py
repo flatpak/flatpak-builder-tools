@@ -33,7 +33,7 @@ def main():
                         '--runtime=org.freedesktop.Sdk//20.08', '--share=network',
                         '--filesystem=host',
                         'org.freedesktop.Sdk.Extension.dotnet5//20.08', '-c',
-                        '. /usr/lib/sdk/dotnet5/enable.sh; exec dotnet restore "$@"', '--',
+                        'PATH=/usr/lib/sdk/dotnet5/bin:$PATH LD_LIBRARY_PATH=/usr/lib/sdk/dotnet5/lib:$LD_LIBRARY_PATH PKG_CONFIG_PATH=/usr/lib/sdk/dotnet5/lib/pkgconfig:$PKG_CONFIG_PATH DOTNET_CLI_TELEMETRY_OPTOUT=true DOTNET_SKIP_FIRST_TIME_EXPERIENCE=true exec dotnet restore "$@"', '--',
                         '--packages', tmp, args.project] + runtime_args)
 
         for path in Path(tmp).glob('**/*.nupkg.sha512'):
