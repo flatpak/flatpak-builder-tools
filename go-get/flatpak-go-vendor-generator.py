@@ -25,6 +25,8 @@ The real solution is https://github.com/golang/go/issues/35922
 import json
 import logging
 import sys
+import urllib.request
+from html.parser import HTMLParser
 
 import attr
 
@@ -48,6 +50,35 @@ def parse_modules(fh):
             m = GoModule(name, version, revision)
             yield m
 
+def get_go_redirect(html_data):
+    class GoImportParser(HTMLParser):
+        _repo = None
+
+        def handle_starttag(self, tag, attrs):
+            if self._repo is not None:
+                return
+
+            # Make a dict of the attribute name/values
+            # since it's easier to work with and understand.
+            _attrs = {}
+            for attr, value in attrs:
+                _attrs[attr] = value
+
+            name_attr = _attrs.get('name')
+            if name_attr != 'go-import':
+                return
+            content = _attrs.get('content')
+            if content is not None:
+                self._repo = content.split(' ')[-1]
+
+        def get_repo(self):
+            return self._repo
+
+    parser = GoImportParser()
+    parser.feed(html_data)
+    return parser.get_repo()
+
+
 def go_module_to_flatpak(m):
     if not m.name.startswith("github.com"):
         url = m.name
@@ -57,9 +88,24 @@ def go_module_to_flatpak(m):
             url = '/'.join(splits[:3])
         else:
             url = m.name
-    url = url.replace('golang.org/x/', 'go.googlesource.com/')
-    url = url.replace('google.golang.org/protobuf', 'github.com/protocolbuffers/protobuf-go')
     url = "https://" + url
+
+    print('Checking {}...'.format(url), file=sys.stderr)
+
+    try:
+        with urllib.request.urlopen(url + '?go-get=1') as response:
+            page_contents = str(response.read())
+    except urllib.request.URLError as e:
+        print('Failed to check {}: {}'.format(url, e), file=sys.stderr)
+        sys.exit(1)
+    else:
+        repo = get_go_redirect(page_contents)
+        url_found = repo
+        if url_found != url:
+            print(' got {}'.format(url_found), file=sys.stderr)
+        else:
+            print(' done', file=sys.stderr)
+        url = url_found
 
     if not '+' in m.version:
         tag = m.version
