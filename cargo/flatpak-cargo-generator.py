@@ -106,6 +106,14 @@ async def get_git_cargo_packages(git_url, commit):
                 with open(subpkg_toml, 'r') as s:
                     pkg_toml = toml.loads(s.read())
                 packages[pkg_toml['package']['name']] = subpkg
+    for subproj_toml in glob.glob(os.path.join(git_repo_dir, '**', 'Cargo.toml'), recursive=True):
+        subpkg = os.path.relpath(os.path.dirname(subproj_toml), git_repo_dir)
+        logging.debug(f'Found package {subpkg}')
+        with open(subproj_toml, 'r') as s:
+            pkg_toml = toml.loads(s.read())
+        if 'package' not in pkg_toml:
+            continue
+        packages[pkg_toml['package']['name']] = subpkg
     logging.debug(f'Packages in repo: {packages}')
     return packages
 
