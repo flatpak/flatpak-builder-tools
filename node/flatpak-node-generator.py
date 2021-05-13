@@ -1070,7 +1070,7 @@ class NpmLockfileProvider(LockfileProvider):
         with open(lockfile) as fp:
             data = json.load(fp)
 
-        assert data['lockfileVersion'] == 1, data['lockfileVersion']
+        assert data['lockfileVersion'] <= 2, data['lockfileVersion']
 
         yield from self.process_dependencies(lockfile, data.get('dependencies', {}))
 
