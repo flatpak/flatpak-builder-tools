@@ -930,12 +930,18 @@ class SpecialSourceProvider:
         browsers_json = json.loads(await Requests.instance.read_all(browsers_json_url,
                                                                     cachable=True))
         for browser in browsers_json['browsers']:
+            if not browser.get('installByDefault', True):
+                continue
             name = browser['name']
             revision = int(browser['revision'])
 
             if name == 'chromium':
-                url_tp = 'https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/%d/%s'
-                dl_file = 'chrome-linux.zip'
+                if revision < 792639:
+                    url_tp = 'https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/%d/%s'
+                    dl_file = 'chrome-linux.zip'
+                else:
+                    url_tp = 'https://playwright.azureedge.net/builds/chromium/%d/%s'
+                    dl_file = 'chromium-linux.zip'
             elif name == 'firefox':
                 url_tp = 'https://playwright.azureedge.net/builds/firefox/%d/%s'
                 if revision < 1140:
@@ -948,6 +954,11 @@ class SpecialSourceProvider:
                     dl_file = 'minibrowser-gtk-wpe.zip'
                 else:
                     dl_file = 'webkit-ubuntu-20.04.zip'
+            elif name == 'ffmpeg':
+                url_tp = 'https://playwright.azureedge.net/builds/ffmpeg/%d/%s'
+                dl_file = 'ffmpeg-linux.zip'
+            else:
+                raise ValueError(f'Unknown playwright browser {name}')
 
             dl_url = url_tp % (revision, dl_file)
             metadata = await RemoteUrlMetadata.get(dl_url, cachable=True)
