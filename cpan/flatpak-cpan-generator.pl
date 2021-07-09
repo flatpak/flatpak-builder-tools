@@ -114,7 +114,8 @@ sub main {
 
   push @sources, {
     type => 'script',
-    'dest-filename' => "@{[$opts->dir]}/install.sh",
+    dest => $opts->dir,
+    'dest-filename' => 'install.sh',
     commands => [
       "set -e",
       "function make_install {",
