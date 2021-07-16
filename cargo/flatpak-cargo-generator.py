@@ -101,14 +101,39 @@ async def get_git_cargo_packages(git_url, commit):
     root_toml = load_toml(os.path.join(git_repo_dir, 'Cargo.toml'))
     assert 'package' in root_toml or 'workspace' in root_toml
     packages = {}
+
+    async def get_dep_packages(entry, toml_dir):
+        # https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html
+        if 'dependencies' in entry:
+            for dep_name, dep in entry['dependencies'].items():
+                if 'package' in dep:
+                    dep_name = dep['package']
+                if 'path' not in dep:
+                    continue
+                if dep_name in packages:
+                    continue
+                dep_dir = os.path.normpath(os.path.join(toml_dir, dep['path']))
+                logging.debug("Loading dependency %s from %s in %s", dep_name, dep_dir, git_url)
+                dep_toml = load_toml(os.path.join(git_repo_dir, dep_dir, 'Cargo.toml'))
+                assert dep_toml['package']['name'] == dep_name, (git_url, toml_dir)
+                await get_dep_packages(dep_toml, dep_dir)
+                packages[dep_name] = dep_dir
+        if 'target' in entry:
+            for _, target in entry['target'].items():
+                await get_dep_packages(target, toml_dir)
+
     if 'package' in root_toml:
+        await get_dep_packages(root_toml, '.')
         packages[root_toml['package']['name']] = '.'
+
     if 'workspace' in root_toml:
         for member in root_toml['workspace']['members']:
             for subpkg_toml in glob.glob(os.path.join(git_repo_dir, member, 'Cargo.toml')):
                 subpkg = os.path.relpath(os.path.dirname(subpkg_toml), git_repo_dir)
                 pkg_toml = load_toml(subpkg_toml)
+                await get_dep_packages(pkg_toml, subpkg)
                 packages[pkg_toml['package']['name']] = subpkg
+
     logging.debug('Packages in %s:\n%s', git_url, json.dumps(packages, indent=4))
     return packages
 
