@@ -20,6 +20,7 @@ CARGO_CRATES = f'{CARGO_HOME}/vendor'
 VENDORED_SOURCES = 'vendored-sources'
 COMMIT_LEN = 7
 
+
 def canonical_url(url):
     'Converts a string to a Cargo Canonical URL, as per https://github.com/rust-lang/cargo/blob/35c55a93200c84a4de4627f1770f76a8ad268a39/src/cargo/util/canonical_url.rs#L19'
     logging.debug('canonicalising %s', url)
@@ -38,6 +39,7 @@ def canonical_url(url):
         u = u._replace(path = u.path[:-len('.git')])
 
     return u
+
 
 def get_git_tarball(repo_url, commit):
     url = canonical_url(repo_url)
@@ -58,6 +60,7 @@ def get_git_tarball(repo_url, commit):
     else:
         raise ValueError(f'Don\'t know how to get tarball for {repo_url}')
 
+
 async def get_remote_sha256(url):
     logging.info(f"started sha256({url})")
     sha256 = hashlib.sha256()
@@ -71,10 +74,12 @@ async def get_remote_sha256(url):
     logging.info(f"done sha256({url})")
     return sha256.hexdigest()
 
+
 def load_toml(tomlfile='Cargo.lock'):
     with open(tomlfile, 'r') as f:
         toml_data = toml.load(f)
     return toml_data
+
 
 def fetch_git_repo(git_url, commit):
     repo_dir = git_url.replace('://', '_').replace('/', '_')
@@ -89,6 +94,7 @@ def fetch_git_repo(git_url, commit):
         subprocess.run(['git', 'fetch', 'origin', commit], cwd=clone_dir, check=True)
         subprocess.run(['git', 'checkout', commit], cwd=clone_dir, check=True)
     return clone_dir
+
 
 async def get_git_cargo_packages(git_url, commit):
     logging.info(f'Loading packages from git {git_url}')
@@ -106,6 +112,7 @@ async def get_git_cargo_packages(git_url, commit):
                 packages[pkg_toml['package']['name']] = subpkg
     logging.debug(f'Packages in repo: {packages}')
     return packages
+
 
 async def get_git_sources(package, tarball=False):
     name = package['name']
@@ -174,6 +181,7 @@ async def get_git_sources(package, tarball=False):
 
     return (git_sources, cargo_vendored_entry)
 
+
 async def get_package_sources(package, cargo_lock, git_tarballs=False):
     metadata = cargo_lock.get('metadata')
     name = package['name']
@@ -213,6 +221,7 @@ async def get_package_sources(package, cargo_lock, git_tarballs=False):
     ]
     return (crate_sources, {'crates-io': {'replace-with': VENDORED_SOURCES}})
 
+
 async def generate_sources(cargo_lock, git_tarballs=False):
     sources = []
     cargo_vendored_sources = {
@@ -238,6 +247,7 @@ async def generate_sources(cargo_lock, git_tarballs=False):
     })
     return sources
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('cargo_lock', help='Path to the Cargo.lock file')
@@ -259,6 +269,7 @@ def main():
                                     git_tarballs=args.git_tarballs))
     with open(outfile, 'w') as out:
         json.dump(generated_sources, out, indent=4, sort_keys=False)
+
 
 if __name__ == '__main__':
     main()
