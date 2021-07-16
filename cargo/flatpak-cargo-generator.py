@@ -23,7 +23,6 @@ COMMIT_LEN = 7
 
 def canonical_url(url):
     'Converts a string to a Cargo Canonical URL, as per https://github.com/rust-lang/cargo/blob/35c55a93200c84a4de4627f1770f76a8ad268a39/src/cargo/util/canonical_url.rs#L19'
-    logging.debug('canonicalising %s', url)
     # Hrm. The upstream cargo does not replace those URLs, but if we don't then it doesn't work too well :(
     url = url.replace('git+https://', 'https://')
     u = urlparse(url)
@@ -97,7 +96,7 @@ def fetch_git_repo(git_url, commit):
 
 
 async def get_git_cargo_packages(git_url, commit):
-    logging.info(f'Loading packages from git {git_url}')
+    logging.info('Loading packages from %s', git_url)
     git_repo_dir = fetch_git_repo(git_url, commit)
     root_toml = load_toml(os.path.join(git_repo_dir, 'Cargo.toml'))
     assert 'package' in root_toml or 'workspace' in root_toml
@@ -110,7 +109,7 @@ async def get_git_cargo_packages(git_url, commit):
                 subpkg = os.path.relpath(os.path.dirname(subpkg_toml), git_repo_dir)
                 pkg_toml = load_toml(subpkg_toml)
                 packages[pkg_toml['package']['name']] = subpkg
-    logging.debug(f'Packages in repo: {packages}')
+    logging.debug('Packages in %s:\n%s', git_url, json.dumps(packages, indent=4))
     return packages
 
 
@@ -157,6 +156,7 @@ async def get_git_sources(package, tarball=False):
             'commit': commit,
             'dest': f'{CARGO_CRATES}/{name}',
         }]
+    logging.info("Loading %s from %s", name, repo_url)
     git_cargo_packages = await get_git_cargo_packages(repo_url, commit)
     pkg_subpath = git_cargo_packages[name]
     if pkg_subpath != '.':
@@ -188,8 +188,7 @@ async def get_package_sources(package, cargo_lock, git_tarballs=False):
     version = package['version']
 
     if 'source' not in package:
-        logging.warning(f'{name} has no source')
-        logging.debug(f'Package for {name}: {package}')
+        logging.debug('%s has no source', name)
         return
     source = package['source']
 
@@ -236,7 +235,7 @@ async def generate_sources(cargo_lock, git_tarballs=False):
         sources += pkg_sources
         cargo_vendored_sources.update(cargo_vendored_entry)
 
-    logging.debug(f'Vendored sources: {cargo_vendored_sources}')
+    logging.debug('Vendored sources:\n%s', json.dumps(cargo_vendored_sources, indent=4))
     sources.append({
         'type': 'file',
         'url': 'data:' + urlquote(toml.dumps({
