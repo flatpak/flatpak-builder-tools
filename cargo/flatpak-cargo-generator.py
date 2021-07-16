@@ -200,11 +200,11 @@ async def get_package_sources(package, cargo_lock, git_tarballs=False):
         return
     crate_sources = [
         {
-            'type': 'file',
+            'type': 'archive',
+            'archive-type': 'tar-gzip',
             'url': f'{CRATES_IO}/{name}/{name}-{version}.crate',
             'sha256': checksum,
-            'dest': CARGO_CRATES,
-            'dest-filename': f'{name}-{version}.crate'
+            'dest': f'{CARGO_CRATES}/{name}-{version}',
         },
         {
             'type': 'file',
@@ -228,14 +228,6 @@ async def generate_sources(cargo_lock, git_tarballs=False):
             pkg_sources, cargo_vendored_entry = pkg
         sources += pkg_sources
         cargo_vendored_sources.update(cargo_vendored_entry)
-
-    sources.append({
-        'type': 'shell',
-        'dest': CARGO_CRATES,
-        'commands': [
-            'for c in *.crate; do tar -xf $c; done'
-        ]
-    })
 
     logging.debug(f'Vendored sources: {cargo_vendored_sources}')
     sources.append({
