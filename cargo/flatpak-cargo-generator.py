@@ -93,8 +93,7 @@ def fetch_git_repo(git_url, commit):
 async def get_git_cargo_packages(git_url, commit):
     logging.info(f'Loading packages from git {git_url}')
     git_repo_dir = fetch_git_repo(git_url, commit)
-    with open(os.path.join(git_repo_dir, 'Cargo.toml'), 'r') as r:
-        root_toml = toml.loads(r.read())
+    root_toml = load_toml(os.path.join(git_repo_dir, 'Cargo.toml'))
     assert 'package' in root_toml or 'workspace' in root_toml
     packages = {}
     if 'package' in root_toml:
@@ -103,8 +102,7 @@ async def get_git_cargo_packages(git_url, commit):
         for member in root_toml['workspace']['members']:
             for subpkg_toml in glob.glob(os.path.join(git_repo_dir, member, 'Cargo.toml')):
                 subpkg = os.path.relpath(os.path.dirname(subpkg_toml), git_repo_dir)
-                with open(subpkg_toml, 'r') as s:
-                    pkg_toml = toml.loads(s.read())
+                pkg_toml = load_toml(subpkg_toml)
                 packages[pkg_toml['package']['name']] = subpkg
     logging.debug(f'Packages in repo: {packages}')
     return packages
