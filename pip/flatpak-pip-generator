@@ -27,6 +27,8 @@ parser.add_argument('--cleanup', choices=['scripts', 'all'],
                     help='Select what to clean up after build')
 parser.add_argument('--requirements-file', '-r',
                     help='Specify requirements.txt file')
+parser.add_argument('--ignore-pkg', '-i', action='append',
+                    help='Ignore this package, e.g. if the package didn\'t upload source packages to PyPI')
 parser.add_argument('--build-only', action='store_const',
                     dest='cleanup', const='all',
                     help='Clean up all files after build')
@@ -228,6 +230,8 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         if not filename.endswith(('bz2', 'gz', 'xz', 'zip')):
             version = get_file_version(filename)
             name = get_package_name(filename)
+            if  opts.ignore_pkg and name in opts.ignore_pkg:
+                continue
             url = get_tar_package_url_pypi(name, version)
             print('Deleting', filename)
             try:
