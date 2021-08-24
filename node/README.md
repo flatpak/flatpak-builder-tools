@@ -201,10 +201,11 @@ things to note:
 
 - For ARM in particular, electron-builder will misdetect the architecture and give
   an error about it being unsupported. To work around this, you have to pass the
-  architecture manually to electron-builder. flatpak-node-generator will write
-  a shell script at `flatpak-node/electron-builder-arch-args.sh` that can be sourced
-  to set the `$ELECTRON_BUILDER_ARCH_ARGS` environment variable. Then, this variable
-  can be passed to the electron-builder command.
+  architecture manually to electron-builder. flatpak-node-generator will create a script by adding
+  it as an entry to the sources file. During the build process script will be created at
+  `flatpak-node/electron-builder-arch-args.sh` so it can be sourced to set the
+  `$ELECTRON_BUILDER_ARCH_ARGS` environment variable. Then, this variable can be passed to the
+  electron-builder command.
 - For both ARM and ARM64, the electron-builder output directory will contain the
   architecture in its name.
 
