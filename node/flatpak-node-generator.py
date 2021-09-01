@@ -688,7 +688,7 @@ class LockfileProvider:
         raise NotImplementedError()
 
 
-class ModuleProvider(contextlib.AbstractContextManager['ModuleProvider']):
+class ModuleProvider(contextlib.AbstractContextManager):
     async def generate_package(self, package: Package) -> None:
         raise NotImplementedError()
 
@@ -1540,7 +1540,7 @@ class YarnProviderFactory(ProviderFactory):
         return YarnModuleProvider(gen, special)
 
 
-class GeneratorProgress(contextlib.AbstractContextManager['GeneratorProgress']):
+class GeneratorProgress(contextlib.AbstractContextManager):
     def __init__(self, packages: Collection[Package],
                  module_provider: ModuleProvider) -> None:
         self.finished = 0
