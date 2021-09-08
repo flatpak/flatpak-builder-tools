@@ -40,12 +40,26 @@ class GoModule:
 
 def parse_modules(fh):
     for line in (l.strip() for l in fh if l.strip()):
+        log.debug("Read line: %s", line)
         if line.startswith("# "):
-            _, name, version = line.split(" ")
-            if '-' in version:
-                version, date, revision = version.strip().split("-")
+            _, name, line_version = line.split(" ")
+            if '-' in line_version:
+                log.debug("Parsing version: %s", line_version)
+                _version, date_revision = line_version.strip().split("-", 1)
+                try:
+                    log.debug("Splitting %s", date_revision)
+                    date, revision = date_revision.split('-')
+                except ValueError:
+                    log.debug("no further split of %s", date_revision)
+                    date = None
+                    version = revision = line_version
+                else:
+                    version = _version
+
+                log.debug("Parsed version into: %s %s %s", version, date, revision)
             else:
                 revision = None
+                version = line_version
 
             m = GoModule(name, version, revision)
             yield m
