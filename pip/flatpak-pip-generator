@@ -181,7 +181,8 @@ if opts.output:
     output_package = opts.output
 elif opts.requirements_file:
     output_package = 'python{}-{}'.format(
-        python_version, opts.requirements_file.replace('.txt', ''),
+        python_version,
+        os.path.basename(opts.requirements_file).replace('.txt', ''),
     )
 elif len(packages) == 1:
     output_package = 'python{}-{}'.format(
@@ -195,7 +196,7 @@ modules = []
 vcs_modules = []
 sources = {}
 
-tempdir_prefix = 'pip-generator-{}'.format(output_filename.replace('.json', ''))
+tempdir_prefix = 'pip-generator-{}'.format(os.path.basename(output_package))
 with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     pip_download = flatpak_cmd + [
         'download',
