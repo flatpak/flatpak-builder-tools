@@ -11,10 +11,11 @@ The script does not require Go in the host system.
 {
   "name": "writeas-cli",
   "buildsystem": "simple",
+  "builddir": true,
   "build-options": {
     "env": {
       "GOBIN": "/app/bin/",
-      "GOPATH": "/run/build/writeas-cli"
+      "GOPATH": "/run/build/writeas-cli/_flatpak_build"
     },
     "build-args": [
       "--share=network"
