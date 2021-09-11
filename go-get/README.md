@@ -13,7 +13,8 @@ The script does not require Go in the host system.
   "buildsystem": "simple",
   "build-options": {
     "env": {
-      "GOBIN": "/app/bin/"
+      "GOBIN": "/app/bin/",
+      "GOPATH": "/run/build/writeas-cli"
     },
     "build-args": [
       "--share=network"
