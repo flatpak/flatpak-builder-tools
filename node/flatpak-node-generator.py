@@ -1120,7 +1120,7 @@ class SpecialSourceProvider:
             self._handle_gulp_atom_electron(package)
         elif package.name == 'nw-builder':
             await self._handle_nw_builder(package)
-        elif package.name == 'dugite':
+        elif package.name in {'dugite', '@shiftkey/dugite'}:
             await self._handle_dugite_native(package)
         elif package.name == 'vscode-ripgrep':
             await self._handle_ripgrep_prebuilt(package)
