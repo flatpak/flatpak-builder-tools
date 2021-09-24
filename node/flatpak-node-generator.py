@@ -1632,7 +1632,7 @@ class ProviderFactory:
     def create_lockfile_provider(self) -> LockfileProvider:
         raise NotImplementedError()
 
-    def create_rcfile_provider(self):
+    def create_rcfile_providers(self) -> List[RCFileProvider]:
         raise NotImplementedError()
 
     def create_module_provider(self, gen: ManifestGenerator,
@@ -1652,8 +1652,8 @@ class NpmProviderFactory(ProviderFactory):
     def create_lockfile_provider(self) -> NpmLockfileProvider:
         return NpmLockfileProvider(self.options.lockfile)
 
-    def create_rcfile_provider(self) -> NpmRCFileProvider:
-        return NpmRCFileProvider()
+    def create_rcfile_providers(self) -> List[RCFileProvider]:
+        return [NpmRCFileProvider()]
 
     def create_module_provider(self, gen: ManifestGenerator,
                                special: SpecialSourceProvider) -> NpmModuleProvider:
@@ -1667,8 +1667,8 @@ class YarnProviderFactory(ProviderFactory):
     def create_lockfile_provider(self) -> YarnLockfileProvider:
         return YarnLockfileProvider()
 
-    def create_rcfile_provider(self) -> YarnRCFileProvider:
-        return YarnRCFileProvider()
+    def create_rcfile_providers(self) -> List[RCFileProvider]:
+        return [YarnRCFileProvider(), NpmRCFileProvider()]
 
     def create_module_provider(self, gen: ManifestGenerator,
                                special: SpecialSourceProvider) -> YarnModuleProvider:
@@ -1860,15 +1860,16 @@ async def main() -> None:
 
     for lockfile in lockfiles:
         lockfile_provider = provider_factory.create_lockfile_provider()
-        rcfile_provider = provider_factory.create_rcfile_provider()
+        rcfile_providers = provider_factory.create_rcfile_providers()
  
         packages.update(lockfile_provider.process_lockfile(lockfile))
 
-        rcfile = lockfile.parent / rcfile_provider.RCFILE_NAME
-        if rcfile.is_file():
-            nh = rcfile_provider.get_node_headers(rcfile)
-            if nh is not None:
-                rcfile_node_headers.add(nh)
+        for rcfile_provider in rcfile_providers:
+            rcfile = lockfile.parent / rcfile_provider.RCFILE_NAME
+            if rcfile.is_file():
+                nh = rcfile_provider.get_node_headers(rcfile)
+                if nh is not None:
+                    rcfile_node_headers.add(nh)
 
     print(f'{len(packages)} packages read.')
 
