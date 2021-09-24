@@ -726,8 +726,25 @@ class LockfileProvider:
 
 
 class RCFileProvider:
+    RCFILE_NAME: str
+
+    def parse_rcfile(self, rcfile: Path) -> Dict[str, str]:
+        with open(rcfile, 'r') as r:
+            rcfile_text = r.read()
+        parser_re = re.compile(r'^(?!#|;)(\S+)(?:\s+|\s*=\s*)(?:"(.+)"|(\S+))$', re.MULTILINE)
+        result = {}
+        for key, quoted_val, val in parser_re.findall(rcfile_text):
+            result[key] = quoted_val or val
+        return result
+
     def get_node_headers(self, rcfile: Path) -> Optional[NodeHeaders]:
-        raise NotImplementedError()
+        rc_data = self.parse_rcfile(rcfile)
+        if 'target' not in rc_data:
+            return None
+        target = rc_data['target']
+        runtime = rc_data.get('runtime')
+        disturl = rc_data.get('disturl')
+        return NodeHeaders(target, runtime, disturl)
 
 
 class ModuleProvider(contextlib.AbstractContextManager):
@@ -1229,6 +1246,10 @@ class NpmLockfileProvider(LockfileProvider):
         yield from self.process_dependencies(lockfile, data.get('dependencies', {}))
 
 
+class NpmRCFileProvider(RCFileProvider):
+    RCFILE_NAME = '.npmrc'
+
+
 class NpmModuleProvider(ModuleProvider):
     class Options(NamedTuple):
         registry: str
@@ -1561,24 +1582,6 @@ class YarnLockfileProvider(LockfileProvider):
 class YarnRCFileProvider(RCFileProvider):
     RCFILE_NAME = '.yarnrc'
 
-    def parse_rcfile(self, rcfile: Path) -> Dict[str, str]:
-        parser_re = re.compile(r'^(\S+)\s+(?:"(.+)"|(\S+))', re.MULTILINE)
-        with open(rcfile, 'r') as r:
-            rcfile_text = r.read()
-        result = {}
-        for key, quoted_val, val in parser_re.findall(rcfile_text):
-            result[key] = quoted_val or val
-        return result
-
-    def get_node_headers(self, rcfile: Path) -> Optional[NodeHeaders]:
-        yarnrc = self.parse_rcfile(rcfile)
-        if 'target' not in yarnrc:
-            return None
-        target = yarnrc['target']
-        runtime = yarnrc.get('runtime')
-        disturl = yarnrc.get('disturl')
-        return NodeHeaders(target, runtime, disturl)
-
 
 class YarnModuleProvider(ModuleProvider):
     # From https://github.com/yarnpkg/yarn/blob/v1.22.4/src/fetchers/tarball-fetcher.js
@@ -1648,6 +1651,9 @@ class NpmProviderFactory(ProviderFactory):
 
     def create_lockfile_provider(self) -> NpmLockfileProvider:
         return NpmLockfileProvider(self.options.lockfile)
+
+    def create_rcfile_provider(self) -> NpmRCFileProvider:
+        return NpmRCFileProvider()
 
     def create_module_provider(self, gen: ManifestGenerator,
                                special: SpecialSourceProvider) -> NpmModuleProvider:
