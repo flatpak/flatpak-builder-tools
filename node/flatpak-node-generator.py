@@ -64,6 +64,8 @@ GIT_URL_PATTERNS = [
 
 GIT_URL_HOSTS = ['github.com', 'gitlab.com', 'bitbucket.com', 'bitbucket.org']
 
+NPM_MIRROR = 'https://unpkg.com/'
+
 
 class Cache:
     instance: 'Cache'
@@ -871,7 +873,7 @@ class SpecialSourceProvider:
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
         # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
         # just use unpkg instead.
-        url = f'https://unpkg.com/chromedriver@{package.version}/lib/chromedriver'
+        url = urllib.parse.urljoin(NPM_MIRROR, f'chromedriver@{package.version}/lib/chromedriver')
         js = await Requests.instance.read_all(url, cachable=True)
         # XXX: a tad ugly
         match = re.search(r"exports\.version = '([^']+)'", js.decode())
@@ -960,7 +962,8 @@ class SpecialSourceProvider:
         self.gen.add_data_source(version, destination=self.gen.data_root / 'nwjs-version')
 
     async def _handle_dugite_native(self, package: Package) -> None:
-        dl_json_url = f'https://github.com/desktop/dugite/raw/v{package.version}/script/embedded-git.json'
+        dl_json_url = urllib.parse.urljoin(
+            NPM_MIRROR, f'{package.name}@{package.version}/script/embedded-git.json')
         dl_json = json.loads(await Requests.instance.read_all(dl_json_url, cachable=True))
         dugite_arch_map = {
             'x86_64': 'linux-x64',
