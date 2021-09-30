@@ -130,6 +130,7 @@ async def get_git_cargo_packages(git_url, commit):
         for member in root_toml['workspace']['members']:
             for subpkg_toml in glob.glob(os.path.join(git_repo_dir, member, 'Cargo.toml')):
                 subpkg = os.path.relpath(os.path.dirname(subpkg_toml), git_repo_dir)
+                logging.debug("Loading workspace member %s in %s", member, git_url)
                 pkg_toml = load_toml(subpkg_toml)
                 await get_dep_packages(pkg_toml, subpkg)
                 packages[pkg_toml['package']['name']] = subpkg
