@@ -174,9 +174,13 @@ async def get_git_package_sources(package, git_repos):
     canonical = canonical_url(source)
     repo_url = canonical.geturl()
 
-    git_repo = git_repos.setdefault(repo_url, {})
-    if commit not in git_repo:
-        git_repo[commit] = await get_git_repo_packages(repo_url, commit)
+    git_repo = git_repos.setdefault(repo_url, {
+        'commits': {},
+        'lock': asyncio.Lock(),
+    })
+    async with git_repo['lock']:
+        if commit not in git_repo['commits']:
+            git_repo['commits'][commit] = await get_git_repo_packages(repo_url, commit)
 
     cargo_vendored_entry = {
         repo_url: {
@@ -198,7 +202,7 @@ async def get_git_package_sources(package, git_repos):
         cargo_vendored_entry[repo_url]['branch'] = branch[0]
 
     logging.info("Adding package %s from %s", name, repo_url)
-    pkg_subpath = git_repo[commit][name]
+    pkg_subpath = git_repo['commits'][commit][name]
     pkg_repo_dir = os.path.join(GIT_CACHE, git_repo_name(repo_url, commit), pkg_subpath)
     git_sources = [
         {
@@ -258,6 +262,16 @@ async def get_package_sources(package, cargo_lock, git_repos):
 
 
 async def generate_sources(cargo_lock, git_tarballs=False):
+    # {
+    #     "git-repo-url": {
+    #         "lock": asyncio.Lock(),
+    #         "commits": {
+    #             "commit-hash": {
+    #                 "package-name": "./relative/package/path"
+    #             }
+    #         }
+    #     }
+    # }
     git_repos = {}
     sources = []
     package_sources = []
@@ -277,7 +291,7 @@ async def generate_sources(cargo_lock, git_tarballs=False):
     logging.debug('Adding collected git repos:\n%s', json.dumps(list(git_repos), indent=4))
     git_repo_coros = []
     for git_url, git_repo in git_repos.items():
-        for git_commit in git_repo:
+        for git_commit in git_repo['commits']:
             git_repo_coros.append(get_git_repo_sources(git_url, git_commit, git_tarballs))
     sources.extend(sum(await asyncio.gather(*git_repo_coros), []))
 
