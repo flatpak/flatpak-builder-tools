@@ -752,27 +752,6 @@ class ModuleProvider(contextlib.AbstractContextManager):
         raise NotImplementedError()
 
 
-class NodeHeadersProvider:
-    def __init__(self, gen: ManifestGenerator):
-        self.gen = gen
-
-    @property
-    def gyp_dir(self) -> Path:
-        return self.gen.data_root / 'cache' / 'node-gyp'
-
-    async def generate_node_headers(self, node_headers: NodeHeaders, dest: Path = None):
-        url = node_headers.url
-        install_version = node_headers.install_version
-        if dest is None:
-            dest = self.gyp_dir / node_headers.target
-        metadata = await RemoteUrlMetadata.get(url, cachable=True)
-        self.gen.add_archive_source(url,
-                                    metadata.integrity,
-                                    destination=dest)
-        self.gen.add_data_source(install_version,
-                                 destination=dest / 'installVersion')
-
-
 class ElectronBinaryManager:
     class Arch(NamedTuple):
         electron: str
@@ -870,6 +849,10 @@ class SpecialSourceProvider:
             return self.gen.data_root / 'cache' / 'electron'
         return self.gen.data_root / 'electron-cache'
 
+    @property
+    def gyp_dir(self) -> Path:
+        return self.gen.data_root / 'cache' / 'node-gyp'
+
     def _add_electron_cache_downloads(self,
                                       manager: ElectronBinaryManager,
                                       binary_name: str,
@@ -934,13 +917,12 @@ class SpecialSourceProvider:
             self.gen.add_command(f'ln -sfTr "{self.electron_cache_dir}" "{cache_path}"')
 
     async def _handle_electron_headers(self, package: Package) -> None:
-        provider = NodeHeadersProvider(self.gen)
         node_headers = NodeHeaders(runtime='electron', target=package.version)
         if self.xdg_layout:
             node_gyp_headers_dir = self.gen.data_root / 'cache' / 'node-gyp' / package.version
         else:
             node_gyp_headers_dir = self.gen.data_root / 'node-gyp' / 'electron-current'
-        await provider.generate_node_headers(node_headers, dest=node_gyp_headers_dir)
+        await self.generate_node_headers(node_headers, dest=node_gyp_headers_dir)
 
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
         # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
@@ -1175,6 +1157,18 @@ class SpecialSourceProvider:
         script.append('esac')
 
         self.gen.add_script_source(script, destination)
+
+    async def generate_node_headers(self, node_headers: NodeHeaders, dest: Path = None):
+        url = node_headers.url
+        install_version = node_headers.install_version
+        if dest is None:
+            dest = self.gyp_dir / node_headers.target
+        metadata = await RemoteUrlMetadata.get(url, cachable=True)
+        self.gen.add_archive_source(url,
+                                    metadata.integrity,
+                                    destination=dest)
+        self.gen.add_data_source(install_version,
+                                 destination=dest / 'installVersion')
 
     async def generate_special_sources(self, package: Package) -> None:
         if isinstance(Requests.instance, StubRequests):
@@ -1889,10 +1883,9 @@ async def main() -> None:
         with provider_factory.create_module_provider(gen, special) as module_provider:
             with GeneratorProgress(packages, module_provider) as progress:
                 await progress.run()
-        headers_provider = NodeHeadersProvider(gen)
         for headers in rcfile_node_headers:
             print(f'Generating headers {headers.runtime} @ {headers.target}')
-            await headers_provider.generate_node_headers(headers)
+            await special.generate_node_headers(headers)
 
         if args.xdg_layout:
             script_name = "setup_sdk_node_headers.sh"
