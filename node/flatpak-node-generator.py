@@ -9,7 +9,7 @@ from typing import *  # pyright: reportWildcardImportFromLibrary=false
 from typing import cast, IO
 
 from pathlib import Path
-from distutils.version import StrictVersion
+from semver import VersionInfo
 
 import argparse
 import asyncio
@@ -850,7 +850,7 @@ class SpecialSourceProvider:
 
     def _handle_gulp_atom_electron(self, package: Package) -> None:
         # Versions after 1.22.0 use @electron/get and don't need this
-        if StrictVersion(package.version) <= StrictVersion('1.22.0'):
+        if VersionInfo.parse(package.version) <= VersionInfo.parse('1.22.0'):
             cache_path = self.gen.data_root / 'tmp' / 'gulp-electron-cache' / 'atom' / 'electron'
             self.gen.add_command(f'mkdir -p "{cache_path.parent}"')
             self.gen.add_command(f'ln -sfTr "{self.electron_cache_dir}" "{cache_path}"')
