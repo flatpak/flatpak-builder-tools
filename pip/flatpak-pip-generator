@@ -60,7 +60,7 @@ def get_tar_package_url_pypi(name: str, version: str) -> str:
     url = 'https://pypi.org/pypi/{}/{}/json'.format(name, version)
     with urllib.request.urlopen(url) as response:
         body = json.loads(response.read().decode('utf-8'))
-        for ext in ['bz2', 'gz', 'xz', 'zip']:
+        for ext in ['bz2', 'gz', 'xz', 'zip', 'whl']:
             for source in body['urls']:
                 if source['url'].endswith(ext):
                     return source['url']
