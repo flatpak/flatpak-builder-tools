@@ -226,7 +226,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
 
     fprint('Downloading arch independent packages')
     for filename in os.listdir(tempdir):
-        if not filename.endswith(('bz2', 'gz', 'xz', 'zip')):
+        if not filename.endswith(('bz2', 'any.whl', 'gz', 'xz', 'zip')):
             version = get_file_version(filename)
             name = get_package_name(filename)
             url = get_tar_package_url_pypi(name, version)
