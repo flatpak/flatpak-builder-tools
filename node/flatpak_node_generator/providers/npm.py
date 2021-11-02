@@ -34,6 +34,10 @@ from ..url_metadata import RemoteUrlMetadata
 from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
 from .special import SpecialSourceProvider
 
+_NPM_CORGIDOC = (
+    'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*'
+)
+
 
 class NpmLockfileProvider(LockfileProvider):
     _ALIAS_RE = re.compile(r'^npm:(.[^@]*)@(.*)$')
@@ -163,8 +167,14 @@ class NpmModuleProvider(ModuleProvider):
             / self.get_cacache_integrity_path(integrity)
         )
 
-    def add_index_entry(self, url: str, metadata: RemoteUrlMetadata) -> None:
+    def add_index_entry(
+        self,
+        url: str,
+        metadata: RemoteUrlMetadata,
+        request_headers: Dict[str, str] = {},
+    ) -> None:
         key = f'make-fetch-happen:request-cache:{url}'
+
         index_json = json.dumps(
             {
                 'key': key,
@@ -173,7 +183,7 @@ class NpmModuleProvider(ModuleProvider):
                 'size': metadata.size,
                 'metadata': {
                     'url': url,
-                    'reqHeaders': {},
+                    'reqHeaders': request_headers,
                     'resHeaders': {},
                 },
             }
@@ -304,7 +314,9 @@ class NpmModuleProvider(ModuleProvider):
             )
             content_path = self.get_cacache_content_path(metadata.integrity)
             self.gen.add_data_source(raw_data, content_path)
-            self.add_index_entry(index.url, metadata)
+            self.add_index_entry(
+                index.url, metadata, request_headers={'accept': _NPM_CORGIDOC}
+            )
 
         patch_commands: DefaultDict[Path, List[str]] = collections.defaultdict(
             lambda: []
