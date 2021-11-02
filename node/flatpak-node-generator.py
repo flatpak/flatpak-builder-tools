@@ -247,18 +247,18 @@ class Requests:
 
     async def _read_parts(self,
                           url: str,
-                          size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+                          size: int = DEFAULT_PART_SIZE, headers: dict[str,str] = None) -> AsyncIterator[bytes]:
         raise NotImplementedError
         yield b''  # Silence mypy.
 
-    async def _read_all(self, url: str) -> bytes:
+    async def _read_all(self, url: str, headers: dict[str,str] = None) -> bytes:
         raise NotImplementedError
 
     async def read_parts(self,
                          url: str,
                          *,
                          cachable: bool,
-                         size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+                         size: int = DEFAULT_PART_SIZE, headers: dict[str,str] = None) -> AsyncIterator[bytes]:
         bucket = self.__get_cache_bucket(cachable, url)
 
         bucket_reader = bucket.open_read()
@@ -271,7 +271,7 @@ class Requests:
         for i in range(1, Requests.retries + 1):
             try:
                 with bucket.open_write() as bucket_writer:
-                    async for part in self._read_parts(url, size):
+                    async for part in self._read_parts(url, size, headers = headers):
                         bucket_writer.write(part)
                         yield part
 
@@ -280,7 +280,7 @@ class Requests:
                 if i == Requests.retries:
                     raise
 
-    async def read_all(self, url: str, *, cachable: bool = False) -> bytes:
+    async def read_all(self, url: str, *, cachable: bool = False, headers: dict[str,str] = None) -> bytes:
         bucket = self.__get_cache_bucket(cachable, url)
 
         bucket_reader = bucket.open_read()
@@ -290,7 +290,7 @@ class Requests:
         for i in range(1, Requests.retries + 1):
             try:
                 with bucket.open_write() as bucket_writer:
-                    data = await self._read_all(url)
+                    data = await self._read_all(url, headers = headers)
                     bucket_writer.write(data)
                     return data
             except Exception:
@@ -307,8 +307,9 @@ class UrllibRequests(Requests):
 
     async def _read_parts(self,
                           url: str,
-                          size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
-        with urllib.request.urlopen(url) as response:
+                          size: int = DEFAULT_PART_SIZE, headers: dict[str,str] = None) -> AsyncIterator[bytes]:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as response:
             while True:
                 data = response.read(size)
                 if not data:
@@ -316,8 +317,9 @@ class UrllibRequests(Requests):
 
                 yield data
 
-    async def _read_all(self, url: str) -> bytes:
-        with urllib.request.urlopen(url) as response:
+    async def _read_all(self, url: str, headers: dict[str,str]) -> bytes:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as response:
             return cast(bytes, response.read())
 
 
@@ -328,10 +330,10 @@ class StubRequests(Requests):
 
     async def _read_parts(self,
                           url: str,
-                          size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+                          size: int = DEFAULT_PART_SIZE, headers: dict[str,str] = None) -> AsyncIterator[bytes]:
         yield b''
 
-    async def _read_all(self, url: str) -> bytes:
+    async def _read_all(self, url: str, headers: dict[str,str] = None) -> bytes:
         return b''
 
 
@@ -346,15 +348,15 @@ try:
             return True
 
         @contextlib.asynccontextmanager
-        async def _open_stream(self, url: str) -> AsyncIterator[aiohttp.StreamReader]:
+        async def _open_stream(self, url: str, headers: dict[str,str] = None) -> AsyncIterator[aiohttp.StreamReader]:
             async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
+                async with session.get(url, headers=headers) as response:
                     yield response.content
 
         async def _read_parts(self,
                               url: str,
-                              size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
-            async with self._open_stream(url) as stream:
+                              size: int = DEFAULT_PART_SIZE, headers: dict[str,str] = None) -> AsyncIterator[bytes]:
+            async with self._open_stream(url, headers=headers) as stream:
                 while True:
                     data = await stream.read(size)
                     if not data:
@@ -362,8 +364,8 @@ try:
 
                     yield data
 
-        async def _read_all(self, url: str) -> bytes:
-            async with self._open_stream(url) as stream:
+        async def _read_all(self, url: str, headers: dict[str,str] = None) -> bytes:
+            async with self._open_stream(url, headers=headers) as stream:
                 return await stream.read()
 
     Requests.instance = AsyncRequests()
