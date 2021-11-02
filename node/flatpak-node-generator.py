@@ -66,6 +66,7 @@ GIT_URL_HOSTS = ['github.com', 'gitlab.com', 'bitbucket.com', 'bitbucket.org']
 
 NPM_MIRROR = 'https://unpkg.com/'
 
+NPM_CORGIDOC = 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*'
 
 class Cache:
     instance: 'Cache'
@@ -1220,6 +1221,7 @@ class NpmModuleProvider(ModuleProvider):
 
     def add_index_entry(self, url: str, metadata: RemoteUrlMetadata) -> None:
         key = f'make-fetch-happen:request-cache:{url}'
+        reqH = {} if url[-4:] == '.tgz' else { 'accept': NPM_CORGIDOC }
         index_json = json.dumps({
             'key':
                 key,
@@ -1231,7 +1233,7 @@ class NpmModuleProvider(ModuleProvider):
                 metadata.size,
             'metadata': {
                 'url': url,
-                'reqHeaders': {},
+                'reqHeaders': reqH,
                 'resHeaders': {},
             },
         })
