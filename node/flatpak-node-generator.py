@@ -66,6 +66,7 @@ GIT_URL_HOSTS = ['github.com', 'gitlab.com', 'bitbucket.com', 'bitbucket.org']
 
 NPM_MIRROR = 'https://unpkg.com/'
 
+NPM_CORGIDOC = 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*'
 
 class Cache:
     instance: 'Cache'
@@ -1253,7 +1254,7 @@ class NpmModuleProvider(ModuleProvider):
 
             data_url = f'{self.registry}/{package.name.replace("/", "%2f")}'
             # NOTE: Not cachable, because this is an API call.
-            raw_data = await Requests.instance.read_all(data_url, cachable=False)
+            raw_data = await Requests.instance.read_all(data_url, cachable=False, headers={'accept': NPM_CORGIDOC})
             data = json.loads(raw_data)
 
             assert 'versions' in data, f'{data_url} returned an invalid package index'
