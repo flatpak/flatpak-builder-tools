@@ -1,0 +1,5 @@
+build
+.flatpak-builder
+example.json
+*-sources.json
+*-sources.yml
