@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.request
+import platform
 
 from collections import OrderedDict
 
@@ -42,6 +43,21 @@ parser.add_argument('--output', '-o',
 parser.add_argument('--runtime',
                     help='Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility')
 opts = parser.parse_args()
+
+
+def format_full_version(info):
+    version = '{0.major}.{0.minor}.{0.micro}'.format(info)
+    kind = info.releaselevel
+    if kind != 'final':
+        version += kind[0] + str(info.serial)
+    return version
+
+ENV = {
+    "sys_platform": sys.platform,
+    "python_version": platform.python_version()[:3],
+    "python_full_version": format_full_version(sys.version_info),
+    "implementation_version": format_full_version(sys.implementation.version)
+}
 
 
 def get_pypi_url(name: str, filename: str) -> str:
@@ -298,7 +314,9 @@ system_packages = ['cython', 'easy_install', 'mako', 'markdown', 'meson', 'pip',
 
 fprint('Generating dependencies')
 for package in packages:
-
+    parts = package.line.split(";")
+    if len(parts) == 2 and not eval(parts[1].strip(), ENV, ENV):
+        continue
     if package.name is None:
         print('Warning: skipping invalid requirement specification {} because it is missing a name'.format(package.line), file=sys.stderr)
         print('Append #egg=<pkgname> to the end of the requirement line to fix', file=sys.stderr)
