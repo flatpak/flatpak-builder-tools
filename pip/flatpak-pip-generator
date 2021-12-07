@@ -2,6 +2,7 @@
 
 __license__ = 'MIT'
 
+from typing import Dict
 import argparse
 import json
 import hashlib
@@ -127,6 +128,15 @@ def parse_continuation_lines(fin):
             except StopIteration:
                 exit('Requirements have a wrong number of line continuation characters "\\"')
         yield line
+
+
+def get_pypi_checker_data(name: str, url: str) -> Dict[str, str]:
+    checker_data = {"type": "pypi", "name": name}
+    if url.endswith(".whl"):
+        checker_data["packagetype"] = "bdist_wheel"
+    elif url.endswith(".tar.gz"):
+        checker_data["packagetype"] = "sdist"
+    return checker_data
 
 
 def fprint(string: str) -> None:
@@ -286,10 +296,12 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             is_vcs = True
         else:
             url = get_pypi_url(name, filename)
+            checker_data = get_pypi_checker_data(name, url)
             source = OrderedDict([
                 ('type', 'file'),
                 ('url', url),
-                ('sha256', sha256)])
+                ('sha256', sha256),
+                ('x-checker-data', checker_data)])
             is_vcs = False
         sources[name] = {'source': source, 'vcs': is_vcs}
 
@@ -298,7 +310,6 @@ system_packages = ['cython', 'easy_install', 'mako', 'markdown', 'meson', 'pip',
 
 fprint('Generating dependencies')
 for package in packages:
-
     if package.name is None:
         print('Warning: skipping invalid requirement specification {} because it is missing a name'.format(package.line), file=sys.stderr)
         print('Append #egg=<pkgname> to the end of the requirement line to fix', file=sys.stderr)
@@ -411,3 +422,4 @@ print()
 with open(output_filename, 'w') as output:
     output.write(json.dumps(pypi_module, indent=4))
     print('Output saved to {}'.format(output_filename))
+ 
