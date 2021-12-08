@@ -895,6 +895,7 @@ class SpecialSourceProvider:
         node_chromedriver_from_electron: str
         electron_ffmpeg: str
         electron_node_headers: bool
+        electron_from_rcfile: bool
         nwjs_version: str
         nwjs_node_headers: bool
         nwjs_ffmpeg: bool
@@ -905,6 +906,7 @@ class SpecialSourceProvider:
         self.node_chromedriver_from_electron = options.node_chromedriver_from_electron
         self.electron_ffmpeg = options.electron_ffmpeg
         self.electron_node_headers = options.electron_node_headers
+        self.electron_bins_for_headers = options.electron_from_rcfile
         self.nwjs_version = options.nwjs_version
         self.nwjs_node_headers = options.nwjs_node_headers
         self.nwjs_ffmpeg = options.nwjs_ffmpeg
@@ -1241,6 +1243,9 @@ class SpecialSourceProvider:
         metadata = await RemoteUrlMetadata.get(url, cachable=True)
         self.gen.add_archive_source(url, metadata.integrity, destination=dest)
         self.gen.add_data_source(install_version, destination=dest / 'installVersion')
+
+        if self.electron_bins_for_headers and node_headers.runtime == "electron":
+            await self.__add_electron(node_headers.target)
 
     async def generate_special_sources(self, package: Package) -> None:
         if isinstance(Requests.instance, StubRequests):
@@ -1877,6 +1882,10 @@ async def main() -> None:
     parser.add_argument('--electron-node-headers',
                         action='store_true',
                         help='Download the electron node headers')
+    parser.add_argument('--electron-from-rcfile',
+                        action='store_true',
+                        help='Download electron version corresponding to '
+                        'the node headers version(s) from .yarnrc/.npmrc')
     parser.add_argument('--nwjs-version',
                         help='Specify NW.js version (will use latest otherwise)')
     parser.add_argument('--nwjs-node-headers',
@@ -1967,7 +1976,8 @@ async def main() -> None:
             nwjs_ffmpeg=args.nwjs_ffmpeg,
             xdg_layout=args.xdg_layout,
             electron_ffmpeg=args.electron_ffmpeg,
-            electron_node_headers=args.electron_node_headers)
+            electron_node_headers=args.electron_node_headers,
+            electron_from_rcfile=args.electron_from_rcfile)
         special = SpecialSourceProvider(gen, options)
 
         with provider_factory.create_module_provider(gen, special) as module_provider:
