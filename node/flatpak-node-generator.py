@@ -1008,7 +1008,10 @@ class SpecialSourceProvider:
 
     async def _handle_playwright(self, package: Package) -> None:
         base_url = f'https://github.com/microsoft/playwright/raw/v{package.version}/'
-        browsers_json_url = base_url + 'browsers.json'
+        if StrictVersion(package.version) >= StrictVersion('1.16.0'):
+            browsers_json_url = base_url + 'packages/playwright-core/browsers.json'
+        else:
+            browsers_json_url = base_url + 'browsers.json'
         browsers_json = json.loads(await Requests.instance.read_all(browsers_json_url,
                                                                     cachable=True))
         for browser in browsers_json['browsers']:
