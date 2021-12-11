@@ -524,21 +524,23 @@ class Package(NamedTuple):
     lockfile: Path
 
 
-class NodeHeaders:
-    def __init__(self, target: str, runtime: str = None, disturl: str = None):
-        self.target = target
-        if runtime is not None:
-            self.runtime = runtime
-        else:
-            self.runtime = 'node'
-        if disturl is not None:
-            self.disturl = disturl
-        elif self.runtime == 'node':
-            self.disturl = 'http://nodejs.org/dist'
-        elif self.runtime == 'electron':
-            self.disturl = 'https://www.electronjs.org/headers'
-        else:
-            raise ValueError(f'Can\'t guess `disturl` for {self.runtime} version {self.target}')
+class NodeHeaders(NamedTuple):
+    target: str
+    runtime: str
+    disturl: str
+
+    @classmethod
+    def with_defaults(cls, target: str, runtime: str = None, disturl: str = None):
+        if runtime is None:
+            runtime = 'node'
+        if disturl is None:
+            if runtime == 'node':
+                disturl = 'http://nodejs.org/dist'
+            elif runtime == 'electron':
+                disturl = 'https://www.electronjs.org/headers'
+            else:
+                raise ValueError(f'Can\'t guess `disturl` for {runtime} version {target}')
+        return cls(target, runtime, disturl)
 
     @property
     def url(self) -> str:
@@ -744,7 +746,7 @@ class RCFileProvider:
         target = rc_data['target']
         runtime = rc_data.get('runtime')
         disturl = rc_data.get('disturl')
-        return NodeHeaders(target, runtime, disturl)
+        return NodeHeaders.with_defaults(target, runtime, disturl)
 
 
 class ModuleProvider(contextlib.AbstractContextManager):
@@ -917,7 +919,7 @@ class SpecialSourceProvider:
             self.gen.add_command(f'ln -sfTr "{self.electron_cache_dir}" "{cache_path}"')
 
     async def _handle_electron_headers(self, package: Package) -> None:
-        node_headers = NodeHeaders(runtime='electron', target=package.version)
+        node_headers = NodeHeaders.with_defaults(runtime='electron', target=package.version)
         if self.xdg_layout:
             node_gyp_headers_dir = self.gen.data_root / 'cache' / 'node-gyp' / package.version
         else:
