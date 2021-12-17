@@ -1422,29 +1422,8 @@ class NpmModuleProvider(ModuleProvider):
             self.gen.add_command(f'FLATPAK_BUILDER_BUILDDIR=$PWD {patch_all_dest}')
 
         if self.index_entries:
-            # (ab-)use a "script" module to generate the index.
-            parents: Set[str] = set()
-
-            for path in self.index_entries:
-                for parent in map(str, path.relative_to(self.cacache_dir).parents):
-                    if parent != '.':
-                        parents.add(parent)
-
-            index_commands: List[str] = []
-            index_commands.append('import os')
-            index_commands.append(f'os.chdir({str(self.cacache_dir)!r})')
-
-            for parent in sorted(parents, key=len):
-                index_commands.append(f'os.makedirs({parent!r}, exist_ok=True)')
-
             for path, entry in self.index_entries.items():
-                path = path.relative_to(self.cacache_dir)
-                index_commands.append(f'with open({str(path)!r}, "w") as fp:')
-                index_commands.append(f'    fp.write({entry!r})')
-
-            script_dest = self.gen.data_root / 'generate-index.py'
-            self.gen.add_script_source(index_commands, script_dest)
-            self.gen.add_command(f'python3 {script_dest}')
+                self.gen.add_data_source(entry, path)
 
 
 class YarnLockfileProvider(LockfileProvider):
