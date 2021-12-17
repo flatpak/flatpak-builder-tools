@@ -5,6 +5,7 @@ A more modern successor for flatpak-npm-generator and flatpak-yarn-generator, fo
 
 ## Requirements
 
+- flatpak-builder 1.1.2 or newer
 - Python 3.6+.
 - aiohttp. (flatpak-node-generator will fall back onto urllib.request if aiohttp is not available,
   but performance will take a serious hit.)
