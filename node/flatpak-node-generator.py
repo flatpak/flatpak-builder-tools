@@ -630,10 +630,18 @@ class ManifestGenerator(contextlib.AbstractContextManager):
                                           only_arches=only_arches)
 
     def add_data_source(self, data: Union[str, bytes], destination: Path) -> None:
-        # Note that safe is empty so that slashes are escaped, to work around
-        # https://gitlab.gnome.org/GNOME/libsoup/-/merge_requests/194
-        quoted = urllib.parse.quote(data, safe='')
-        source = {'type': 'file', 'url': 'data:' + quoted}
+        if isinstance(data, bytes):
+            source = {
+                'type': 'inline',
+                'contents': base64.b64encode(data).decode('ascii'),
+                'base64': True,
+            }
+        else:
+            assert isinstance(data, str)
+            source = {
+                'type': 'inline', 
+                'contents': data,
+            }
         self._add_source_with_destination(source, destination, is_dir=False)
 
     def add_git_source(self,
