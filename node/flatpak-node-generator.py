@@ -1133,7 +1133,7 @@ class SpecialSourceProvider:
             await self._handle_nw_builder(package)
         elif package.name in {'dugite', '@shiftkey/dugite'}:
             await self._handle_dugite_native(package)
-        elif package.name == 'vscode-ripgrep':
+        elif package.name in {'vscode-ripgrep', '@vscode/ripgrep'}:
             await self._handle_ripgrep_prebuilt(package)
         elif package.name == 'playwright':
             await self._handle_playwright(package)
