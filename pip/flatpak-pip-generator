@@ -37,6 +37,8 @@ parser.add_argument('--build-isolation', action='store_true',
                         'Mostly useful on pip that does\'t '
                         'support the feature.'
                     ))
+parser.add_argument('--checker-data', action='store_true',
+                    help='Include x-checker-data in output for the "Flatpak External Data Checker"')
 parser.add_argument('--output', '-o',
                     help='Specify output file name')
 parser.add_argument('--runtime',
@@ -290,12 +292,12 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 ('type', 'file'),
                 ('url', url),
                 ('sha256', sha256)])
-            # if add x-checker-data
-            source['x-checker-data'] = {
-                'type': 'pypi',
-                'name': name}
-            if url.endswith(".whl"):
-                source['x-checker-data']['packagetype'] = 'bdist_wheel'
+            if opts.checker_data:
+                source['x-checker-data'] = {
+                    'type': 'pypi',
+                    'name': name}
+                if url.endswith(".whl"):
+                    source['x-checker-data']['packagetype'] = 'bdist_wheel'
             is_vcs = False
         sources[name] = {'source': source, 'vcs': is_vcs}
 
