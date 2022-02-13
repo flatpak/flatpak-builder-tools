@@ -25,6 +25,28 @@ The script does not require Go in the host system.
 }
 ```
 
+Yaml example:
+```yaml
+app-id: writeas-cli
+runtime: org.freedesktop.Platform
+runtime-version: '21.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.golang
+command: echo "Done"
+modules:
+  - name: writeas
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/golang/bin
+      env:
+        GOBIN: /app/bin
+      build-args:
+        - --share=network
+    build-commands:
+      - "go env -w GOPATH=$PWD; go env -w GO111MODULE=off; go get -v github.com/writeas/writeas-cli/cmd/writeas"
+```
+
 2. Run flatpak-builder with `--keep-build-dirs`.
 3. Run `go-get/flatpak-go-get-generator.py <build-dir>` with build-dir pointing the the build directory in `.flatpak-builder/build`.
 4. Convert the source list to YAML if necessary.
