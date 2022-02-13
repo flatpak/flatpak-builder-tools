@@ -44,7 +44,7 @@ modules:
       build-args:
         - --share=network
     build-commands:
-      - "go env -w GOPATH=$PWD; go env -w GO111MODULE=off; go get -v github.com/writeas/writeas-cli/cmd/writeas"
+      - "go env -w GOPATH=$PWD; go env -w GO111MODULE=off; go get github.com/writeas/writeas-cli/cmd/writeas"
 ```
 
 2. Run flatpak-builder with `--keep-build-dirs`.
