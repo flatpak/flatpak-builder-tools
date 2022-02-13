@@ -6,7 +6,7 @@ The script does not require Go in the host system.
 ## Usage
 1. In the manifest, give the Go module network access and set GOPATH to $PWD.
 
-  Example:
+  Example manifest module (json):
 ```json
 {
   "name": "writeas-cli",
@@ -25,7 +25,7 @@ The script does not require Go in the host system.
 }
 ```
 
-Yaml example:
+  Example manifest (yaml):
 ```yaml
 app-id: writeas-cli
 runtime: org.freedesktop.Platform
@@ -41,10 +41,11 @@ modules:
       append-path: /usr/lib/sdk/golang/bin
       env:
         GOBIN: /app/bin
+        GO111MODULE: off
       build-args:
         - --share=network
     build-commands:
-      - "go env -w GOPATH=$PWD; go env -w GO111MODULE=off; go get github.com/writeas/writeas-cli/cmd/writeas"
+      - "go env -w GOPATH=$PWD; go get github.com/writeas/writeas-cli/cmd/writeas"
 ```
 
 2. Run flatpak-builder with `--keep-build-dirs`.
