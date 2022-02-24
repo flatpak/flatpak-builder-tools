@@ -1288,7 +1288,9 @@ class NpmModuleProvider(ModuleProvider):
     def __exit__(self, exc_type: Optional[Type[BaseException]],
                  exc_value: Optional[BaseException],
                  tb: Optional[types.TracebackType]) -> None:
-        self._finalize()
+        # Don't bother finalizing if an exception was thrown.
+        if exc_type is None:
+            self._finalize()
 
     def get_cacache_integrity_path(self, integrity: Integrity) -> Path:
         digest = integrity.digest
@@ -1729,8 +1731,18 @@ class GeneratorProgress(ContextManager['GeneratorProgress']):
 
     async def run(self) -> None:
         self._update()
-        await asyncio.wait(
-            [asyncio.create_task(self._generate(pkg)) for pkg in self.packages])
+
+        tasks = [asyncio.create_task(self._generate(pkg)) for pkg in self.packages]
+        for coro in asyncio.as_completed(tasks):
+            try:
+                await coro
+            except:
+                # If an exception occurred, make sure to cancel all the other
+                # tasks.
+                for task in tasks:
+                    task.cancel()
+
+                raise
 
 
 def scan_for_lockfiles(base: Path, patterns: List[str]) -> Iterator[Path]:
