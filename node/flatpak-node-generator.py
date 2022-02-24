@@ -530,7 +530,10 @@ class NodeHeaders(NamedTuple):
     disturl: str
 
     @classmethod
-    def with_defaults(cls, target: str, runtime: str = None, disturl: str = None):
+    def with_defaults(cls,
+                      target: str,
+                      runtime: Optional[str] = None,
+                      disturl: Optional[str] = None):
         if runtime is None:
             runtime = 'node'
         if disturl is None:
@@ -553,7 +556,7 @@ class NodeHeaders(NamedTuple):
         return "9"
 
 
-class ManifestGenerator(contextlib.AbstractContextManager):
+class ManifestGenerator(ContextManager['ManifestGenerator']):
     MAX_GITHUB_SIZE = 49 * 1000 * 1000
     JSON_INDENT = 4
 
@@ -735,7 +738,7 @@ class RCFileProvider:
             rcfile_text = r.read()
         parser_re = re.compile(r'^(?!#|;)(\S+)(?:\s+|\s*=\s*)(?:"(.+)"|(\S+))$',
                                re.MULTILINE)
-        result = {}
+        result: Dict[str, str] = {}
         for key, quoted_val, val in parser_re.findall(rcfile_text):
             result[key] = quoted_val or val
         return result
@@ -747,10 +750,13 @@ class RCFileProvider:
         target = rc_data['target']
         runtime = rc_data.get('runtime')
         disturl = rc_data.get('disturl')
+
+        assert isinstance(runtime, str) and isinstance(disturl, str)
+
         return NodeHeaders.with_defaults(target, runtime, disturl)
 
 
-class ModuleProvider(contextlib.AbstractContextManager):
+class ModuleProvider(ContextManager['ModuleProvider']):
     async def generate_package(self, package: Package) -> None:
         raise NotImplementedError()
 
@@ -1164,7 +1170,9 @@ class SpecialSourceProvider:
 
         self.gen.add_script_source(script, destination)
 
-    async def generate_node_headers(self, node_headers: NodeHeaders, dest: Path = None):
+    async def generate_node_headers(self,
+                                    node_headers: NodeHeaders,
+                                    dest: Optional[Path] = None):
         url = node_headers.url
         install_version = node_headers.install_version
         if dest is None:
@@ -1672,7 +1680,7 @@ class YarnProviderFactory(ProviderFactory):
         return YarnModuleProvider(gen, special)
 
 
-class GeneratorProgress(contextlib.AbstractContextManager):
+class GeneratorProgress(ContextManager['GeneratorProgress']):
     def __init__(self, packages: Collection[Package],
                  module_provider: ModuleProvider) -> None:
         self.finished = 0
