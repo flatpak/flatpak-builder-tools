@@ -668,7 +668,7 @@ class ManifestGenerator(contextlib.AbstractContextManager):
         else:
             assert isinstance(data, str)
             source = {
-                'type': 'inline', 
+                'type': 'inline',
                 'contents': data,
             }
         self._add_source_with_destination(source, destination, is_dir=False)
@@ -733,7 +733,8 @@ class RCFileProvider:
     def parse_rcfile(self, rcfile: Path) -> Dict[str, str]:
         with open(rcfile, 'r') as r:
             rcfile_text = r.read()
-        parser_re = re.compile(r'^(?!#|;)(\S+)(?:\s+|\s*=\s*)(?:"(.+)"|(\S+))$', re.MULTILINE)
+        parser_re = re.compile(r'^(?!#|;)(\S+)(?:\s+|\s*=\s*)(?:"(.+)"|(\S+))$',
+                               re.MULTILINE)
         result = {}
         for key, quoted_val, val in parser_re.findall(rcfile_text):
             result[key] = quoted_val or val
@@ -919,7 +920,8 @@ class SpecialSourceProvider:
             self.gen.add_command(f'ln -sfTr "{self.electron_cache_dir}" "{cache_path}"')
 
     async def _handle_electron_headers(self, package: Package) -> None:
-        node_headers = NodeHeaders.with_defaults(runtime='electron', target=package.version)
+        node_headers = NodeHeaders.with_defaults(runtime='electron',
+                                                 target=package.version)
         if self.xdg_layout:
             node_gyp_headers_dir = self.gen.data_root / 'cache' / 'node-gyp' / package.version
         else:
@@ -929,7 +931,8 @@ class SpecialSourceProvider:
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
         # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
         # just use unpkg instead.
-        url = urllib.parse.urljoin(NPM_MIRROR, f'chromedriver@{package.version}/lib/chromedriver')
+        url = urllib.parse.urljoin(NPM_MIRROR,
+                                   f'chromedriver@{package.version}/lib/chromedriver')
         js = await Requests.instance.read_all(url, cachable=True)
         # XXX: a tad ugly
         match = re.search(r"exports\.version = '([^']+)'", js.decode())
@@ -1000,7 +1003,8 @@ class SpecialSourceProvider:
 
             if self.nwjs_ffmpeg:
                 ffmpeg_dl_url = f'{ffmpeg_dl_base}/{version}/{version}-{nwjs_arch}.zip'
-                ffmpeg_metadata = await RemoteUrlMetadata.get(ffmpeg_dl_url, cachable=True)
+                ffmpeg_metadata = await RemoteUrlMetadata.get(ffmpeg_dl_url,
+                                                              cachable=True)
                 self.gen.add_archive_source(ffmpeg_dl_url,
                                             ffmpeg_metadata.integrity,
                                             destination=dest,
@@ -1166,11 +1170,8 @@ class SpecialSourceProvider:
         if dest is None:
             dest = self.gyp_dir / node_headers.target
         metadata = await RemoteUrlMetadata.get(url, cachable=True)
-        self.gen.add_archive_source(url,
-                                    metadata.integrity,
-                                    destination=dest)
-        self.gen.add_data_source(install_version,
-                                 destination=dest / 'installVersion')
+        self.gen.add_archive_source(url, metadata.integrity, destination=dest)
+        self.gen.add_data_source(install_version, destination=dest / 'installVersion')
 
     async def generate_special_sources(self, package: Package) -> None:
         if isinstance(Requests.instance, StubRequests):
@@ -1795,7 +1796,8 @@ async def main() -> None:
     parser.add_argument('--nwjs-node-headers',
                         action='store_true',
                         help='Download the NW.js node headers')
-    parser.add_argument('--nwjs-ffmpeg', action='store_true',
+    parser.add_argument('--nwjs-ffmpeg',
+                        action='store_true',
                         help='Download prebuilt ffmpeg for current NW.js version')
     parser.add_argument('--xdg-layout',
                         action='store_true',
@@ -1857,7 +1859,7 @@ async def main() -> None:
     for lockfile in lockfiles:
         lockfile_provider = provider_factory.create_lockfile_provider()
         rcfile_providers = provider_factory.create_rcfile_providers()
- 
+
         packages.update(lockfile_provider.process_lockfile(lockfile))
 
         for rcfile_provider in rcfile_providers:
