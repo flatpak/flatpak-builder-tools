@@ -1269,6 +1269,8 @@ class SpecialSourceProvider:
 
 
 class NpmLockfileProvider(LockfileProvider):
+    _ALIAS_RE = re.compile(r'^npm:(.[^@]*)@(.*)$')
+
     class Options(NamedTuple):
         no_devel: bool
 
@@ -1285,6 +1287,9 @@ class NpmLockfileProvider(LockfileProvider):
                 continue
 
             version: str = info['version']
+            alias_match = self._ALIAS_RE.match(version)
+            if alias_match is not None:
+                name, version = alias_match.groups()
 
             source: PackageSource
             if info.get('from'):
