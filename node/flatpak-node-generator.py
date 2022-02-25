@@ -9,7 +9,6 @@ from typing import *  # pyright: reportWildcardImportFromLibrary=false
 from typing import cast, IO
 
 from pathlib import Path
-from distutils.version import StrictVersion
 
 import argparse
 import asyncio
@@ -17,6 +16,7 @@ import base64
 import binascii
 import collections
 import contextlib
+import functools
 import hashlib
 import json
 import os
@@ -65,6 +65,68 @@ GIT_URL_PATTERNS = [
 GIT_URL_HOSTS = ['github.com', 'gitlab.com', 'bitbucket.com', 'bitbucket.org']
 
 NPM_MIRROR = 'https://unpkg.com/'
+
+
+class SemVer(NamedTuple):
+    # Note that we ignore the metadata part, since all we do is version
+    # comparisons.
+    _SEMVER_RE = re.compile(r'(\d+)\.(\d+)\.(\d+)(?:-(?P<prerelease>[^+]+))?')
+
+    @functools.total_ordering
+    class Prerelease:
+        def __init__(self, parts: Tuple[Union[str, int]]) -> None:
+            self._parts = parts
+
+        @staticmethod
+        def parse(rel: str) -> Optional['SemVer.Prerelease']:
+            if not rel:
+                return None
+
+            parts: List[Union[str, int]] = []
+
+            for part in rel.split('.'):
+                try:
+                    part = int(part)
+                except ValueError:
+                    pass
+
+                parts.append(part)
+
+            return SemVer.Prerelease(tuple(parts))
+
+        @property
+        def parts(self) -> Tuple[Union[str, int]]:
+            return self._parts
+
+        def __lt__(self, other: 'SemVer.Prerelease'):
+            for our_part, other_part in zip(self._parts, other._parts):
+                if type(our_part) == type(other_part):
+                    if our_part < other_part:  # type: ignore
+                        return True
+                # Number parts are always less than strings.
+                elif isinstance(our_part, int):
+                    return True
+
+            return len(self._parts) < len(other._parts)
+
+        def __repr__(self) -> str:
+            return f'Prerelease(parts={self.parts})'
+
+    major: int
+    minor: int
+    patch: int
+    prerelease: Optional[Prerelease] = None
+
+    @staticmethod
+    def parse(version: str) -> 'SemVer':
+        match = SemVer._SEMVER_RE.match(version)
+        if match is None:
+            raise ValueError(f'Invalid semver version: {version}')
+
+        major, minor, patch = map(int, match.groups()[:3])
+        prerelease = SemVer.Prerelease.parse(match.group('prerelease'))
+
+        return SemVer(major, minor, patch, prerelease)
 
 
 class Cache:
@@ -916,7 +978,7 @@ class SpecialSourceProvider:
 
     def _handle_gulp_atom_electron(self, package: Package) -> None:
         # Versions after 1.22.0 use @electron/get and don't need this
-        if StrictVersion(package.version) <= StrictVersion('1.22.0'):
+        if SemVer.parse(package.version) <= SemVer.parse('1.22.0'):
             cache_path = self.gen.data_root / 'tmp' / 'gulp-electron-cache' / 'atom' / 'electron'
             self.gen.add_command(f'mkdir -p "{cache_path.parent}"')
             self.gen.add_command(f'ln -sfTr "{self.electron_cache_dir}" "{cache_path}"')
@@ -1070,7 +1132,7 @@ class SpecialSourceProvider:
 
     async def _handle_playwright(self, package: Package) -> None:
         base_url = f'https://github.com/microsoft/playwright/raw/v{package.version}/'
-        if StrictVersion(package.version) >= StrictVersion('1.16.0'):
+        if SemVer.parse(package.version) >= SemVer.parse('1.16.0'):
             browsers_json_url = base_url + 'packages/playwright-core/browsers.json'
         else:
             browsers_json_url = base_url + 'browsers.json'
