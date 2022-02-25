@@ -372,10 +372,6 @@ except ImportError:
     pass
 
 
-class CachedRequests(Requests):
-    pass
-
-
 class Integrity(NamedTuple):
     algorithm: str
     digest: str
