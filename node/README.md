@@ -239,11 +239,28 @@ Both of these cases are handled by the electron-webpack-quick-start example.
 ### node-gyp and native dependencies
 
 Some node/electron versions are binary incompatible and require rebuilding of
-native node dependencies for electron. In offline mode, it may result in broken ABI.
-If you are seeing errors like
-`The module 'something.node' was compiled against a different Node.js version`,
-then pass `--electron-node-headers` option to flatpak-node-generator and set
-`npm_config_nodedir` to `flatpak-node/node-gyp/electron-current`.
+native node dependencies for electron. In offline mode, it may result in broken
+ABI. If you are seeing errors like `The module 'something.node' was compiled
+against a different Node.js version`, then pass `--electron-node-headers`
+option to flatpak-node-generator and set `npm_config_nodedir` to
+`flatpak-node/node-gyp/electron-current`.
+
+**Note**: Setting `npm_config_nodedir` should not be necessary when using XDG-compliant
+cache directories layout (the default, unless disabled via `--no-xdg-layout`).
+
+Some tools like *electron-rebuild* don't properly respect the
+XDG spec however. In this case, as a workaround, you might need to symlink the
+cache directory. For example:
+
+```yaml
+build-commands:
+  - |
+    ln -s $XDG_CACHE_HOME/node-gyp $HOME/.electron-gyp
+    npm run build
+```
+
+(Note that the build command must be ran as part of the same command as `ln`,
+i.e. it won't work if you run them as separate commands.)
 
 ### ffmpeg support
 
