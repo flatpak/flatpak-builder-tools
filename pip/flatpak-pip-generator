@@ -13,6 +13,7 @@ import tempfile
 import urllib.request
 
 from collections import OrderedDict
+from typing import Dict
 
 try:
     import requirements
@@ -43,7 +44,15 @@ parser.add_argument('--output', '-o',
                     help='Specify output file name')
 parser.add_argument('--runtime',
                     help='Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility')
+parser.add_argument('--yaml', action='store_true',
+                    help='Use YAML as output format instead of JSON')
 opts = parser.parse_args()
+
+if opts.yaml:
+    try:
+        import yaml
+    except ImportError:
+        exit('PyYAML modules is not installed. Run "pip install PyYAML"')
 
 
 def get_pypi_url(name: str, filename: str) -> str:
@@ -192,7 +201,10 @@ elif len(packages) == 1:
     )
 else:
     output_package = 'python{}-modules'.format(python_version)
-output_filename = output_package + '.json'
+if opts.yaml:
+    output_filename = output_package + '.yaml'
+else:
+    output_filename = output_package + '.json'
 
 modules = []
 vcs_modules = []
@@ -417,5 +429,17 @@ else:
 
 print()
 with open(output_filename, 'w') as output:
-    output.write(json.dumps(pypi_module, indent=4))
+    if opts.yaml:
+        class OrderedDumper(yaml.Dumper):
+            def increase_indent(self, flow=False, indentless=False):
+                return super(OrderedDumper, self).increase_indent(flow, False)
+
+        def dict_representer(dumper, data):
+            return dumper.represent_dict(data.items())
+
+        OrderedDumper.add_representer(OrderedDict, dict_representer)
+
+        yaml.dump(pypi_module, output, Dumper=OrderedDumper)
+    else:
+        output.write(json.dumps(pypi_module, indent=4))
     print('Output saved to {}'.format(output_filename))
