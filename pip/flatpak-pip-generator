@@ -139,12 +139,16 @@ def fprint(string: str) -> None:
 
 
 packages = []
-if opts.requirements_file and os.path.exists(os.path.expanduser(opts.requirements_file)):
-    with open(os.path.expanduser(opts.requirements_file), 'r') as req_file:
-        reqs = parse_continuation_lines(req_file)
-        reqs_as_str = '\n'.join([r.split('--hash')[0] for r in reqs])
-        packages = list(requirements.parse(reqs_as_str))
-        requirements_file = os.path.expanduser(opts.requirements_file)
+if opts.requirements_file:
+    requirements_file = os.path.expanduser(opts.requirements_file)
+    try:
+        with open(requirements_file, 'r') as req_file:
+            reqs = parse_continuation_lines(req_file)
+            reqs_as_str = '\n'.join([r.split('--hash')[0] for r in reqs])
+            packages = list(requirements.parse(reqs_as_str))
+    except FileNotFoundError:
+        pass
+
 elif opts.packages:
     packages = list(requirements.parse('\n'.join(opts.packages)))
     with tempfile.NamedTemporaryFile('w', delete=False, prefix='requirements.') as req_file:
@@ -172,10 +176,12 @@ if opts.runtime:
         'run',
         opts.runtime
     ]
-    if opts.requirements_file and os.path.exists(os.path.expanduser(opts.requirements_file)):
-        prefix = os.path.realpath(os.path.expanduser(opts.requirements_file))
-        flag = '--filesystem={}'.format(prefix)
-        flatpak_cmd.insert(1,flag)
+    if opts.requirements_file:
+        requirements_file = os.path.expanduser(opts.requirements_file)
+        if os.path.exists(requirements_file):
+            prefix = os.path.realpath(requirements_file)
+            flag = '--filesystem={}'.format(prefix)
+            flatpak_cmd.insert(1,flag)
 else:
     flatpak_cmd = [pip_executable]
 
