@@ -957,8 +957,8 @@ class SpecialSourceProvider:
             self.gen.add_url_source(integrity_file.url, integrity_file.integrity,
                                     electron_cache_dir / integrity_file.filename)
 
-    async def _handle_electron(self, package: Package) -> None:
-        manager = await ElectronBinaryManager.for_version(package.version)
+    async def __add_electron(self, version: str) -> None:
+        manager = await ElectronBinaryManager.for_version(version)
         self._add_electron_cache_downloads(manager, 'electron')
 
         if self.electron_ffmpeg is not None:
@@ -975,6 +975,9 @@ class SpecialSourceProvider:
                                                 only_arches=[binary.arch.flatpak])
             else:
                 assert False, self.electron_ffmpeg
+
+    async def _handle_electron(self, package: Package) -> None:
+        await self.__add_electron(package.version)
 
     def _handle_gulp_atom_electron(self, package: Package) -> None:
         # Versions after 1.22.0 use @electron/get and don't need this
