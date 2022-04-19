@@ -166,6 +166,13 @@ elif opts.packages:
 else:
     exit('Please specifiy either packages or requirements file argument')
 
+for i in packages:
+    if i["name"].lower().startswith("pyqt"):
+        print("PyQt packages are not supported by flapak-pip-generator")
+        print("However, there is a BaseApp for PyQt available, that you should use")
+        print("Visit https://github.com/flathub/com.riverbankcomputing.PyQt.BaseApp for more information")
+        sys.exit(0)
+
 with open(requirements_file, 'r') as req_file:
     use_hash = '--hash=' in req_file.read()
 
