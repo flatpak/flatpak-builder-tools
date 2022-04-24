@@ -1,3 +1,4 @@
 .mypy_cache/
 .flatpak-builder/
 _build/
+__pycache__/
