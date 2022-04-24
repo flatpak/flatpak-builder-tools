@@ -93,9 +93,12 @@ async def _async_main() -> None:
     parser.add_argument('--nwjs-ffmpeg',
                         action='store_true',
                         help='Download prebuilt ffmpeg for current NW.js version')
-    parser.add_argument('--xdg-layout',
-                        action='store_true',
-                        help='Use XDG layout for caches')
+    # Deprecated, because this is now enabled by default.
+    parser.add_argument('--xdg-layout', default=True, help=argparse.SUPPRESS)
+    parser.add_argument('--no-xdg-layout',
+                        action='store_false',
+                        dest='xdg_layout',
+                        help="Don't use the XDG layout for caches")
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
 

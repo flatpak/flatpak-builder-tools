@@ -3,6 +3,11 @@
 A more modern successor for flatpak-npm-generator and flatpak-yarn-generator, for Node 10+ only.
 (For Node 8, use flatpak-npm-generator and flatpak-yarn-generator.)
 
+**NOTE:** `--xdg-layout` was recently changed to be the default. In the stark
+majority of cases, this needed to be passed, so you can now omit using it
+explicitly. If you're on a relatively old Electron version before this was
+required, however, you can disable it explicitly via `--no-xdg-layout`.
+
 ## Requirements
 
 - flatpak-builder 1.1.2 or newer
