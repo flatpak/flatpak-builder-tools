@@ -32,7 +32,7 @@ class YarnLockfileProvider(LockfileProvider):
                 return True
         url = urllib.parse.urlparse(version)
         if url.netloc in GIT_URL_HOSTS:
-            return len([p for p in url.path.split("/") if p]) == 2
+            return len([p for p in url.path.split('/') if p]) == 2
         return False
 
     def unquote(self, string: str) -> str:
@@ -116,16 +116,20 @@ class YarnRCFileProvider(RCFileProvider):
 class YarnModuleProvider(ModuleProvider):
     # From https://github.com/yarnpkg/yarn/blob/v1.22.4/src/fetchers/tarball-fetcher.js
     _PACKAGE_TARBALL_URL_RE = re.compile(
-        r'(?:(@[^/]+)(?:/|%2f))?[^/]+/(?:-|_attachments)/(?:@[^/]+/)?([^/]+)$')
+        r'(?:(@[^/]+)(?:/|%2f))?[^/]+/(?:-|_attachments)/(?:@[^/]+/)?([^/]+)$'
+    )
 
     def __init__(self, gen: ManifestGenerator, special: SpecialSourceProvider) -> None:
         self.gen = gen
         self.special_source_provider = special
         self.mirror_dir = self.gen.data_root / 'yarn-mirror'
 
-    def __exit__(self, exc_type: Optional[Type[BaseException]],
-                 exc_value: Optional[BaseException],
-                 tb: Optional[types.TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        tb: Optional[types.TracebackType],
+    ) -> None:
         pass
 
     async def generate_package(self, package: Package) -> None:
@@ -142,8 +146,9 @@ class YarnModuleProvider(ModuleProvider):
             else:
                 filename = os.path.basename(url_parts.path)
 
-            self.gen.add_url_source(source.resolved, integrity,
-                                    self.mirror_dir / filename)
+            self.gen.add_url_source(
+                source.resolved, integrity, self.mirror_dir / filename
+            )
 
         elif isinstance(source, GitSource):
             repo_name = urllib.parse.urlparse(source.url).path.split('/')[-1]
@@ -153,7 +158,8 @@ class YarnModuleProvider(ModuleProvider):
 
             self.gen.add_git_source(source.url, source.commit, repo_dir)
             self.gen.add_command(
-                f'cd {repo_dir}; git archive --format tar -o {target_tar} HEAD')
+                f'cd {repo_dir}; git archive --format tar -o {target_tar} HEAD'
+            )
 
         await self.special_source_provider.generate_special_sources(package)
 
@@ -168,6 +174,7 @@ class YarnProviderFactory(ProviderFactory):
     def create_rcfile_providers(self) -> List[RCFileProvider]:
         return [YarnRCFileProvider(), NpmRCFileProvider()]
 
-    def create_module_provider(self, gen: ManifestGenerator,
-                               special: SpecialSourceProvider) -> YarnModuleProvider:
+    def create_module_provider(
+        self, gen: ManifestGenerator, special: SpecialSourceProvider
+    ) -> YarnModuleProvider:
         return YarnModuleProvider(gen, special)

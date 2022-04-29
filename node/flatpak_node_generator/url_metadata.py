@@ -14,19 +14,20 @@ class RemoteUrlMetadata(NamedTuple):
     @staticmethod
     def __get_cache_bucket(cachable: bool, kind: str, url: str) -> Cache.BucketRef:
         return Cache.get_working_instance_if(cachable).get(
-            f'remote-url-metadata:{kind}:{url}')
+            f'remote-url-metadata:{kind}:{url}'
+        )
 
     @staticmethod
     def from_json_object(data: Any) -> 'RemoteUrlMetadata':
-        return RemoteUrlMetadata(integrity=Integrity.from_json_object(data['integrity']),
-                                 size=data['size'])
+        return RemoteUrlMetadata(
+            integrity=Integrity.from_json_object(data['integrity']),
+            size=data['size'],
+        )
 
     @classmethod
-    async def get(cls,
-                  url: str,
-                  *,
-                  cachable: bool,
-                  integrity_algorithm: str = 'sha256') -> 'RemoteUrlMetadata':
+    async def get(
+        cls, url: str, *, cachable: bool, integrity_algorithm: str = 'sha256'
+    ) -> 'RemoteUrlMetadata':
         bucket = cls.__get_cache_bucket(cachable, 'full', url)
 
         bucket_reader = bucket.open_read()
@@ -66,4 +67,7 @@ class RemoteUrlMetadata(NamedTuple):
         return size
 
     def to_json_object(self) -> Any:
-        return {'integrity': self.integrity.to_json_object(), 'size': self.size}
+        return {
+            'integrity': self.integrity.to_json_object(),
+            'size': self.size,
+        }

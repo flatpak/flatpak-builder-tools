@@ -7,10 +7,12 @@ class NodeHeaders(NamedTuple):
     disturl: str
 
     @classmethod
-    def with_defaults(cls,
-                      target: str,
-                      runtime: Optional[str] = None,
-                      disturl: Optional[str] = None):
+    def with_defaults(
+        cls,
+        target: str,
+        runtime: Optional[str] = None,
+        disturl: Optional[str] = None,
+    ):
         if runtime is None:
             runtime = 'node'
         if disturl is None:
@@ -19,15 +21,17 @@ class NodeHeaders(NamedTuple):
             elif runtime == 'electron':
                 disturl = 'https://www.electronjs.org/headers'
             else:
-                raise ValueError(f'Can\'t guess `disturl` for {runtime} version {target}')
+                raise ValueError(
+                    f"Can't guess `disturl` for {runtime} version {target}"
+                )
         return cls(target, runtime, disturl)
 
     @property
     def url(self) -> str:
-        #TODO it may be better to retrieve urls from disturl/index.json
+        # TODO it may be better to retrieve urls from disturl/index.json
         return f'{self.disturl}/v{self.target}/node-v{self.target}-headers.tar.gz'
 
     @property
     def install_version(self) -> str:
-        #FIXME not sure if this static value will always work
-        return "9"
+        # FIXME not sure if this static value will always work
+        return '9'

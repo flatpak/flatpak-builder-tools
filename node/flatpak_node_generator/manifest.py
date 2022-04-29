@@ -1,4 +1,15 @@
-from typing import ContextManager, Tuple, Set, List, Any, Optional, Type, Iterator, Dict, Union
+from typing import (
+    ContextManager,
+    Tuple,
+    Set,
+    List,
+    Any,
+    Optional,
+    Type,
+    Iterator,
+    Dict,
+    Union,
+)
 
 from pathlib import Path
 
@@ -19,9 +30,12 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         self._sources: Set[Tuple[Tuple[str, Any], ...]] = set()
         self._commands: List[str] = []
 
-    def __exit__(self, exc_type: Optional[Type[BaseException]],
-                 exc_value: Optional[BaseException],
-                 tb: Optional[types.TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        tb: Optional[types.TracebackType],
+    ) -> None:
         self._finalize()
 
     @property
@@ -62,12 +76,14 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
     def _add_source(self, source: Dict[str, Any]) -> None:
         self._sources.add(tuple(source.items()))
 
-    def _add_source_with_destination(self,
-                                     source: Dict[str, Any],
-                                     destination: Optional[Path],
-                                     *,
-                                     is_dir: bool,
-                                     only_arches: Optional[List[str]] = None) -> None:
+    def _add_source_with_destination(
+        self,
+        source: Dict[str, Any],
+        destination: Optional[Path],
+        *,
+        is_dir: bool,
+        only_arches: Optional[List[str]] = None
+    ) -> None:
         if destination is not None:
             if is_dir:
                 source['dest'] = str(destination)
@@ -81,38 +97,40 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
 
         self._add_source(source)
 
-    def add_url_source(self,
-                       url: str,
-                       integrity: Integrity,
-                       destination: Optional[Path] = None,
-                       *,
-                       only_arches: Optional[List[str]] = None) -> None:
+    def add_url_source(
+        self,
+        url: str,
+        integrity: Integrity,
+        destination: Optional[Path] = None,
+        *,
+        only_arches: Optional[List[str]] = None
+    ) -> None:
         source: Dict[str, Any] = {
             'type': 'file',
             'url': url,
-            integrity.algorithm: integrity.digest
+            integrity.algorithm: integrity.digest,
         }
-        self._add_source_with_destination(source,
-                                          destination,
-                                          is_dir=False,
-                                          only_arches=only_arches)
+        self._add_source_with_destination(
+            source, destination, is_dir=False, only_arches=only_arches
+        )
 
-    def add_archive_source(self,
-                           url: str,
-                           integrity: Integrity,
-                           destination: Optional[Path] = None,
-                           only_arches: Optional[List[str]] = None,
-                           strip_components: int = 1) -> None:
+    def add_archive_source(
+        self,
+        url: str,
+        integrity: Integrity,
+        destination: Optional[Path] = None,
+        only_arches: Optional[List[str]] = None,
+        strip_components: int = 1,
+    ) -> None:
         source: Dict[str, Any] = {
             'type': 'archive',
             'url': url,
             'strip-components': strip_components,
-            integrity.algorithm: integrity.digest
+            integrity.algorithm: integrity.digest,
         }
-        self._add_source_with_destination(source,
-                                          destination,
-                                          is_dir=True,
-                                          only_arches=only_arches)
+        self._add_source_with_destination(
+            source, destination, is_dir=True, only_arches=only_arches
+        )
 
     def add_data_source(self, data: Union[str, bytes], destination: Path) -> None:
         if isinstance(data, bytes):
@@ -129,10 +147,9 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
             }
         self._add_source_with_destination(source, destination, is_dir=False)
 
-    def add_git_source(self,
-                       url: str,
-                       commit: str,
-                       destination: Optional[Path] = None) -> None:
+    def add_git_source(
+        self, url: str, commit: str, destination: Optional[Path] = None
+    ) -> None:
         source = {'type': 'git', 'url': url, 'commit': commit}
         self._add_source_with_destination(source, destination, is_dir=True)
 
@@ -140,16 +157,20 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         source = {'type': 'script', 'commands': tuple(commands)}
         self._add_source_with_destination(source, destination, is_dir=False)
 
-    def add_shell_source(self,
-                         commands: List[str],
-                         destination: Optional[Path] = None,
-                         only_arches: Optional[List[str]] = None) -> None:
+    def add_shell_source(
+        self,
+        commands: List[str],
+        destination: Optional[Path] = None,
+        only_arches: Optional[List[str]] = None,
+    ) -> None:
         """This might be slow for multiple instances. Use `add_command()` instead."""
         source = {'type': 'shell', 'commands': tuple(commands)}
-        self._add_source_with_destination(source,
-                                          destination=destination,
-                                          only_arches=only_arches,
-                                          is_dir=True)
+        self._add_source_with_destination(
+            source,
+            destination=destination,
+            only_arches=only_arches,
+            is_dir=True,
+        )
 
     def add_command(self, command: str) -> None:
         self._commands.append(command)

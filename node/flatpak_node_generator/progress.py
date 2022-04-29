@@ -10,24 +10,28 @@ from .providers import ModuleProvider
 
 
 class GeneratorProgress(ContextManager['GeneratorProgress']):
-    def __init__(self, packages: Collection[Package],
-                 module_provider: ModuleProvider) -> None:
+    def __init__(
+        self, packages: Collection[Package], module_provider: ModuleProvider
+    ) -> None:
         self.finished = 0
         self.packages = packages
         self.module_provider = module_provider
         self.previous_package: Optional[Package] = None
         self.current_package: Optional[Package] = None
 
-    def __exit__(self, exc_type: Optional[Type[BaseException]],
-                 exc_value: Optional[BaseException],
-                 tb: Optional[types.TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        tb: Optional[types.TracebackType],
+    ) -> None:
         print()
 
     def _format_package(self, package: Package, max_width: int) -> str:
         result = f'{package.name} @ {package.version}'
 
         if len(result) > max_width:
-            result = result[:max_width - 3] + '...'
+            result = result[: max_width - 3] + '...'
 
         return result
 
@@ -41,13 +45,17 @@ class GeneratorProgress(ContextManager['GeneratorProgress']):
         max_package_width = columns - len(prefix_string)
 
         if self.current_package is not None:
-            sys.stdout.write(self._format_package(self.current_package,
-                                                  max_package_width))
+            sys.stdout.write(
+                self._format_package(self.current_package, max_package_width)
+            )
 
         sys.stdout.flush()
 
     def _update_with_package(self, package: Package) -> None:
-        self.previous_package, self.current_package = self.current_package, package
+        self.previous_package, self.current_package = (
+            self.current_package,
+            package,
+        )
         self._update()
 
     async def _generate(self, package: Package) -> None:
