@@ -7,8 +7,8 @@ from typing import (
     List,
     NamedTuple,
     Optional,
-    Type,
     Set,
+    Type,
 )
 
 import asyncio
@@ -21,16 +21,16 @@ import types
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
-from ..url_metadata import RemoteUrlMetadata
 from ..package import (
+    GitSource,
     Package,
     PackageSource,
-    UnresolvedRegistrySource,
-    GitSource,
     ResolvedSource,
+    UnresolvedRegistrySource,
 )
 from ..requests import Requests
-from . import LockfileProvider, RCFileProvider, ModuleProvider, ProviderFactory
+from ..url_metadata import RemoteUrlMetadata
+from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
 from .special import SpecialSourceProvider
 
 

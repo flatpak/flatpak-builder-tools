@@ -10,10 +10,10 @@ import urllib.parse
 from ..electron import ElectronBinaryManager
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
-from ..url_metadata import RemoteUrlMetadata
 from ..node_headers import NodeHeaders
 from ..package import Package, SemVer
 from ..requests import Requests, StubRequests
+from ..url_metadata import RemoteUrlMetadata
 
 _NPM_MIRROR = 'https://unpkg.com/'
 

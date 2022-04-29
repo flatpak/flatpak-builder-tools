@@ -8,8 +8,8 @@ import urllib.parse
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
-from ..package import Package, PackageSource, ResolvedSource, GitSource
-from . import LockfileProvider, RCFileProvider, ModuleProvider, ProviderFactory
+from ..package import GitSource, Package, PackageSource, ResolvedSource
+from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
 from .npm import NpmRCFileProvider
 from .special import SpecialSourceProvider
 

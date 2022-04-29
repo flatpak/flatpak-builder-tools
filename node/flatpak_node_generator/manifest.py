@@ -1,23 +1,22 @@
+from pathlib import Path
 from typing import (
-    ContextManager,
-    Tuple,
-    Set,
-    List,
     Any,
-    Optional,
-    Type,
-    Iterator,
+    ContextManager,
     Dict,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
     Union,
 )
-
-from pathlib import Path
-
-from .integrity import Integrity
 
 import base64
 import json
 import types
+
+from .integrity import Integrity
 
 
 class ManifestGenerator(ContextManager['ManifestGenerator']):

@@ -1,26 +1,22 @@
 from pathlib import Path
 from typing import Iterator, List, Set
 
-from .cache import Cache, FilesystemBasedCache
-from .manifest import ManifestGenerator
-from .node_headers import NodeHeaders
-from .requests import Requests, StubRequests, UrllibRequests
-from .package import Package
-from .progress import GeneratorProgress
-from .providers import ProviderFactory
-from .providers.npm import (
-    NpmLockfileProvider,
-    NpmModuleProvider,
-    NpmProviderFactory,
-)
-from .providers.special import SpecialSourceProvider
-from .providers.yarn import YarnProviderFactory
-
 import argparse
 import asyncio
 import json
 import os
 import sys
+
+from .cache import Cache, FilesystemBasedCache
+from .manifest import ManifestGenerator
+from .node_headers import NodeHeaders
+from .package import Package
+from .progress import GeneratorProgress
+from .providers import ProviderFactory
+from .providers.npm import NpmLockfileProvider, NpmModuleProvider, NpmProviderFactory
+from .providers.special import SpecialSourceProvider
+from .providers.yarn import YarnProviderFactory
+from .requests import Requests, StubRequests, UrllibRequests
 
 
 def _scan_for_lockfiles(base: Path, patterns: List[str]) -> Iterator[Path]:

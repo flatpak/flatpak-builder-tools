@@ -1,4 +1,4 @@
-from typing import ClassVar, AsyncIterator, cast
+from typing import AsyncIterator, ClassVar, cast
 
 import contextlib
 import urllib.request
