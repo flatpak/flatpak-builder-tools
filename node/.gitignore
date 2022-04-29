@@ -1,4 +1,5 @@
 .mypy_cache/
 .flatpak-builder/
+.venv/
 _build/
 __pycache__/

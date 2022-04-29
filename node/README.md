@@ -12,8 +12,19 @@ required, however, you can disable it explicitly via `--no-xdg-layout`.
 
 - flatpak-builder 1.1.2 or newer
 - Python 3.6+.
-- aiohttp. (flatpak-node-generator will fall back onto urllib.request if aiohttp is not available,
-  but performance will take a serious hit.)
+- [pipx](https://pypa.github.io/pipx/) (recommended) or
+  [pip](https://pip.pypa.io/en/stable/) (both of these are usually available in
+  your distro repositories, the latter is often included with Python installs).
+
+## Usage
+
+The easiest way to use this tool is to install it via
+[pipx](https://pypa.github.io/pipx/), the officially recommended way of
+installing Python packages, by running the following from this directory:
+
+```
+$ pipx install .
+```
 
 ## Complete examples
 
