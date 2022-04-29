@@ -1,4 +1,4 @@
-from typing import NamedTuple, Union, Any
+from typing import Any, NamedTuple, Union
 
 import base64
 import binascii

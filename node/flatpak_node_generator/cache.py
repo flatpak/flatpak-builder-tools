@@ -1,6 +1,5 @@
-from typing import Optional, Type, Iterator, IO
-
 from pathlib import Path
+from typing import IO, Iterator, Optional, Type
 
 import os
 import re

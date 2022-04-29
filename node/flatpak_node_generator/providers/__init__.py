@@ -1,6 +1,5 @@
-from typing import Dict, Iterator, List, Optional, ContextManager
-
 from pathlib import Path
+from typing import ContextManager, Dict, Iterator, List, Optional
 
 import re
 import urllib.parse
