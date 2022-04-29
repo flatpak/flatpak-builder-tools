@@ -1,4 +1,5 @@
-from typing import NamedTuple, Optional, Dict, Iterator
+from typing import Dict, Iterator, NamedTuple, Optional
+
 from .integrity import Integrity
 from .package import SemVer
 from .requests import Requests
@@ -25,8 +26,9 @@ class ElectronBinaryManager:
 
     INTEGRITY_BASE_FILENAME = 'SHASUMS256.txt'
 
-    def __init__(self, version: str, base_url: str, integrities: Dict[str,
-                                                                      Integrity]) -> None:
+    def __init__(
+        self, version: str, base_url: str, integrities: Dict[str, Integrity]
+    ) -> None:
         self.version = version
         self.base_url = base_url
         self.integrities = integrities
@@ -37,33 +39,40 @@ class ElectronBinaryManager:
     def find_binaries(self, binary: str) -> Iterator['ElectronBinaryManager.Binary']:
         for electron_arch, flatpak_arch in self.ELECTRON_ARCHES_TO_FLATPAK.items():
             # Electron v19+ drop linux-ia32 support.
-            if SemVer.parse(self.version) >= SemVer.parse("19.0.0") and electron_arch == "ia32":
+            if (
+                SemVer.parse(self.version) >= SemVer.parse('19.0.0')
+                and electron_arch == 'ia32'
+            ):
                 continue
 
             binary_filename = f'{binary}-v{self.version}-linux-{electron_arch}.zip'
             binary_url = self.child_url(binary_filename)
 
-            arch = ElectronBinaryManager.Arch(electron=electron_arch,
-                                              flatpak=flatpak_arch)
+            arch = ElectronBinaryManager.Arch(
+                electron=electron_arch, flatpak=flatpak_arch
+            )
             yield ElectronBinaryManager.Binary(
                 filename=binary_filename,
                 url=binary_url,
                 integrity=self.integrities[binary_filename],
-                arch=arch)
+                arch=arch,
+            )
 
     @property
     def integrity_file(self) -> 'ElectronBinaryManager.Binary':
         return ElectronBinaryManager.Binary(
             filename=f'SHASUMS256.txt-{self.version}',
             url=self.child_url(self.INTEGRITY_BASE_FILENAME),
-            integrity=self.integrities[self.INTEGRITY_BASE_FILENAME])
+            integrity=self.integrities[self.INTEGRITY_BASE_FILENAME],
+        )
 
     @staticmethod
     async def for_version(version: str) -> 'ElectronBinaryManager':
         base_url = f'https://github.com/electron/electron/releases/download/v{version}'
         integrity_url = f'{base_url}/{ElectronBinaryManager.INTEGRITY_BASE_FILENAME}'
-        integrity_data = (await Requests.instance.read_all(integrity_url,
-                                                           cachable=True)).decode()
+        integrity_data = (
+            await Requests.instance.read_all(integrity_url, cachable=True)
+        ).decode()
 
         integrities: Dict[str, Integrity] = {}
         for line in integrity_data.splitlines():
@@ -71,9 +80,10 @@ class ElectronBinaryManager:
             filename = star_filename.strip('*')
             integrities[filename] = Integrity(algorithm='sha256', digest=digest)
 
-        integrities[ElectronBinaryManager.INTEGRITY_BASE_FILENAME] = (
-            Integrity.generate(integrity_data))
+        integrities[ElectronBinaryManager.INTEGRITY_BASE_FILENAME] = Integrity.generate(
+            integrity_data
+        )
 
-        return ElectronBinaryManager(version=version,
-                                     base_url=base_url,
-                                     integrities=integrities)
+        return ElectronBinaryManager(
+            version=version, base_url=base_url, integrities=integrities
+        )

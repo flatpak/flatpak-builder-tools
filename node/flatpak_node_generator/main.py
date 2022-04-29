@@ -8,7 +8,11 @@ from .requests import Requests, StubRequests, UrllibRequests
 from .package import Package
 from .progress import GeneratorProgress
 from .providers import ProviderFactory
-from .providers.npm import NpmLockfileProvider, NpmModuleProvider, NpmProviderFactory
+from .providers.npm import (
+    NpmLockfileProvider,
+    NpmModuleProvider,
+    NpmProviderFactory,
+)
 from .providers.special import SpecialSourceProvider
 from .providers.yarn import YarnProviderFactory
 
@@ -30,75 +34,110 @@ def _scan_for_lockfiles(base: Path, patterns: List[str]) -> Iterator[Path]:
 async def _async_main() -> None:
     parser = argparse.ArgumentParser(description='Flatpak Node generator')
     parser.add_argument('type', choices=['npm', 'yarn'])
-    parser.add_argument('lockfile',
-                        help='The lockfile path (package-lock.json or yarn.lock)')
-    parser.add_argument('-o',
-                        '--output',
-                        help='The output sources file',
-                        default='generated-sources.json')
+    parser.add_argument(
+        'lockfile', help='The lockfile path (package-lock.json or yarn.lock)'
+    )
+    parser.add_argument(
+        '-o',
+        '--output',
+        help='The output sources file',
+        default='generated-sources.json',
+    )
     parser.add_argument(
         '-r',
         '--recursive',
         action='store_true',
         help='Recursively process all files under the lockfile directory with '
-        'the lockfile basename')
+        'the lockfile basename',
+    )
     parser.add_argument(
         '-R',
         '--recursive-pattern',
         action='append',
-        help='Given -r, restrict files to those matching the given pattern.')
-    parser.add_argument('--registry',
-                        help='The registry to use (npm only)',
-                        default='https://registry.npmjs.org')
-    parser.add_argument('--no-trim-index',
-                        action='store_true',
-                        help="Don't trim npm package metadata (npm only)")
-    parser.add_argument('--no-devel',
-                        action='store_true',
-                        help="Don't include devel dependencies (npm only)")
-    parser.add_argument('--no-aiohttp',
-                        action='store_true',
-                        help="Don't use aiohttp, and silence any warnings related to it")
-    parser.add_argument('--no-requests-cache',
-                        action='store_true',
-                        help='Disable the requests cache')
-    parser.add_argument('--retries',
-                        type=int,
-                        help='Number of retries of failed requests',
-                        default=Requests.DEFAULT_RETRIES)
-    parser.add_argument('-P',
-                        '--no-autopatch',
-                        action='store_true',
-                        help="Don't automatically patch Git sources from package*.json")
-    parser.add_argument('-s',
-                        '--split',
-                        action='store_true',
-                        help='Split the sources file to fit onto GitHub.')
-    parser.add_argument('--node-chromedriver-from-electron',
-                        help='Use the ChromeDriver version associated with the given '
-                        'Electron version for node-chromedriver')
+        help='Given -r, restrict files to those matching the given pattern.',
+    )
+    parser.add_argument(
+        '--registry',
+        help='The registry to use (npm only)',
+        default='https://registry.npmjs.org',
+    )
+    parser.add_argument(
+        '--no-trim-index',
+        action='store_true',
+        help="Don't trim npm package metadata (npm only)",
+    )
+    parser.add_argument(
+        '--no-devel',
+        action='store_true',
+        help="Don't include devel dependencies (npm only)",
+    )
+    parser.add_argument(
+        '--no-aiohttp',
+        action='store_true',
+        help="Don't use aiohttp, and silence any warnings related to it",
+    )
+    parser.add_argument(
+        '--no-requests-cache',
+        action='store_true',
+        help='Disable the requests cache',
+    )
+    parser.add_argument(
+        '--retries',
+        type=int,
+        help='Number of retries of failed requests',
+        default=Requests.DEFAULT_RETRIES,
+    )
+    parser.add_argument(
+        '-P',
+        '--no-autopatch',
+        action='store_true',
+        help="Don't automatically patch Git sources from package*.json",
+    )
+    parser.add_argument(
+        '-s',
+        '--split',
+        action='store_true',
+        help='Split the sources file to fit onto GitHub.',
+    )
+    parser.add_argument(
+        '--node-chromedriver-from-electron',
+        help='Use the ChromeDriver version associated with the given '
+        'Electron version for node-chromedriver',
+    )
     # Deprecated alternative to --node-chromedriver-from-electron
     parser.add_argument('--electron-chromedriver', help=argparse.SUPPRESS)
-    parser.add_argument('--electron-ffmpeg',
-                        choices=['archive', 'lib'],
-                        help='Download prebuilt ffmpeg for matching electron version')
-    parser.add_argument('--electron-node-headers',
-                        action='store_true',
-                        help='Download the electron node headers')
-    parser.add_argument('--nwjs-version',
-                        help='Specify NW.js version (will use latest otherwise)')
-    parser.add_argument('--nwjs-node-headers',
-                        action='store_true',
-                        help='Download the NW.js node headers')
-    parser.add_argument('--nwjs-ffmpeg',
-                        action='store_true',
-                        help='Download prebuilt ffmpeg for current NW.js version')
+    parser.add_argument(
+        '--electron-ffmpeg',
+        choices=['archive', 'lib'],
+        help='Download prebuilt ffmpeg for matching electron version',
+    )
+    parser.add_argument(
+        '--electron-node-headers',
+        action='store_true',
+        help='Download the electron node headers',
+    )
+    parser.add_argument(
+        '--nwjs-version',
+        help='Specify NW.js version (will use latest otherwise)',
+    )
+    parser.add_argument(
+        '--nwjs-node-headers',
+        action='store_true',
+        help='Download the NW.js node headers',
+    )
+    parser.add_argument(
+        '--nwjs-ffmpeg',
+        action='store_true',
+        help='Download prebuilt ffmpeg for current NW.js version',
+    )
     # Deprecated, because this is now enabled by default.
     parser.add_argument('--xdg-layout', default=True, help=argparse.SUPPRESS)
-    parser.add_argument('--no-xdg-layout',
-                        action='store_false',
-                        dest='xdg_layout',
-                        help="Don't use the XDG layout for caches")
+    parser.add_argument(
+        '--no-xdg-layout',
+        action='store_false',
+        dest='xdg_layout',
+        help="Don't use the XDG layout for caches",
+    )
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
 
@@ -111,7 +150,10 @@ async def _async_main() -> None:
 
     if args.electron_chromedriver:
         print('WARNING: --electron-chromedriver is deprecated', file=sys.stderr)
-        print('  (Use --node-chromedriver-from-electron instead.)', file=sys.stderr)
+        print(
+            '  (Use --node-chromedriver-from-electron instead.)',
+            file=sys.stderr,
+        )
 
     if args.stub_requests:
         Requests.instance = StubRequests()
@@ -119,7 +161,10 @@ async def _async_main() -> None:
         if Requests.instance.is_async:
             Requests.instance = UrllibRequests()
     elif not Requests.instance.is_async:
-        print('WARNING: aiohttp is not found, performance will suffer.', file=sys.stderr)
+        print(
+            'WARNING: aiohttp is not found, performance will suffer.',
+            file=sys.stderr,
+        )
         print('  (Pass --no-aiohttp to silence this warning.)', file=sys.stderr)
 
     if not args.no_requests_cache:
@@ -127,7 +172,9 @@ async def _async_main() -> None:
 
     lockfiles: List[Path]
     if args.recursive or args.recursive_pattern:
-        lockfiles = list(_scan_for_lockfiles(Path(args.lockfile), args.recursive_pattern))
+        lockfiles = list(
+            _scan_for_lockfiles(Path(args.lockfile), args.recursive_pattern)
+        )
         if not lockfiles:
             sys.exit('No lockfiles found.')
         print(f'Found {len(lockfiles)} lockfiles.')
@@ -140,9 +187,12 @@ async def _async_main() -> None:
     if args.type == 'npm':
         npm_options = NpmProviderFactory.Options(
             NpmLockfileProvider.Options(no_devel=args.no_devel),
-            NpmModuleProvider.Options(registry=args.registry,
-                                      no_autopatch=args.no_autopatch,
-                                      no_trim_index=args.no_trim_index))
+            NpmModuleProvider.Options(
+                registry=args.registry,
+                no_autopatch=args.no_autopatch,
+                no_trim_index=args.no_trim_index,
+            ),
+        )
         provider_factory = NpmProviderFactory(lockfile_root, npm_options)
     elif args.type == 'yarn':
         provider_factory = YarnProviderFactory()
@@ -178,7 +228,8 @@ async def _async_main() -> None:
             nwjs_ffmpeg=args.nwjs_ffmpeg,
             xdg_layout=args.xdg_layout,
             electron_ffmpeg=args.electron_ffmpeg,
-            electron_node_headers=args.electron_node_headers)
+            electron_node_headers=args.electron_node_headers,
+        )
         special = SpecialSourceProvider(gen, options)
 
         with provider_factory.create_module_provider(gen, special) as module_provider:
@@ -189,17 +240,19 @@ async def _async_main() -> None:
             await special.generate_node_headers(headers)
 
         if args.xdg_layout:
-            script_name = "setup_sdk_node_headers.sh"
-            node_gyp_dir = gen.data_root / "cache" / "node-gyp"
-            gen.add_script_source([
-                'version=$(node --version | sed "s/^v//")',
-                'nodedir=$(dirname "$(dirname "$(which node)")")',
-                f'mkdir -p "{node_gyp_dir}/$version"',
-                f'ln -s "$nodedir/include" "{node_gyp_dir}/$version/include"',
-                f'echo 9 > "{node_gyp_dir}/$version/installVersion"',
-            ],
-                                  destination=gen.data_root / script_name)
-            gen.add_command(f"bash {gen.data_root / script_name}")
+            script_name = 'setup_sdk_node_headers.sh'
+            node_gyp_dir = gen.data_root / 'cache' / 'node-gyp'
+            gen.add_script_source(
+                [
+                    'version=$(node --version | sed "s/^v//")',
+                    'nodedir=$(dirname "$(dirname "$(which node)")")',
+                    f'mkdir -p "{node_gyp_dir}/$version"',
+                    f'ln -s "$nodedir/include" "{node_gyp_dir}/$version/include"',
+                    f'echo 9 > "{node_gyp_dir}/$version/installVersion"',
+                ],
+                destination=gen.data_root / script_name,
+            )
+            gen.add_command(f'bash {gen.data_root / script_name}')
 
     if args.split:
         i = 0
@@ -212,13 +265,17 @@ async def _async_main() -> None:
         print(f'Wrote {gen.source_count} to {i + 1} file(s).')
     else:
         with open(args.output, 'w') as fp:
-            json.dump(list(gen.ordered_sources()),
-                      fp,
-                      indent=ManifestGenerator.JSON_INDENT)
+            json.dump(
+                list(gen.ordered_sources()),
+                fp,
+                indent=ManifestGenerator.JSON_INDENT,
+            )
 
             if fp.tell() >= ManifestGenerator.MAX_GITHUB_SIZE:
-                print('WARNING: generated-sources.json is too large for GitHub.',
-                      file=sys.stderr)
+                print(
+                    'WARNING: generated-sources.json is too large for GitHub.',
+                    file=sys.stderr,
+                )
                 print('  (Pass -s to enable splitting.)')
 
         print(f'Wrote {gen.source_count} source(s).')

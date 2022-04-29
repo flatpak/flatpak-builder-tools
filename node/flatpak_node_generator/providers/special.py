@@ -48,42 +48,52 @@ class SpecialSourceProvider:
     def gyp_dir(self) -> Path:
         return self.gen.data_root / 'cache' / 'node-gyp'
 
-    def _add_electron_cache_downloads(self,
-                                      manager: ElectronBinaryManager,
-                                      binary_name: str,
-                                      *,
-                                      add_integrities: bool = True) -> None:
+    def _add_electron_cache_downloads(
+        self,
+        manager: ElectronBinaryManager,
+        binary_name: str,
+        *,
+        add_integrities: bool = True,
+    ) -> None:
         electron_cache_dir = self.electron_cache_dir
 
         for binary in manager.find_binaries(binary_name):
             assert binary.arch is not None
-            self.gen.add_url_source(binary.url,
-                                    binary.integrity,
-                                    electron_cache_dir / binary.filename,
-                                    only_arches=[binary.arch.flatpak])
-            #Symlinks for @electron/get, which stores electron zips in a subdir
+            self.gen.add_url_source(
+                binary.url,
+                binary.integrity,
+                electron_cache_dir / binary.filename,
+                only_arches=[binary.arch.flatpak],
+            )
+            # Symlinks for @electron/get, which stores electron zips in a subdir
             if self.xdg_layout:
                 sanitized_url = ''.join(c for c in binary.url if c not in '/:')
 
-                #And for @electron/get >= 1.12.4 its sha256 hash of url dirname
+                # And for @electron/get >= 1.12.4 its sha256 hash of url dirname
                 url = urllib.parse.urlparse(binary.url)
                 url_dir = urllib.parse.urlunparse(
-                    url._replace(path=os.path.dirname(url.path)))
+                    url._replace(path=os.path.dirname(url.path))
+                )
                 url_hash = hashlib.sha256(url_dir.encode()).hexdigest()
 
-                self.gen.add_shell_source([
-                    f'mkdir -p "{sanitized_url}"',
-                    f'ln -s "../{binary.filename}" "{sanitized_url}/{binary.filename}"',
-                    f'mkdir -p "{url_hash}"',
-                    f'ln -s "../{binary.filename}" "{url_hash}/{binary.filename}"'
-                ],
-                                          destination=electron_cache_dir,
-                                          only_arches=[binary.arch.flatpak])
+                self.gen.add_shell_source(
+                    [
+                        f'mkdir -p "{sanitized_url}"',
+                        f'ln -s "../{binary.filename}" "{sanitized_url}/{binary.filename}"',
+                        f'mkdir -p "{url_hash}"',
+                        f'ln -s "../{binary.filename}" "{url_hash}/{binary.filename}"',
+                    ],
+                    destination=electron_cache_dir,
+                    only_arches=[binary.arch.flatpak],
+                )
 
         if add_integrities:
             integrity_file = manager.integrity_file
-            self.gen.add_url_source(integrity_file.url, integrity_file.integrity,
-                                    electron_cache_dir / integrity_file.filename)
+            self.gen.add_url_source(
+                integrity_file.url,
+                integrity_file.integrity,
+                electron_cache_dir / integrity_file.filename,
+            )
 
     async def _handle_electron(self, package: Package) -> None:
         manager = await ElectronBinaryManager.for_version(package.version)
@@ -91,31 +101,38 @@ class SpecialSourceProvider:
 
         if self.electron_ffmpeg is not None:
             if self.electron_ffmpeg == 'archive':
-                self._add_electron_cache_downloads(manager,
-                                                   'ffmpeg',
-                                                   add_integrities=False)
+                self._add_electron_cache_downloads(
+                    manager, 'ffmpeg', add_integrities=False
+                )
             elif self.electron_ffmpeg == 'lib':
                 for binary in manager.find_binaries('ffmpeg'):
                     assert binary.arch is not None
-                    self.gen.add_archive_source(binary.url,
-                                                binary.integrity,
-                                                destination=self.gen.data_root,
-                                                only_arches=[binary.arch.flatpak])
+                    self.gen.add_archive_source(
+                        binary.url,
+                        binary.integrity,
+                        destination=self.gen.data_root,
+                        only_arches=[binary.arch.flatpak],
+                    )
             else:
                 assert False, self.electron_ffmpeg
 
     def _handle_gulp_atom_electron(self, package: Package) -> None:
         # Versions after 1.22.0 use @electron/get and don't need this
         if SemVer.parse(package.version) <= SemVer.parse('1.22.0'):
-            cache_path = self.gen.data_root / 'tmp' / 'gulp-electron-cache' / 'atom' / 'electron'
+            cache_path = (
+                self.gen.data_root / 'tmp' / 'gulp-electron-cache' / 'atom' / 'electron'
+            )
             self.gen.add_command(f'mkdir -p "{cache_path.parent}"')
             self.gen.add_command(f'ln -sfTr "{self.electron_cache_dir}" "{cache_path}"')
 
     async def _handle_electron_headers(self, package: Package) -> None:
-        node_headers = NodeHeaders.with_defaults(runtime='electron',
-                                                 target=package.version)
+        node_headers = NodeHeaders.with_defaults(
+            runtime='electron', target=package.version
+        )
         if self.xdg_layout:
-            node_gyp_headers_dir = self.gen.data_root / 'cache' / 'node-gyp' / package.version
+            node_gyp_headers_dir = (
+                self.gen.data_root / 'cache' / 'node-gyp' / package.version
+            )
         else:
             node_gyp_headers_dir = self.gen.data_root / 'node-gyp' / 'electron-current'
         await self.generate_node_headers(node_headers, dest=node_gyp_headers_dir)
@@ -123,12 +140,15 @@ class SpecialSourceProvider:
     async def _get_chromedriver_binary_version(self, package: Package) -> str:
         # Note: node-chromedriver seems to not have tagged all releases on GitHub, so
         # just use unpkg instead.
-        url = urllib.parse.urljoin(_NPM_MIRROR,
-                                   f'chromedriver@{package.version}/lib/chromedriver')
+        url = urllib.parse.urljoin(
+            _NPM_MIRROR, f'chromedriver@{package.version}/lib/chromedriver'
+        )
         js = await Requests.instance.read_all(url, cachable=True)
         # XXX: a tad ugly
         match = re.search(r"exports\.version = '([^']+)'", js.decode())
-        assert match is not None, f'Failed to get ChromeDriver binary version from {url}'
+        assert (
+            match is not None
+        ), f'Failed to get ChromeDriver binary version from {url}'
         return match.group(1)
 
     async def _handle_electron_chromedriver(self, package: Package) -> None:
@@ -141,36 +161,49 @@ class SpecialSourceProvider:
 
         if self.node_chromedriver_from_electron is not None:
             manager = await ElectronBinaryManager.for_version(
-                self.node_chromedriver_from_electron)
+                self.node_chromedriver_from_electron
+            )
 
             for binary in manager.find_binaries('chromedriver'):
                 assert binary.arch is not None
-                self.gen.add_archive_source(binary.url,
-                                            binary.integrity,
-                                            destination=destination,
-                                            only_arches=[binary.arch.flatpak])
+                self.gen.add_archive_source(
+                    binary.url,
+                    binary.integrity,
+                    destination=destination,
+                    only_arches=[binary.arch.flatpak],
+                )
         else:
-            url = (f'https://chromedriver.storage.googleapis.com/{version}/'
-                   'chromedriver_linux64.zip')
+            url = (
+                f'https://chromedriver.storage.googleapis.com/{version}/'
+                'chromedriver_linux64.zip'
+            )
             metadata = await RemoteUrlMetadata.get(url, cachable=True)
 
-            self.gen.add_archive_source(url,
-                                        metadata.integrity,
-                                        destination=destination,
-                                        only_arches=['x86_64'])
+            self.gen.add_archive_source(
+                url,
+                metadata.integrity,
+                destination=destination,
+                only_arches=['x86_64'],
+            )
 
     async def _add_nwjs_cache_downloads(self, version: str, flavor: str = 'normal'):
         assert not version.startswith('v')
         nwjs_mirror = 'https://dl.nwjs.io'
-        ffmpeg_dl_base = 'https://github.com/iteufel/nwjs-ffmpeg-prebuilt/releases/download'
+        ffmpeg_dl_base = (
+            'https://github.com/iteufel/nwjs-ffmpeg-prebuilt/releases/download'
+        )
 
         if self.nwjs_node_headers:
             headers_dl_url = f'{nwjs_mirror}/v{version}/nw-headers-v{version}.tar.gz'
             headers_dest = self.gen.data_root / 'node-gyp' / 'nwjs-current'
-            headers_metadata = await RemoteUrlMetadata.get(headers_dl_url, cachable=True)
-            self.gen.add_archive_source(headers_dl_url,
-                                        headers_metadata.integrity,
-                                        destination=headers_dest)
+            headers_metadata = await RemoteUrlMetadata.get(
+                headers_dl_url, cachable=True
+            )
+            self.gen.add_archive_source(
+                headers_dl_url,
+                headers_metadata.integrity,
+                destination=headers_dest,
+            )
 
         if flavor == 'normal':
             filename_base = 'nwjs'
@@ -188,35 +221,49 @@ class SpecialSourceProvider:
             metadata = await RemoteUrlMetadata.get(dl_url, cachable=True)
             dest = destdir / f'{version}-{flavor}' / platform
 
-            self.gen.add_archive_source(dl_url,
-                                        metadata.integrity,
-                                        destination=dest,
-                                        only_arches=[flatpak_arch])
+            self.gen.add_archive_source(
+                dl_url,
+                metadata.integrity,
+                destination=dest,
+                only_arches=[flatpak_arch],
+            )
 
             if self.nwjs_ffmpeg:
                 ffmpeg_dl_url = f'{ffmpeg_dl_base}/{version}/{version}-{nwjs_arch}.zip'
-                ffmpeg_metadata = await RemoteUrlMetadata.get(ffmpeg_dl_url,
-                                                              cachable=True)
-                self.gen.add_archive_source(ffmpeg_dl_url,
-                                            ffmpeg_metadata.integrity,
-                                            destination=dest,
-                                            strip_components=0,
-                                            only_arches=[flatpak_arch])
+                ffmpeg_metadata = await RemoteUrlMetadata.get(
+                    ffmpeg_dl_url, cachable=True
+                )
+                self.gen.add_archive_source(
+                    ffmpeg_dl_url,
+                    ffmpeg_metadata.integrity,
+                    destination=dest,
+                    strip_components=0,
+                    only_arches=[flatpak_arch],
+                )
 
     async def _handle_nw_builder(self, package: Package) -> None:
         if self.nwjs_version:
             version = self.nwjs_version
         else:
-            versions_json = json.loads(await Requests.instance.read_all(
-                'https://nwjs.io/versions.json', cachable=False))
+            versions_json = json.loads(
+                await Requests.instance.read_all(
+                    'https://nwjs.io/versions.json', cachable=False
+                )
+            )
             version = versions_json['latest'].lstrip('v')
         await self._add_nwjs_cache_downloads(version)
-        self.gen.add_data_source(version, destination=self.gen.data_root / 'nwjs-version')
+        self.gen.add_data_source(
+            version, destination=self.gen.data_root / 'nwjs-version'
+        )
 
     async def _handle_dugite_native(self, package: Package) -> None:
         dl_json_url = urllib.parse.urljoin(
-            _NPM_MIRROR, f'{package.name}@{package.version}/script/embedded-git.json')
-        dl_json = json.loads(await Requests.instance.read_all(dl_json_url, cachable=True))
+            _NPM_MIRROR,
+            f'{package.name}@{package.version}/script/embedded-git.json',
+        )
+        dl_json = json.loads(
+            await Requests.instance.read_all(dl_json_url, cachable=True)
+        )
         dugite_arch_map = {
             'x86_64': 'linux-x64',
         }
@@ -224,13 +271,16 @@ class SpecialSourceProvider:
         for arch, dugite_arch in dugite_arch_map.items():
             url = dl_json[dugite_arch]['url']
             filename = dl_json[dugite_arch]['name']
-            integrity = Integrity(algorithm='sha256',
-                                  digest=dl_json[dugite_arch]['checksum'])
+            integrity = Integrity(
+                algorithm='sha256', digest=dl_json[dugite_arch]['checksum']
+            )
 
-            self.gen.add_url_source(url,
-                                    integrity,
-                                    destination=destdir / filename,
-                                    only_arches=[arch])
+            self.gen.add_url_source(
+                url,
+                integrity,
+                destination=destdir / filename,
+                only_arches=[arch],
+            )
 
     async def _handle_ripgrep_prebuilt(self, package: Package) -> None:
         async def get_ripgrep_tag(version: str) -> str:
@@ -246,17 +296,19 @@ class SpecialSourceProvider:
             'x86_64': 'x86_64-unknown-linux-musl',
             'i386': 'i686-unknown-linux-musl',
             'arm': 'arm-unknown-linux-gnueabihf',
-            'aarch64': 'aarch64-unknown-linux-gnu'
+            'aarch64': 'aarch64-unknown-linux-gnu',
         }
         destdir = self.gen.data_root / 'tmp' / f'vscode-ripgrep-cache-{package.version}'
         for arch, ripgrep_arch in ripgrep_arch_map.items():
             filename = f'ripgrep-{tag}-{ripgrep_arch}.tar.gz'
             url = f'https://github.com/microsoft/ripgrep-prebuilt/releases/download/{tag}/{filename}'
             metadata = await RemoteUrlMetadata.get(url, cachable=True)
-            self.gen.add_url_source(url,
-                                    metadata.integrity,
-                                    destination=destdir / filename,
-                                    only_arches=[arch])
+            self.gen.add_url_source(
+                url,
+                metadata.integrity,
+                destination=destdir / filename,
+                only_arches=[arch],
+            )
 
     async def _handle_playwright(self, package: Package) -> None:
         base_url = f'https://github.com/microsoft/playwright/raw/v{package.version}/'
@@ -264,8 +316,9 @@ class SpecialSourceProvider:
             browsers_json_url = base_url + 'packages/playwright-core/browsers.json'
         else:
             browsers_json_url = base_url + 'browsers.json'
-        browsers_json = json.loads(await Requests.instance.read_all(browsers_json_url,
-                                                                    cachable=True))
+        browsers_json = json.loads(
+            await Requests.instance.read_all(browsers_json_url, cachable=True)
+        )
         for browser in browsers_json['browsers']:
             if not browser.get('installByDefault', True):
                 continue
@@ -299,21 +352,27 @@ class SpecialSourceProvider:
 
             dl_url = url_tp % (revision, dl_file)
             metadata = await RemoteUrlMetadata.get(dl_url, cachable=True)
-            destdir = self.gen.data_root / 'cache' / 'ms-playwright' / f'{name}-{revision}'
-            self.gen.add_archive_source(dl_url,
-                                        metadata.integrity,
-                                        destination=destdir,
-                                        strip_components=0)
+            destdir = (
+                self.gen.data_root / 'cache' / 'ms-playwright' / f'{name}-{revision}'
+            )
+            self.gen.add_archive_source(
+                dl_url,
+                metadata.integrity,
+                destination=destdir,
+                strip_components=0,
+            )
             # Arbitrary string here; flatpak-builder segfaults on empty data: url
-            self.gen.add_data_source("flatpak-node-cache",
-                                     destination=destdir / 'INSTALLATION_COMPLETE')
+            self.gen.add_data_source(
+                'flatpak-node-cache',
+                destination=destdir / 'INSTALLATION_COMPLETE',
+            )
 
     async def _handle_esbuild(self, package: Package) -> None:
         pkg_names = {
             'x86_64': 'esbuild-linux-64',
             'i386': 'esbuild-linux-32',
             'arm': 'esbuild-linux-arm',
-            'aarch64': 'esbuild-linux-arm64'
+            'aarch64': 'esbuild-linux-arm64',
         }
 
         for flatpak_arch, pkg_name in pkg_names.items():
@@ -325,20 +384,22 @@ class SpecialSourceProvider:
             bin_src = archive_dst / 'bin' / 'esbuild'
             bin_dst = cache_dst / 'bin' / f'{pkg_name}@{package.version}'
 
-            self.gen.add_archive_source(dl_url,
-                                        metadata.integrity,
-                                        destination=archive_dst,
-                                        only_arches=[flatpak_arch],
-                                        strip_components=1)
+            self.gen.add_archive_source(
+                dl_url,
+                metadata.integrity,
+                destination=archive_dst,
+                only_arches=[flatpak_arch],
+                strip_components=1,
+            )
 
             cmd = [
                 f'mkdir -p "{bin_dst.parent.relative_to(cache_dst)}"',
                 f'cp "{bin_src.relative_to(cache_dst)}" "{bin_dst.relative_to(cache_dst)}"',
-                f'ln -sf "{bin_dst.name}" "bin/esbuild-current"'
+                f'ln -sf "{bin_dst.name}" "bin/esbuild-current"',
             ]
-            self.gen.add_shell_source(cmd,
-                                      only_arches=[flatpak_arch],
-                                      destination=cache_dst)
+            self.gen.add_shell_source(
+                cmd, only_arches=[flatpak_arch], destination=cache_dst
+            )
 
     def _handle_electron_builder(self, package: Package) -> None:
         destination = self.gen.data_root / 'electron-builder-arch-args.sh'
@@ -346,8 +407,10 @@ class SpecialSourceProvider:
         script: List[str] = []
         script.append('case "$FLATPAK_ARCH" in')
 
-        for electron_arch, flatpak_arch in (
-                ElectronBinaryManager.ELECTRON_ARCHES_TO_FLATPAK.items()):
+        for (
+            electron_arch,
+            flatpak_arch,
+        ) in ElectronBinaryManager.ELECTRON_ARCHES_TO_FLATPAK.items():
             script.append(f'"{flatpak_arch}")')
             script.append(f'  export ELECTRON_BUILDER_ARCH_ARGS="--{electron_arch}"')
             script.append('  ;;')
@@ -356,9 +419,9 @@ class SpecialSourceProvider:
 
         self.gen.add_script_source(script, destination)
 
-    async def generate_node_headers(self,
-                                    node_headers: NodeHeaders,
-                                    dest: Optional[Path] = None):
+    async def generate_node_headers(
+        self, node_headers: NodeHeaders, dest: Optional[Path] = None
+    ):
         url = node_headers.url
         install_version = node_headers.install_version
         if dest is None:

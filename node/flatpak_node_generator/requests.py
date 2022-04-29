@@ -21,20 +21,18 @@ class Requests:
     def __get_cache_bucket(self, cachable: bool, url: str) -> Cache.BucketRef:
         return Cache.get_working_instance_if(cachable).get(f'requests:{url}')
 
-    async def _read_parts(self,
-                          url: str,
-                          size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+    async def _read_parts(
+        self, url: str, size: int = DEFAULT_PART_SIZE
+    ) -> AsyncIterator[bytes]:
         raise NotImplementedError
         yield b''  # Silence mypy.
 
     async def _read_all(self, url: str) -> bytes:
         raise NotImplementedError
 
-    async def read_parts(self,
-                         url: str,
-                         *,
-                         cachable: bool,
-                         size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+    async def read_parts(
+        self, url: str, *, cachable: bool, size: int = DEFAULT_PART_SIZE
+    ) -> AsyncIterator[bytes]:
         bucket = self.__get_cache_bucket(cachable, url)
 
         bucket_reader = bucket.open_read()
@@ -81,9 +79,9 @@ class UrllibRequests(Requests):
     def is_async(self) -> bool:
         return False
 
-    async def _read_parts(self,
-                          url: str,
-                          size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+    async def _read_parts(
+        self, url: str, size: int = DEFAULT_PART_SIZE
+    ) -> AsyncIterator[bytes]:
         with urllib.request.urlopen(url) as response:
             while True:
                 data = response.read(size)
@@ -102,9 +100,9 @@ class StubRequests(Requests):
     def is_async(self) -> bool:
         return True
 
-    async def _read_parts(self,
-                          url: str,
-                          size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+    async def _read_parts(
+        self, url: str, size: int = DEFAULT_PART_SIZE
+    ) -> AsyncIterator[bytes]:
         yield b''
 
     async def _read_all(self, url: str) -> bytes:
@@ -127,9 +125,9 @@ try:
                 async with session.get(url) as response:
                     yield response.content
 
-        async def _read_parts(self,
-                              url: str,
-                              size: int = DEFAULT_PART_SIZE) -> AsyncIterator[bytes]:
+        async def _read_parts(
+            self, url: str, size: int = DEFAULT_PART_SIZE
+        ) -> AsyncIterator[bytes]:
             async with self._open_stream(url) as stream:
                 while True:
                     data = await stream.read(size)

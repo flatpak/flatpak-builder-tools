@@ -28,9 +28,12 @@ class Cache:
         def __enter__(self) -> 'Cache.BucketReader':
             return self
 
-        def __exit__(self, exc_type: Optional[Type[BaseException]],
-                     exc_value: Optional[BaseException],
-                     traceback: Optional[types.TracebackType]) -> None:
+        def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc_value: Optional[BaseException],
+            traceback: Optional[types.TracebackType],
+        ) -> None:
             self.close()
 
     class BucketWriter:
@@ -46,9 +49,12 @@ class Cache:
         def __enter__(self) -> 'Cache.BucketWriter':
             return self
 
-        def __exit__(self, exc_type: Optional[Type[BaseException]],
-                     exc_value: Optional[BaseException],
-                     traceback: Optional[types.TracebackType]) -> None:
+        def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc_value: Optional[BaseException],
+            traceback: Optional[types.TracebackType],
+        ) -> None:
             if traceback is None:
                 self.seal()
             else:
@@ -100,7 +106,8 @@ class FilesystemBasedCache(Cache):
     @staticmethod
     def _escape_key(key: str) -> str:
         return FilesystemBasedCache._KEY_CHAR_ESCAPE_RE.sub(
-            lambda m: f'_{ord(m.group()):02X}', key)
+            lambda m: f'_{ord(m.group()):02X}', key
+        )
 
     class FilesystemBucketReader(Cache.BucketReader):
         def __init__(self, file: IO[bytes]) -> None:
@@ -158,12 +165,15 @@ class FilesystemBasedCache(Cache):
                 target.parent.mkdir(exist_ok=True, parents=True)
 
             fd, temp = tempfile.mkstemp(dir=self._cache_root, prefix='__temp__')
-            return FilesystemBasedCache.FilesystemBucketWriter(os.fdopen(fd, 'wb'),
-                                                               Path(temp), target)
+            return FilesystemBasedCache.FilesystemBucketWriter(
+                os.fdopen(fd, 'wb'), Path(temp), target
+            )
 
     @property
     def _cache_root(self) -> Path:
-        xdg_cache_home = os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache'))
+        xdg_cache_home = os.environ.get(
+            'XDG_CACHE_HOME', os.path.expanduser('~/.cache')
+        )
         return Path(xdg_cache_home) / self._SUBDIR
 
     def get(self, key: str) -> Cache.BucketRef:

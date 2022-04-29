@@ -11,25 +11,12 @@ from ..package import GitSource, Package
 from .special import SpecialSourceProvider
 
 _GIT_SCHEMES: Dict[str, Dict[str, str]] = {
-    'github': {
-        'scheme': 'https',
-        'netloc': 'github.com'
-    },
-    'gitlab': {
-        'scheme': 'https',
-        'netloc': 'gitlab.com'
-    },
-    'bitbucket': {
-        'scheme': 'https',
-        'netloc': 'bitbucket.com'
-    },
+    'github': {'scheme': 'https', 'netloc': 'github.com'},
+    'gitlab': {'scheme': 'https', 'netloc': 'gitlab.com'},
+    'bitbucket': {'scheme': 'https', 'netloc': 'bitbucket.com'},
     'git': {},
-    'git+http': {
-        'scheme': 'http'
-    },
-    'git+https': {
-        'scheme': 'https'
-    },
+    'git+http': {'scheme': 'http'},
+    'git+https': {'scheme': 'https'},
 }
 
 
@@ -48,10 +35,12 @@ class LockfileProvider:
             path = new_url.path.split('/')
             new_url = new_url._replace(netloc=path[0], path='/'.join(path[1:]))
 
-        return GitSource(original=original_url.geturl(),
-                         url=new_url.geturl(),
-                         commit=original_url.fragment,
-                         from_=from_)
+        return GitSource(
+            original=original_url.geturl(),
+            url=new_url.geturl(),
+            commit=original_url.fragment,
+            from_=from_,
+        )
 
     def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
         raise NotImplementedError()
@@ -63,8 +52,9 @@ class RCFileProvider:
     def parse_rcfile(self, rcfile: Path) -> Dict[str, str]:
         with open(rcfile, 'r') as r:
             rcfile_text = r.read()
-        parser_re = re.compile(r'^(?!#|;)(\S+)(?:\s+|\s*=\s*)(?:"(.+)"|(\S+))$',
-                               re.MULTILINE)
+        parser_re = re.compile(
+            r'^(?!#|;)(\S+)(?:\s+|\s*=\s*)(?:"(.+)"|(\S+))$', re.MULTILINE
+        )
         result: Dict[str, str] = {}
         for key, quoted_val, val in parser_re.findall(rcfile_text):
             result[key] = quoted_val or val
@@ -95,6 +85,7 @@ class ProviderFactory:
     def create_rcfile_providers(self) -> List[RCFileProvider]:
         raise NotImplementedError()
 
-    def create_module_provider(self, gen: ManifestGenerator,
-                               special: SpecialSourceProvider) -> ModuleProvider:
+    def create_module_provider(
+        self, gen: ManifestGenerator, special: SpecialSourceProvider
+    ) -> ModuleProvider:
         raise NotImplementedError()

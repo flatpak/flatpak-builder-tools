@@ -1,5 +1,15 @@
 from pathlib import Path
-from typing import Any, DefaultDict, Dict, Iterator, List, NamedTuple, Optional, Type, Set
+from typing import (
+    Any,
+    DefaultDict,
+    Dict,
+    Iterator,
+    List,
+    NamedTuple,
+    Optional,
+    Type,
+    Set,
+)
 
 import asyncio
 import collections
@@ -12,7 +22,13 @@ import types
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
 from ..url_metadata import RemoteUrlMetadata
-from ..package import Package, PackageSource, UnresolvedRegistrySource, GitSource, ResolvedSource
+from ..package import (
+    Package,
+    PackageSource,
+    UnresolvedRegistrySource,
+    GitSource,
+    ResolvedSource,
+)
 from ..requests import Requests
 from . import LockfileProvider, RCFileProvider, ModuleProvider, ProviderFactory
 from .special import SpecialSourceProvider
@@ -28,8 +44,8 @@ class NpmLockfileProvider(LockfileProvider):
         self.no_devel = options.no_devel
 
     def process_dependencies(
-            self, lockfile: Path,
-            dependencies: Dict[str, Dict[Any, Any]]) -> Iterator[Package]:
+        self, lockfile: Path, dependencies: Dict[str, Dict[Any, Any]]
+    ) -> Iterator[Package]:
         for name, info in dependencies.items():
             if info.get('dev') and self.no_devel:
                 continue
@@ -79,8 +95,13 @@ class NpmModuleProvider(ModuleProvider):
         data: Dict[Any, Any]
         used_versions: Set[str]
 
-    def __init__(self, gen: ManifestGenerator, special: SpecialSourceProvider,
-                 lockfile_root: Path, options: Options) -> None:
+    def __init__(
+        self,
+        gen: ManifestGenerator,
+        special: SpecialSourceProvider,
+        lockfile_root: Path,
+        options: Options,
+    ) -> None:
         self.gen = gen
         self.special_source_provider = special
         self.lockfile_root = lockfile_root
@@ -91,16 +112,21 @@ class NpmModuleProvider(ModuleProvider):
         self.cacache_dir = self.npm_cache_dir / '_cacache'
         # Awaitable so multiple tasks can be waiting on the same package info.
         self.registry_packages: Dict[
-            str, asyncio.Future[NpmModuleProvider.RegistryPackageIndex]] = {}
+            str, asyncio.Future[NpmModuleProvider.RegistryPackageIndex]
+        ] = {}
         self.index_entries: Dict[Path, str] = {}
         self.all_lockfiles: Set[Path] = set()
         # Mapping of lockfiles to a dict of the Git source target paths and GitSource objects.
-        self.git_sources: DefaultDict[Path, Dict[
-            Path, GitSource]] = collections.defaultdict(lambda: {})
+        self.git_sources: DefaultDict[
+            Path, Dict[Path, GitSource]
+        ] = collections.defaultdict(lambda: {})
 
-    def __exit__(self, exc_type: Optional[Type[BaseException]],
-                 exc_value: Optional[BaseException],
-                 tb: Optional[types.TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        tb: Optional[types.TracebackType],
+    ) -> None:
         # Don't bother finalizing if an exception was thrown.
         if exc_type is None:
             self._finalize()
@@ -110,30 +136,35 @@ class NpmModuleProvider(ModuleProvider):
         return Path(digest[0:2]) / digest[2:4] / digest[4:]
 
     def get_cacache_index_path(self, integrity: Integrity) -> Path:
-        return self.cacache_dir / Path('index-v5') / self.get_cacache_integrity_path(
-            integrity)
+        return (
+            self.cacache_dir
+            / Path('index-v5')
+            / self.get_cacache_integrity_path(integrity)
+        )
 
     def get_cacache_content_path(self, integrity: Integrity) -> Path:
-        return (self.cacache_dir / Path('content-v2') / integrity.algorithm /
-                self.get_cacache_integrity_path(integrity))
+        return (
+            self.cacache_dir
+            / Path('content-v2')
+            / integrity.algorithm
+            / self.get_cacache_integrity_path(integrity)
+        )
 
     def add_index_entry(self, url: str, metadata: RemoteUrlMetadata) -> None:
         key = f'make-fetch-happen:request-cache:{url}'
-        index_json = json.dumps({
-            'key':
-                key,
-            'integrity':
-                f'{metadata.integrity.algorithm}-{metadata.integrity.to_base64()}',
-            'time':
-                0,
-            'size':
-                metadata.size,
-            'metadata': {
-                'url': url,
-                'reqHeaders': {},
-                'resHeaders': {},
-            },
-        })
+        index_json = json.dumps(
+            {
+                'key': key,
+                'integrity': f'{metadata.integrity.algorithm}-{metadata.integrity.to_base64()}',
+                'time': 0,
+                'size': metadata.size,
+                'metadata': {
+                    'url': url,
+                    'reqHeaders': {},
+                    'resHeaders': {},
+                },
+            }
+        )
 
         content_integrity = Integrity.generate(index_json, algorithm='sha1')
         index = '\t'.join((content_integrity.digest, index_json))
@@ -155,9 +186,10 @@ class NpmModuleProvider(ModuleProvider):
 
             assert 'versions' in data, f'{data_url} returned an invalid package index'
             cache_future.set_result(
-                NpmModuleProvider.RegistryPackageIndex(url=data_url,
-                                                       data=data,
-                                                       used_versions=set()))
+                NpmModuleProvider.RegistryPackageIndex(
+                    url=data_url, data=data, used_versions=set()
+                )
+            )
 
             if not self.no_trim_index:
                 for key in list(data):
@@ -167,11 +199,14 @@ class NpmModuleProvider(ModuleProvider):
         index = await self.registry_packages[package.name]
 
         versions = index.data['versions']
-        assert package.version in versions, \
-            f'{package.name} versions available are {", ".join(versions)}, not {package.version}'
+        assert (
+            package.version in versions
+        ), f'{package.name} versions available are {", ".join(versions)}, not {package.version}'
 
         dist = versions[package.version]['dist']
-        assert 'tarball' in dist, f'{package.name}@{package.version} has no tarball in dist'
+        assert (
+            'tarball' in dist
+        ), f'{package.name}@{package.version} has no tarball in dist'
 
         index.used_versions.add(package.version)
 
@@ -227,19 +262,21 @@ class NpmModuleProvider(ModuleProvider):
 
             raw_data = json.dumps(index.data).encode()
 
-            metadata = RemoteUrlMetadata(integrity=Integrity.generate(raw_data),
-                                         size=len(raw_data))
+            metadata = RemoteUrlMetadata(
+                integrity=Integrity.generate(raw_data), size=len(raw_data)
+            )
             content_path = self.get_cacache_content_path(metadata.integrity)
             self.gen.add_data_source(raw_data, content_path)
             self.add_index_entry(index.url, metadata)
 
-        patch_commands: DefaultDict[Path, List[str]] = collections.defaultdict(lambda: [])
+        patch_commands: DefaultDict[Path, List[str]] = collections.defaultdict(
+            lambda: []
+        )
 
         if self.git_sources:
             # Generate jq scripts to patch the package*.json files.
             scripts = {
-                'package.json':
-                    r'''
+                'package.json': r"""
                     walk(
                         if type == "object"
                         then
@@ -252,9 +289,8 @@ class NpmModuleProvider(ModuleProvider):
                         else .
                         end
                     )
-                ''',
-                'package-lock.json':
-                    r'''
+                """,
+                'package-lock.json': r"""
                     walk(
                         if type == "object" and (.version | type == "string") and $data[.version]
                         then
@@ -262,7 +298,7 @@ class NpmModuleProvider(ModuleProvider):
                         else .
                         end
                     )
-                ''',
+                """,
             }
 
             for lockfile, sources in self.git_sources.items():
@@ -281,21 +317,24 @@ class NpmModuleProvider(ModuleProvider):
 
                 for filename, script in scripts.items():
                     target = Path('$FLATPAK_BUILDER_BUILDDIR') / prefix / filename
-                    script = textwrap.dedent(script.lstrip('\n')).strip().replace(
-                        '\n', '')
+                    script = (
+                        textwrap.dedent(script.lstrip('\n')).strip().replace('\n', '')
+                    )
                     json_data = json.dumps(data[filename])
                     patch_commands[lockfile].append(
                         'jq'
                         ' --arg buildroot "$FLATPAK_BUILDER_BUILDDIR"'
                         f' --argjson data {shlex.quote(json_data)}'
                         f' {shlex.quote(script)} {target}'
-                        f' > {target}.new')
+                        f' > {target}.new'
+                    )
                     patch_commands[lockfile].append(f'mv {target}{{.new,}}')
 
         patch_all_commands: List[str] = []
         for lockfile in self.all_lockfiles:
-            patch_dest = self.gen.data_root / 'patch' / self.relative_lockfile_dir(
-                lockfile)
+            patch_dest = (
+                self.gen.data_root / 'patch' / self.relative_lockfile_dir(lockfile)
+            )
             # Don't use with_extension to avoid problems if the package has a . in its name.
             patch_dest = patch_dest.with_name(patch_dest.name + '.sh')
 
@@ -329,6 +368,7 @@ class NpmProviderFactory(ProviderFactory):
     def create_rcfile_providers(self) -> List[RCFileProvider]:
         return [NpmRCFileProvider()]
 
-    def create_module_provider(self, gen: ManifestGenerator,
-                               special: SpecialSourceProvider) -> NpmModuleProvider:
+    def create_module_provider(
+        self, gen: ManifestGenerator, special: SpecialSourceProvider
+    ) -> NpmModuleProvider:
         return NpmModuleProvider(gen, special, self.lockfile_root, self.options.module)
