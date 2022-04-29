@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "flatpak_node_generator"
+version = "0.1.0"
+description = ""
+authors = ["Ryan Gonzalez <ryan.gonzalez@collabora.com>", "Filippe LeMarchand <gasinvein@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.scripts]
+flatpak-node-generator = "flatpak_node_generator.main:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
