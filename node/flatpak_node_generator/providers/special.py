@@ -186,7 +186,9 @@ class SpecialSourceProvider:
                 only_arches=['x86_64'],
             )
 
-    async def _add_nwjs_cache_downloads(self, version: str, flavor: str = 'normal'):
+    async def _add_nwjs_cache_downloads(
+        self, version: str, flavor: str = 'normal'
+    ) -> None:
         assert not version.startswith('v')
         nwjs_mirror = 'https://dl.nwjs.io'
         ffmpeg_dl_base = (
@@ -421,7 +423,7 @@ class SpecialSourceProvider:
 
     async def generate_node_headers(
         self, node_headers: NodeHeaders, dest: Optional[Path] = None
-    ):
+    ) -> None:
         url = node_headers.url
         install_version = node_headers.install_version
         if dest is None:

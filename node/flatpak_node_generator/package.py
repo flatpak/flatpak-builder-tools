@@ -33,7 +33,7 @@ class SemVer(NamedTuple):
 
                 parts.append(part)
 
-            return SemVer.Prerelease(tuple(parts))
+            return SemVer.Prerelease(tuple(parts)[:2])
 
         @property
         def parts(self) -> Tuple[Union[str, int]]:

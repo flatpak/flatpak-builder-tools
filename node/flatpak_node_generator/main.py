@@ -277,5 +277,5 @@ async def _async_main() -> None:
         print(f'Wrote {gen.source_count} source(s).')
 
 
-def main():
+def main() -> None:
     asyncio.run(_async_main())

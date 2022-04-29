@@ -50,7 +50,7 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         return len(self._sources)
 
     def ordered_sources(self) -> Iterator[Dict[Any, Any]]:
-        return map(dict, sorted(self._sources))  # type: ignore
+        return map(dict, sorted(self._sources))
 
     def split_sources(self) -> Iterator[List[Dict[Any, Any]]]:
         BASE_CURRENT_SIZE = len('[\n]')
