@@ -10,6 +10,7 @@ python = "^3.7"
 [tool.poetry.dev-dependencies]
 blue = {git = "https://github.com/grantjenks/blue"}
 isort = "^5.10.1"
+mypy = "^0.950"
 poethepoet = "^0.13.1"
 
 [tool.poetry.scripts]
@@ -23,10 +24,15 @@ from_first = true
 lines_between_types = 1
 profile = "black"
 
+[tool.mypy]
+exclude = "^(.*/)?([^/]+)-quick-start/.*$"
+strict = true
+
 [tool.poe.tasks]
 check-format = "blue --check flatpak_node_generator"
 check-isort = "isort --check flatpak_node_generator"
-check = ["check-format", "check-isort"]
+check-mypy = "mypy ."
+check = ["check-format", "check-isort", "check-mypy"]
 
 apply-format = "blue flatpak_node_generator"
 apply-isort = "isort flatpak_node_generator"

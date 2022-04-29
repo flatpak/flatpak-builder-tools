@@ -12,7 +12,7 @@ class NodeHeaders(NamedTuple):
         target: str,
         runtime: Optional[str] = None,
         disturl: Optional[str] = None,
-    ):
+    ) -> 'NodeHeaders':
         if runtime is None:
             runtime = 'node'
         if disturl is None:
