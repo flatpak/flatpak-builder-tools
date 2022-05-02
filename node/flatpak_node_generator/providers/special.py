@@ -20,10 +20,10 @@ _NPM_MIRROR = 'https://unpkg.com/'
 
 class SpecialSourceProvider:
     class Options(NamedTuple):
-        node_chromedriver_from_electron: str
-        electron_ffmpeg: str
+        node_chromedriver_from_electron: Optional[str]
+        electron_ffmpeg: Optional[str]
         electron_node_headers: bool
-        nwjs_version: str
+        nwjs_version: Optional[str]
         nwjs_node_headers: bool
         nwjs_ffmpeg: bool
         xdg_layout: bool
