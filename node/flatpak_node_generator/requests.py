@@ -31,7 +31,7 @@ class Requests:
         raise NotImplementedError
 
     async def read_parts(
-        self, url: str, *, cachable: bool, size: int = DEFAULT_PART_SIZE
+        self, url: str, *, cachable: bool = False, size: int = DEFAULT_PART_SIZE
     ) -> AsyncIterator[bytes]:
         bucket = self.__get_cache_bucket(cachable, url)
 
@@ -121,7 +121,7 @@ try:
 
         @contextlib.asynccontextmanager
         async def _open_stream(self, url: str) -> AsyncIterator[aiohttp.StreamReader]:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(raise_for_status=True) as session:
                 async with session.get(url) as response:
                     yield response.content
 

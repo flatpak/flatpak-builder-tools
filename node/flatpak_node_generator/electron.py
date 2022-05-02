@@ -67,8 +67,14 @@ class ElectronBinaryManager:
         )
 
     @staticmethod
-    async def for_version(version: str) -> 'ElectronBinaryManager':
-        base_url = f'https://github.com/electron/electron/releases/download/v{version}'
+    async def for_version(
+        version: str, *, base_url: Optional[str] = None
+    ) -> 'ElectronBinaryManager':
+        if base_url is None:
+            base_url = (
+                f'https://github.com/electron/electron/releases/download/v{version}'
+            )
+
         integrity_url = f'{base_url}/{ElectronBinaryManager.INTEGRITY_BASE_FILENAME}'
         integrity_data = (
             await Requests.instance.read_all(integrity_url, cachable=True)
