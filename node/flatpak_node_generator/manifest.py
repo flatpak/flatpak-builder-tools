@@ -96,6 +96,21 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
 
         self._add_source(source)
 
+    def add_local_file_source(
+        self,
+        path: Path,
+        destination: Optional[Path] = None,
+        *,
+        only_arches: Optional[List[str]] = None
+    ) -> None:
+        source: Dict[str, Any] = {
+            'type': 'file',
+            'path': str(path),
+        }
+        self._add_source_with_destination(
+            source, destination, is_dir=False, only_arches=only_arches
+        )
+
     def add_url_source(
         self,
         url: str,

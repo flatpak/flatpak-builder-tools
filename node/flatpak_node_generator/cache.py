@@ -102,6 +102,9 @@ class FilesystemBasedCache(Cache):
     _SUBDIR = 'flatpak-node-generator'
     _KEY_CHAR_ESCAPE_RE = re.compile(r'[^A-Za-z0-9._\-]')
 
+    def __init__(self, cache_root: Optional[Path] = None) -> None:
+        self._cache_root = cache_root or self._default_cache_root()
+
     @staticmethod
     def _escape_key(key: str) -> str:
         return FilesystemBasedCache._KEY_CHAR_ESCAPE_RE.sub(
@@ -168,12 +171,12 @@ class FilesystemBasedCache(Cache):
                 os.fdopen(fd, 'wb'), Path(temp), target
             )
 
-    @property
-    def _cache_root(self) -> Path:
+    @classmethod
+    def _default_cache_root(cls) -> Path:
         xdg_cache_home = os.environ.get(
             'XDG_CACHE_HOME', os.path.expanduser('~/.cache')
         )
-        return Path(xdg_cache_home) / self._SUBDIR
+        return Path(xdg_cache_home) / cls._SUBDIR
 
     def get(self, key: str) -> Cache.BucketRef:
         return FilesystemBasedCache.FilesystemBucketRef(key, self._cache_root)
