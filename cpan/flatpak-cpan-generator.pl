@@ -122,7 +122,7 @@ sub main {
       "    mod_dir=\$1",
       "    cd \$mod_dir",
       "    if [ -f 'Makefile.PL' ]; then",
-      "        perl Makefile.PL PREFIX=${FLATPAK_DEST} && make install PREFIX=${FLATPAK_DEST}",
+      "        perl Makefile.PL PREFIX=\${FLATPAK_DEST} && make install PREFIX=\${FLATPAK_DEST}",
       "    elif [ -f 'Build.PL' ]; then",
       "        perl Build.PL && ./Build && ./Build install",
       "    else",
