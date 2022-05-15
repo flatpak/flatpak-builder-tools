@@ -74,6 +74,27 @@ async def get_remote_sha256(url):
     return sha256.hexdigest()
 
 
+def find_cargo_toml(git_repo_dir):
+    if os.path.isfile(os.path.join(git_repo_dir, 'Cargo.toml')):
+        return load_toml(os.path.join(git_repo_dir, 'Cargo.toml')), '.'
+    # If Cargo.toml isn't found in repository root, scan subdirectories
+    toml_list = []
+    for entry in os.scandir(git_repo_dir):
+        if entry.is_dir():
+            toml_path = os.path.join(entry.path, 'Cargo.toml')
+            if os.path.isfile(toml_path):
+                toml_list.append((toml_path, os.path.relpath(entry.path, git_repo_dir)))
+    if len(toml_list) == 1:
+        return load_toml(toml_list[0][0]), toml_list[0][1]
+    if len(toml_list) > 1:
+        raise NotImplementedError(
+            f'Multiple Cargo.toml files found in {git_repo_dir}\n'
+            'Please report this error and the link to the affected repisitory here:\n'
+            'https://github.com/flatpak/flatpak-builder-tools/issues'
+            )
+    raise Exception(f'No Cargo.toml found in {git_repo_dir}')
+
+
 def load_toml(tomlfile='Cargo.lock'):
     with open(tomlfile, 'r') as f:
         toml_data = toml.load(f)
@@ -103,7 +124,7 @@ def fetch_git_repo(git_url, commit):
 async def get_git_repo_packages(git_url, commit):
     logging.info('Loading packages from %s', git_url)
     git_repo_dir = fetch_git_repo(git_url, commit)
-    root_toml = load_toml(os.path.join(git_repo_dir, 'Cargo.toml'))
+    root_toml, toml_dir = find_cargo_toml(git_repo_dir)
     assert 'package' in root_toml or 'workspace' in root_toml
     packages = {}
 
@@ -128,7 +149,7 @@ async def get_git_repo_packages(git_url, commit):
                 await get_dep_packages(target, toml_dir)
 
     if 'package' in root_toml:
-        await get_dep_packages(root_toml, '.')
+        await get_dep_packages(root_toml, toml_dir)
         packages[root_toml['package']['name']] = '.'
 
     if 'workspace' in root_toml:
