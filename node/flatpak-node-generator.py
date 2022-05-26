@@ -851,6 +851,10 @@ class ElectronBinaryManager:
 
     def find_binaries(self, binary: str) -> Iterator['ElectronBinaryManager.Binary']:
         for electron_arch, flatpak_arch in self.ELECTRON_ARCHES_TO_FLATPAK.items():
+            # Electron v19+ drop linux-ia32 support.
+            if SemVer.parse(self.version) >= SemVer.parse("19.0.0") and electron_arch == "ia32":
+                continue
+
             binary_filename = f'{binary}-v{self.version}-linux-{electron_arch}.zip'
             binary_url = self.child_url(binary_filename)
 
