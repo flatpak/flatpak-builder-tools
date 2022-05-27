@@ -57,7 +57,11 @@ def main():
             })
 
     with open(args.output, 'w') as fp:
-        json.dump(sources, fp, indent=4)
+        json.dump(
+            sorted(sources, key=lambda n: n.get("dest-filename")),
+            fp,
+            indent=4
+        )
 
 
 if __name__ == '__main__':
