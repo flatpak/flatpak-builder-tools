@@ -561,10 +561,6 @@ class ResolvedSource(NamedTuple):
             return metadata.integrity
 
 
-class UnresolvedRegistrySource:
-    pass
-
-
 class GitSource(NamedTuple):
     original: str
     url: str
@@ -572,7 +568,7 @@ class GitSource(NamedTuple):
     from_: Optional[str]
 
 
-PackageSource = Union[ResolvedSource, UnresolvedRegistrySource, GitSource]
+PackageSource = Union[ResolvedSource, GitSource]
 
 
 class Package(NamedTuple):
@@ -1308,9 +1304,10 @@ class NpmLockfileProvider(LockfileProvider):
                 git_source = self.parse_git_source(version, info['from'])
                 source = git_source
             else:
-                # NOTE: npm ignores the resolved field and just uses the provided
-                # registry instead. We follow the same behavior here.
-                source = UnresolvedRegistrySource()
+                # NOTE: npm ignores the resolved field and just uses the provided registry instead.
+                # Thus we'll fetch integrity from the registry regardless of this field.
+                integrity = Integrity.parse(info['integrity'])
+                source = ResolvedSource(info['resolved'], integrity)
 
             yield Package(name=name, version=version, source=source, lockfile=lockfile)
 
@@ -1437,13 +1434,20 @@ class NpmModuleProvider(ModuleProvider):
 
         index.used_versions.add(package.version)
 
-        integrity: Integrity
+        registry_integrities: Set[Integrity] = set()
         if 'integrity' in dist:
-            integrity = Integrity.parse(dist['integrity'])
-        elif 'shasum' in dist:
-            integrity = Integrity.from_sha1(dist['shasum'])
+            registry_integrities.add(Integrity.parse(dist['integrity']))
+        if 'shasum' in dist:
+            registry_integrities.add(Integrity.from_sha1(dist['shasum']))
+
+        assert registry_integrities, f'{package.name}@{package.version} has no integrity in dist'
+
+        if package.source.integrity:
+            assert package.source.integrity in registry_integrities, \
+                f'{package.name}@{package.version} integrity doesn\'t match registry integrity'
+            integrity = package.source.integrity
         else:
-            assert False, f'{package.name}@{package.version} has no integrity in dist'
+            integrity = registry_integrities[0]
 
         return ResolvedSource(resolved=dist['tarball'], integrity=integrity)
 
@@ -1451,9 +1455,7 @@ class NpmModuleProvider(ModuleProvider):
         self.all_lockfiles.add(package.lockfile)
         source = package.source
 
-        assert not isinstance(source, ResolvedSource)
-
-        if isinstance(source, UnresolvedRegistrySource):
+        if isinstance(source, ResolvedSource):
             source = await self.resolve_source(package)
             assert source.resolved is not None
             assert source.integrity is not None
