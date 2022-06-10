@@ -71,6 +71,12 @@ class YarnLockfileProvider(LockfileProvider):
                 continue
 
             line = line.strip()
+
+            if line.startswith('"'):
+                # XXX: assuming no spaces in the quoted region!
+                key, value = line.split(' ', 1)
+                line = f'{self.unquote(key)} {value}'
+
             if line.startswith('version'):
                 version = self.unquote(line.split(' ', 1)[1])
             elif line.startswith('resolved'):
