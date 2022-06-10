@@ -242,11 +242,11 @@ class ProviderFactorySpec:
         )
         special = SpecialSourceProvider(gen, self.special)
 
-        module = factory.create_module_provider(gen, special)
-        for package in factory.create_lockfile_provider().process_lockfile(
-            paths.lockfile
-        ):
-            await module.generate_package(package)
+        with factory.create_module_provider(gen, special) as module:
+            for package in factory.create_lockfile_provider().process_lockfile(
+                paths.lockfile
+            ):
+                await module.generate_package(package)
 
         paths.add_to_manifest(gen)
         return paths
