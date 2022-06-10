@@ -24,9 +24,9 @@ thing@^2.0.0:
   resolved "https://codeload.github.com/flathub/thing/tar.gz/7448d8798a4380162d4b56f9b452e2f6f9e24e7a"
 
 bling@~2.2.0:
-  version "2.2.0"
-  resolved "https://registry.yarnpkg.com/bling/-/name-1.1.tgz#a3db5c13ff90a36963278c6a39e4ee3c22e2a436"
-  integrity sha512-K1nRedmBWZT2hzg6iG6jQQmIl1bvylqycxjMZ84qISYdEvpv7muMcW9yIU6tVe4NeJ1sNc/5d9QO9XKLqRiKgA==
+  "version" "2.2.0"
+  "resolved" "https://registry.yarnpkg.com/bling/-/name-1.1.tgz#a3db5c13ff90a36963278c6a39e4ee3c22e2a436"
+  "integrity" sha512-K1nRedmBWZT2hzg6iG6jQQmIl1bvylqycxjMZ84qISYdEvpv7muMcW9yIU6tVe4NeJ1sNc/5d9QO9XKLqRiKgA==
 
 "@scope/zing@git+https://somewhere.place/scope/zing":
   version "2.0.1"
