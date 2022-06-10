@@ -157,6 +157,7 @@ class YarnModuleProvider(ModuleProvider):
             target_tar = os.path.relpath(self.mirror_dir / name, repo_dir)
 
             self.gen.add_git_source(source.url, source.commit, repo_dir)
+            self.gen.add_command(f'mkdir -p {self.mirror_dir}')
             self.gen.add_command(
                 f'cd {repo_dir}; git archive --format tar -o {target_tar} HEAD'
             )
