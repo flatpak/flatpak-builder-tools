@@ -84,10 +84,6 @@ class ResolvedSource(NamedTuple):
             return metadata.integrity
 
 
-class UnresolvedRegistrySource:
-    pass
-
-
 class GitSource(NamedTuple):
     original: str
     url: str
@@ -95,7 +91,7 @@ class GitSource(NamedTuple):
     from_: Optional[str]
 
 
-PackageSource = Union[ResolvedSource, UnresolvedRegistrySource, GitSource]
+PackageSource = Union[ResolvedSource, GitSource]
 
 
 class Package(NamedTuple):
