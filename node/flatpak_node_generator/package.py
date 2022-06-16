@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, NamedTuple, Optional, Tuple, Union
 
@@ -8,14 +9,15 @@ from .integrity import Integrity
 from .url_metadata import RemoteUrlMetadata
 
 
-class SemVer(NamedTuple):
+@dataclass(frozen=True, order=True, eq=True)
+class SemVer:
     # Note that we ignore the metadata part, since all we do is version
     # comparisons.
-    _SEMVER_RE = re.compile(r'(\d+)\.(\d+)\.(\d+)(?:-(?P<prerelease>[^+]+))?')
+    _SEMVER_RE = re.compile(r'(\d+)\.(\d+)\.(\d+)(?:-(?P<prerelease>[^+]+)(\+|$))?')
 
     @functools.total_ordering
     class Prerelease:
-        def __init__(self, parts: Tuple[Union[str, int]]) -> None:
+        def __init__(self, parts: Tuple[Union[str, int], ...]) -> None:
             self._parts = parts
 
         @staticmethod
@@ -25,7 +27,7 @@ class SemVer(NamedTuple):
 
             parts: List[Union[str, int]] = []
 
-            for part in rel.split('.'):
+            for part in rel.split('.'):  # type: Union[str, int]
                 try:
                     part = int(part)
                 except ValueError:
@@ -33,13 +35,16 @@ class SemVer(NamedTuple):
 
                 parts.append(part)
 
-            return SemVer.Prerelease(tuple(parts)[:2])
+            return SemVer.Prerelease(tuple(parts))
 
         @property
-        def parts(self) -> Tuple[Union[str, int]]:
+        def parts(self) -> Tuple[Union[str, int], ...]:
             return self._parts
 
-        def __lt__(self, other: 'SemVer.Prerelease'):
+        def __lt__(self, other: object) -> bool:
+            if not isinstance(other, SemVer.Prerelease):
+                return NotImplemented
+
             for our_part, other_part in zip(self._parts, other._parts):
                 if type(our_part) == type(other_part):
                     if our_part < other_part:  # type: ignore
@@ -49,6 +54,12 @@ class SemVer(NamedTuple):
                     return True
 
             return len(self._parts) < len(other._parts)
+
+        def __eq__(self, other: object) -> bool:
+            if not isinstance(other, SemVer.Prerelease):
+                return NotImplemented
+
+            return self._parts == other._parts
 
         def __repr__(self) -> str:
             return f'Prerelease(parts={self.parts})'
