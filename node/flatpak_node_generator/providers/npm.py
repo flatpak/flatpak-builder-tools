@@ -30,6 +30,7 @@ from .special import SpecialSourceProvider
 
 class NpmLockfileProvider(LockfileProvider):
     _ALIAS_RE = re.compile(r'^npm:(.[^@]*)@(.*)$')
+    _PACKAGE_PREFIX_RE = re.compile(r'^(?P<prefix>[^@:]+@)[^@:]+:')
 
     class Options(NamedTuple):
         no_devel: bool
@@ -52,9 +53,14 @@ class NpmLockfileProvider(LockfileProvider):
                 name, version = alias_match.groups()
 
             source: PackageSource
-            if info.get('from'):
-                git_source = self.parse_git_source(version, info['from'])
-                source = git_source
+            from_ = info.get('from')
+            if from_ is not None:
+                # Strip off the package name.
+                match = self._PACKAGE_PREFIX_RE.match(from_)
+                if match is not None:
+                    from_ = from_[match.end('prefix') :]
+
+                source = self.parse_git_source(version, from_)
             else:
                 integrity = Integrity.parse(info['integrity'])
                 source = ResolvedSource(resolved=info['resolved'], integrity=integrity)
