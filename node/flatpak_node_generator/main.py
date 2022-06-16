@@ -73,6 +73,12 @@ async def _async_main() -> None:
         help='Disable the requests cache',
     )
     parser.add_argument(
+        '--max-parallel',
+        help='Maximium number of packages to process in parallel',
+        type=int,
+        default=64,
+    )
+    parser.add_argument(
         '--retries',
         type=int,
         help='Number of retries of failed requests',
@@ -215,7 +221,11 @@ async def _async_main() -> None:
         special = SpecialSourceProvider(gen, options)
 
         with provider_factory.create_module_provider(gen, special) as module_provider:
-            with GeneratorProgress(packages, module_provider) as progress:
+            with GeneratorProgress(
+                packages,
+                module_provider,
+                args.max_parallel,
+            ) as progress:
                 await progress.run()
         for headers in rcfile_node_headers:
             print(f'Generating headers {headers.runtime} @ {headers.target}')

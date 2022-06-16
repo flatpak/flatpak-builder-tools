@@ -11,11 +11,15 @@ from .providers import ModuleProvider
 
 class GeneratorProgress(ContextManager['GeneratorProgress']):
     def __init__(
-        self, packages: Collection[Package], module_provider: ModuleProvider
+        self,
+        packages: Collection[Package],
+        module_provider: ModuleProvider,
+        max_parallel: int,
     ) -> None:
         self.finished = 0
         self.packages = packages
         self.module_provider = module_provider
+        self.parallel_limit = asyncio.Semaphore(max_parallel)
         self.previous_package: Optional[Package] = None
         self.current_package: Optional[Package] = None
 
@@ -59,10 +63,11 @@ class GeneratorProgress(ContextManager['GeneratorProgress']):
         self._update()
 
     async def _generate(self, package: Package) -> None:
-        self._update_with_package(package)
-        await self.module_provider.generate_package(package)
-        self.finished += 1
-        self._update_with_package(package)
+        async with self.parallel_limit:
+            self._update_with_package(package)
+            await self.module_provider.generate_package(package)
+            self.finished += 1
+            self._update_with_package(package)
 
     async def run(self) -> None:
         self._update()
