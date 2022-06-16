@@ -16,7 +16,7 @@ from .providers import ProviderFactory
 from .providers.npm import NpmLockfileProvider, NpmModuleProvider, NpmProviderFactory
 from .providers.special import SpecialSourceProvider
 from .providers.yarn import YarnProviderFactory
-from .requests import Requests, StubRequests, UrllibRequests
+from .requests import Requests, StubRequests
 
 
 def _scan_for_lockfiles(base: Path, patterns: List[str]) -> Iterator[Path]:
@@ -66,11 +66,6 @@ async def _async_main() -> None:
         '--no-devel',
         action='store_true',
         help="Don't include devel dependencies (npm only)",
-    )
-    parser.add_argument(
-        '--no-aiohttp',
-        action='store_true',
-        help="Don't use aiohttp, and silence any warnings related to it",
     )
     parser.add_argument(
         '--no-requests-cache',
@@ -153,15 +148,6 @@ async def _async_main() -> None:
 
     if args.stub_requests:
         Requests.instance = StubRequests()
-    elif args.no_aiohttp:
-        if Requests.instance.is_async:
-            Requests.instance = UrllibRequests()
-    elif not Requests.instance.is_async:
-        print(
-            'WARNING: aiohttp is not found, performance will suffer.',
-            file=sys.stderr,
-        )
-        print('  (Pass --no-aiohttp to silence this warning.)', file=sys.stderr)
 
     if not args.no_requests_cache:
         Cache.instance = FilesystemBasedCache()

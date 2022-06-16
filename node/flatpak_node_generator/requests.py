@@ -1,7 +1,8 @@
-from typing import AsyncIterator, ClassVar, cast
+from typing import AsyncIterator, ClassVar
 
 import contextlib
-import urllib.request
+
+import aiohttp
 
 from .cache import Cache
 
@@ -14,21 +15,29 @@ class Requests:
     DEFAULT_RETRIES = 5
     retries: ClassVar[int] = DEFAULT_RETRIES
 
-    @property
-    def is_async(self) -> bool:
-        raise NotImplementedError
-
     def __get_cache_bucket(self, cachable: bool, url: str) -> Cache.BucketRef:
         return Cache.get_working_instance_if(cachable).get(f'requests:{url}')
+
+    @contextlib.asynccontextmanager
+    async def _open_stream(self, url: str) -> AsyncIterator[aiohttp.StreamReader]:
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
+            async with session.get(url) as response:
+                yield response.content
 
     async def _read_parts(
         self, url: str, size: int = DEFAULT_PART_SIZE
     ) -> AsyncIterator[bytes]:
-        raise NotImplementedError
-        yield b''  # Silence mypy.
+        async with self._open_stream(url) as stream:
+            while True:
+                data = await stream.read(size)
+                if not data:
+                    return
+
+                yield data
 
     async def _read_all(self, url: str) -> bytes:
-        raise NotImplementedError
+        async with self._open_stream(url) as stream:
+            return await stream.read()
 
     async def read_parts(
         self, url: str, *, cachable: bool = False, size: int = DEFAULT_PART_SIZE
@@ -74,32 +83,7 @@ class Requests:
         assert False
 
 
-class UrllibRequests(Requests):
-    @property
-    def is_async(self) -> bool:
-        return False
-
-    async def _read_parts(
-        self, url: str, size: int = DEFAULT_PART_SIZE
-    ) -> AsyncIterator[bytes]:
-        with urllib.request.urlopen(url) as response:
-            while True:
-                data = response.read(size)
-                if not data:
-                    return
-
-                yield data
-
-    async def _read_all(self, url: str) -> bytes:
-        with urllib.request.urlopen(url) as response:
-            return cast(bytes, response.read())
-
-
 class StubRequests(Requests):
-    @property
-    def is_async(self) -> bool:
-        return True
-
     async def _read_parts(
         self, url: str, size: int = DEFAULT_PART_SIZE
     ) -> AsyncIterator[bytes]:
@@ -109,38 +93,4 @@ class StubRequests(Requests):
         return b''
 
 
-Requests.instance = UrllibRequests()
-
-try:
-    import aiohttp
-
-    class AsyncRequests(Requests):
-        @property
-        def is_async(self) -> bool:
-            return True
-
-        @contextlib.asynccontextmanager
-        async def _open_stream(self, url: str) -> AsyncIterator[aiohttp.StreamReader]:
-            async with aiohttp.ClientSession(raise_for_status=True) as session:
-                async with session.get(url) as response:
-                    yield response.content
-
-        async def _read_parts(
-            self, url: str, size: int = DEFAULT_PART_SIZE
-        ) -> AsyncIterator[bytes]:
-            async with self._open_stream(url) as stream:
-                while True:
-                    data = await stream.read(size)
-                    if not data:
-                        return
-
-                    yield data
-
-        async def _read_all(self, url: str) -> bytes:
-            async with self._open_stream(url) as stream:
-                return await stream.read()
-
-    Requests.instance = AsyncRequests()
-
-except ImportError:
-    pass
+Requests.instance = Requests()
