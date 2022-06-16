@@ -44,15 +44,18 @@ get npm with electron-builder.
 ## Usage
 
 ```
-usage: flatpak-node-generator.py [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN]
-                                 [--registry REGISTRY] [--no-trim-index]
-                                 [--no-devel] [--no-aiohttp]
-                                 [--no-requests-cache] [--retries RETRIES]
-                                 [-P] [-s]
-                                 [--node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON]
-                                 [--electron-ffmpeg {archive,lib}]
-                                 [--electron-node-headers]
-                                 {npm,yarn} lockfile
+usage: flatpak-node-generator [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN]
+                              [--registry REGISTRY] [--no-trim-index]
+                              [--no-devel] [--no-requests-cache]
+                              [--max-parallel MAX_PARALLEL]
+                              [--retries RETRIES] [-P] [-s]
+                              [--node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON]
+                              [--electron-ffmpeg {archive,lib}]
+                              [--electron-node-headers]
+                              [--nwjs-version NWJS_VERSION]
+                              [--nwjs-node-headers] [--nwjs-ffmpeg]
+                              [--no-xdg-layout]
+                              {npm,yarn} lockfile
 
 Flatpak Node generator
 
@@ -60,7 +63,7 @@ positional arguments:
   {npm,yarn}
   lockfile              The lockfile path (package-lock.json or yarn.lock)
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -o OUTPUT, --output OUTPUT
                         The output sources file
@@ -72,9 +75,9 @@ optional arguments:
   --registry REGISTRY   The registry to use (npm only)
   --no-trim-index       Don't trim npm package metadata (npm only)
   --no-devel            Don't include devel dependencies (npm only)
-  --no-aiohttp          Don't use aiohttp, and silence any warnings related to
-                        it
   --no-requests-cache   Disable the requests cache
+  --max-parallel MAX_PARALLEL
+                        Maximium number of packages to process in parallel
   --retries RETRIES     Number of retries of failed requests
   -P, --no-autopatch    Don't automatically patch Git sources from
                         package*.json
@@ -83,10 +86,15 @@ optional arguments:
                         Use the ChromeDriver version associated with the given
                         Electron version for node-chromedriver
   --electron-ffmpeg {archive,lib}
-                        Download the ffmpeg binaries
+                        Download prebuilt ffmpeg for matching electron version
   --electron-node-headers
                         Download the electron node headers
-  --xdg-layout          Use XDG layout for caches
+  --nwjs-version NWJS_VERSION
+                        Specify NW.js version (will use latest otherwise)
+  --nwjs-node-headers   Download the NW.js node headers
+  --nwjs-ffmpeg         Download prebuilt ffmpeg for current NW.js version
+  --no-xdg-layout       Don't use the XDG layout for caches
+
 ```
 
 flatpak-node-generator.py takes the package manager (npm or yarn), and a path to a lockfile for
