@@ -21,13 +21,7 @@ import types
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
-from ..package import (
-    GitSource,
-    Package,
-    PackageSource,
-    ResolvedSource,
-    UnresolvedRegistrySource,
-)
+from ..package import GitSource, Package, PackageSource, ResolvedSource
 from ..requests import Requests
 from ..url_metadata import RemoteUrlMetadata
 from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
@@ -62,9 +56,8 @@ class NpmLockfileProvider(LockfileProvider):
                 git_source = self.parse_git_source(version, info['from'])
                 source = git_source
             else:
-                # NOTE: npm ignores the resolved field and just uses the provided
-                # registry instead. We follow the same behavior here.
-                source = UnresolvedRegistrySource()
+                integrity = Integrity.parse(info['integrity'])
+                source = ResolvedSource(resolved=info['resolved'], integrity=integrity)
 
             yield Package(name=name, version=version, source=source, lockfile=lockfile)
 
@@ -174,6 +167,8 @@ class NpmModuleProvider(ModuleProvider):
         self.index_entries[index_path] = index
 
     async def resolve_source(self, package: Package) -> ResolvedSource:
+        assert isinstance(package.source, ResolvedSource)
+
         # These results are going to be the same each time.
         if package.name not in self.registry_packages:
             cache_future = asyncio.get_event_loop().create_future()
@@ -210,13 +205,29 @@ class NpmModuleProvider(ModuleProvider):
 
         index.used_versions.add(package.version)
 
-        integrity: Integrity
+        registry_integrity: Integrity
         if 'integrity' in dist:
-            integrity = Integrity.parse(dist['integrity'])
+            registry_integrity = Integrity.parse(dist['integrity'])
         elif 'shasum' in dist:
-            integrity = Integrity.from_sha1(dist['shasum'])
+            registry_integrity = Integrity.from_sha1(dist['shasum'])
         else:
             assert False, f'{package.name}@{package.version} has no integrity in dist'
+
+        if package.source.integrity:
+            # Follow npm in only checking for a matching integrity if the algorithms are
+            # the same:
+            # https://github.com/npm/pacote/blob/e48370d441b8d8eef3080e5d47c8ab6a8cc2aca0/lib/registry.js#L143
+            if (
+                package.source.integrity.algorithm == registry_integrity.algorithm
+                and package.source.integrity.digest != registry_integrity.digest
+            ):
+                raise ValueError(
+                    f"{package.name}@{package.version} integrity doesn't match registry integrity"
+                )
+
+            integrity = package.source.integrity
+        else:
+            integrity = registry_integrity
 
         return ResolvedSource(resolved=dist['tarball'], integrity=integrity)
 
@@ -224,9 +235,7 @@ class NpmModuleProvider(ModuleProvider):
         self.all_lockfiles.add(package.lockfile)
         source = package.source
 
-        assert not isinstance(source, ResolvedSource)
-
-        if isinstance(source, UnresolvedRegistrySource):
+        if isinstance(source, ResolvedSource):
             source = await self.resolve_source(package)
             assert source.resolved is not None
             assert source.integrity is not None
