@@ -55,7 +55,7 @@ def requests() -> Iterator[RequestsController]:
 
 
 _DEFAULT_MODULE = 'module'
-_DEFAULT_NODE = 'node16'
+_DEFAULT_NODE = 16
 
 
 @dataclass
@@ -87,7 +87,7 @@ class FlatpakBuilder:
         *,
         sources: Iterable[Dict[Any, Any]],
         commands: List[str] = [],
-        use_node: Optional[Union[str, bool]] = None,
+        use_node: Optional[Union[int, bool]] = None,
     ) -> None:
         if use_node == True:
             use_node = _DEFAULT_NODE
@@ -96,7 +96,7 @@ class FlatpakBuilder:
         build_options = {}
 
         if use_node:
-            sdk_extensions.append(f'org.freedesktop.Sdk.Extension.{use_node}')
+            sdk_extensions.append(f'org.freedesktop.Sdk.Extension.node{use_node}')
             build_options['env'] = {
                 'XDG_CACHE_HOME': str(
                     self.runtime_module_dir / 'flatpak-node' / 'cache'
@@ -107,7 +107,7 @@ class FlatpakBuilder:
             }
 
             for i, command in enumerate(commands):
-                commands[i] = f'. /usr/lib/sdk/{use_node}/enable.sh && {command}'
+                commands[i] = f'. /usr/lib/sdk/node{use_node}/enable.sh && {command}'
 
         manifest = {
             'id': 'com.test.Test',
@@ -156,25 +156,39 @@ class ProviderFactoryType(enum.Enum):
 
 @dataclass
 class ProviderPaths:
+    _V1_JSON = '.v1.json'
+    _V2_JSON = '.v2.json'
+
     type: ProviderFactoryType
     root: Path
+    node_version: int
 
     @property
     def package_json(self) -> Path:
         return self.root / 'package.json'
 
     @property
-    def lockfile(self) -> Path:
+    def lockfile_source(self) -> Path:
         if self.type == ProviderFactoryType.NPM:
-            return self.root / 'package-lock.json'
+            suffix = self._V2_JSON if self.node_version >= 16 else self._V1_JSON
+            return (self.root / f'package-lock').with_suffix(suffix)
         elif self.type == ProviderFactoryType.YARN:
             return self.root / 'yarn.lock'
         else:
             assert False, self.type
 
+    @property
+    def lockfile_dest(self) -> str:
+        if self.type == ProviderFactoryType.NPM:
+            return 'package-lock.json'
+        elif self.type == ProviderFactoryType.YARN:
+            return 'yarn.lock'
+        else:
+            assert False, self.type
+
     def add_to_manifest(self, gen: ManifestGenerator) -> None:
         gen.add_local_file_source(self.package_json)
-        gen.add_local_file_source(self.lockfile)
+        gen.add_local_file_source(self.lockfile_source, Path(self.lockfile_dest))
         if self.type == ProviderFactoryType.YARN:
             gen.add_data_source(
                 f'yarn-offline-mirror "./flatpak-node/yarn-mirror"', Path('.yarnrc')
@@ -198,11 +212,14 @@ class ProviderFactorySpec:
     def create_factory(
         self,
         lockfile_root: str,
+        node_version: int,
         npm_lockfile: Optional[NpmLockfileProvider.Options] = None,
         npm_module: Optional[NpmModuleProvider.Options] = None,
     ) -> Tuple[ProviderFactory, ProviderPaths]:
         paths = ProviderPaths(
-            type=self.type, root=self.datadir / 'packages' / lockfile_root
+            type=self.type,
+            root=self.datadir / 'packages' / lockfile_root,
+            node_version=node_version,
         )
 
         if self.type == ProviderFactoryType.NPM:
@@ -234,17 +251,21 @@ class ProviderFactorySpec:
         self,
         lockfile_root: str,
         gen: ManifestGenerator,
+        node_version: int = _DEFAULT_NODE,
         npm_lockfile: Optional[NpmLockfileProvider.Options] = None,
         npm_module: Optional[NpmModuleProvider.Options] = None,
     ) -> ProviderPaths:
         factory, paths = self.create_factory(
-            lockfile_root, npm_lockfile=npm_lockfile, npm_module=npm_module
+            lockfile_root,
+            node_version=node_version,
+            npm_lockfile=npm_lockfile,
+            npm_module=npm_module,
         )
         special = SpecialSourceProvider(gen, self.special)
 
         with factory.create_module_provider(gen, special) as module:
             for package in factory.create_lockfile_provider().process_lockfile(
-                paths.lockfile
+                paths.lockfile_source
             ):
                 await module.generate_package(package)
 
@@ -276,3 +297,10 @@ def provider_factory_spec(request: Any, shared_datadir: Path) -> ProviderFactory
     type = request.param
     assert isinstance(type, ProviderFactoryType)
     return ProviderFactorySpec(datadir=shared_datadir, type=type)
+
+
+@pytest.fixture(params=[14, 16])
+def node_version(request: Any) -> int:
+    version = request.param
+    assert isinstance(version, int)
+    return version

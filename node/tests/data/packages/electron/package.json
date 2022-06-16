@@ -1,6 +1,6 @@
 {
   "name": "@flatpak-node-generator-tests/electron",
-  "version": "1",
+  "version": "1.0.0",
   "dependencies": {
     "electron": "^18.2.0"
   }

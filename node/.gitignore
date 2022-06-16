@@ -5,3 +5,5 @@
 _build/
 __pycache__/
 node_modules/
+npm-cache-*/
+yarn-mirror/
