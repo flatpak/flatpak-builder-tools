@@ -1449,6 +1449,10 @@ class NpmModuleProvider(ModuleProvider):
 
     async def generate_package(self, package: Package) -> None:
         self.all_lockfiles.add(package.lockfile)
+
+        if package.version.startswith('file:'):
+            return
+
         source = package.source
 
         assert not isinstance(source, ResolvedSource)
