@@ -102,7 +102,11 @@ class GitSource(NamedTuple):
     from_: Optional[str]
 
 
-PackageSource = Union[ResolvedSource, GitSource]
+class LocalSource(NamedTuple):
+    path: str
+
+
+PackageSource = Union[ResolvedSource, GitSource, LocalSource]
 
 
 class Package(NamedTuple):
