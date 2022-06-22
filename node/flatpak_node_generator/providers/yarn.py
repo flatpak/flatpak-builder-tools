@@ -8,7 +8,7 @@ import urllib.parse
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
-from ..package import GitSource, Package, PackageSource, ResolvedSource
+from ..package import GitSource, LocalSource, Package, PackageSource, ResolvedSource
 from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
 from .npm import NpmRCFileProvider
 from .special import SpecialSourceProvider
@@ -25,6 +25,8 @@ GIT_URL_HOSTS = ['github.com', 'gitlab.com', 'bitbucket.com', 'bitbucket.org']
 
 
 class YarnLockfileProvider(LockfileProvider):
+    _LOCAL_PKG_RE = re.compile(r'^(?:file|link):')
+
     @staticmethod
     def is_git_version(version: str) -> bool:
         for pattern in GIT_URL_PATTERNS:
@@ -49,7 +51,7 @@ class YarnLockfileProvider(LockfileProvider):
         name_line = name_line[:-1]
 
         name = self.unquote(name_line.split(',', 1)[0])
-        name, _ = name.rsplit('@', 1)
+        name, version_constraint = name.rsplit('@', 1)
 
         version: Optional[str] = None
         resolved: Optional[str] = None
@@ -86,13 +88,17 @@ class YarnLockfileProvider(LockfileProvider):
                 values = self.unquote(values_str).split(' ')
                 integrity = Integrity.parse(values[0])
 
-        assert version and resolved, line
+        assert version, section
 
         source: PackageSource
-        if self.is_git_version(resolved):
-            source = self.parse_git_source(version=resolved)
+        if self._LOCAL_PKG_RE.match(version_constraint):
+            source = LocalSource(path=self._LOCAL_PKG_RE.sub('', version_constraint))
         else:
-            source = ResolvedSource(resolved=resolved, integrity=integrity)
+            assert resolved, section
+            if self.is_git_version(resolved):
+                source = self.parse_git_source(version=resolved)
+            else:
+                source = ResolvedSource(resolved=resolved, integrity=integrity)
 
         return Package(name=name, version=version, source=source, lockfile=lockfile)
 
@@ -167,6 +173,9 @@ class YarnModuleProvider(ModuleProvider):
             self.gen.add_command(
                 f'cd {repo_dir}; git archive --format tar -o {target_tar} HEAD'
             )
+
+        elif isinstance(source, LocalSource):
+            assert (package.lockfile.parent / source.path / 'package.json').is_file()
 
         await self.special_source_provider.generate_special_sources(package)
 
