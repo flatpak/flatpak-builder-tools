@@ -324,10 +324,22 @@ class NpmModuleProvider(ModuleProvider):
                 }
 
                 for path, source in sources.items():
+                    GIT_URL_PREFIX = 'git+'
+
                     new_version = f'{path}#{source.commit}'
                     assert source.from_ is not None
                     data['package.json'][source.from_] = new_version
                     data['package-lock.json'][source.original] = new_version
+
+                    if source.from_.startswith(GIT_URL_PREFIX):
+                        data['package.json'][
+                            source.from_[len(GIT_URL_PREFIX) :]
+                        ] = new_version
+
+                    if source.original.startswith(GIT_URL_PREFIX):
+                        data['package-lock.json'][
+                            source.original[len(GIT_URL_PREFIX) :]
+                        ] = new_version
 
                 for filename, script in scripts.items():
                     target = Path('$FLATPAK_BUILDER_BUILDDIR') / prefix / filename
