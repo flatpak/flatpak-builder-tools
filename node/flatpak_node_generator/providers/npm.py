@@ -21,7 +21,7 @@ import types
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
-from ..package import GitSource, Package, PackageSource, ResolvedSource
+from ..package import GitSource, LocalSource, Package, PackageSource, ResolvedSource
 from ..requests import Requests
 from ..url_metadata import RemoteUrlMetadata
 from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
@@ -61,6 +61,8 @@ class NpmLockfileProvider(LockfileProvider):
                     from_ = from_[match.end('prefix') :]
 
                 source = self.parse_git_source(version, from_)
+            elif version.startswith('file:'):
+                source = LocalSource(path=version[len('file:') :])
             else:
                 integrity = Integrity.parse(info['integrity'])
                 source = ResolvedSource(resolved=info['resolved'], integrity=integrity)
@@ -262,6 +264,9 @@ class NpmModuleProvider(ModuleProvider):
             path = self.gen.data_root / 'git-packages' / name
             self.git_sources[package.lockfile][path] = source
             self.gen.add_git_source(source.url, source.commit, path)
+
+        elif isinstance(source, LocalSource):
+            assert (package.lockfile.parent / source.path / 'package.json').is_file()
 
     def relative_lockfile_dir(self, lockfile: Path) -> Path:
         return lockfile.parent.relative_to(self.lockfile_root)
