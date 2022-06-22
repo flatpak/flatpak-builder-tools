@@ -279,3 +279,66 @@ Unlike Electron, NW.js engine version is not reflected in NPM package.
   ```bash
   nwbuild -v $(<$FLATPAK_BUILDER_BUILDDIR/flatpak-node/nwjs-version)
   ```
+
+## Contributing
+
+We use [Poetry](https://python-poetry.org/) for local development. You can set up the
+local virtualenv via:
+
+```
+$ poetry install
+```
+
+After making any changes, you can re-run all the checks & unit tests via:
+
+```
+$ poetry run poe check
+```
+
+or invoke pytest manually:
+
+```
+$ poetry run pytest -n auto
+```
+
+Note that these tests can take up quite a bit of space in /tmp, so if you hit `No space
+left on device` errors, try expanding `/tmp` or changing `$TMPDIR`.
+
+### Utility Scripts
+
+A few utility scripts are included in the `tools` directory:
+
+- `lockfile-utils.sh` has a few different helpers for working with the lockfiles used
+  by test packages in `tests/data/packages`:
+  - `lockfile-utils.sh update-lockfile PACKAGE-MANAGER PACKAGE` will recreate the
+    lockfile for the given package manager (one of `npm-14` for Node 14's NPM, `npm-16`
+    for Node 16's npm, or `yarn`).
+  - `lockfile-utils.sh peek-cache PACKAGE-MANAGER PACKAGE` will install the dependencies
+    from the corresponding lockfile and then extract the resulting package cache (npm)
+    or mirror directory (yarn), for closer examination.
+- `b64-to-hex.sh` will convert a base64 hash value from npm into hex, e.g.:
+  ```
+  $ echo x+sXyT4RLLEIb6bY5R+wZnt5pfk= | tools/b64-to-hex.sh
+  c7eb17c93e112cb1086fa6d8e51fb0667b79a5f9
+  ```
+- `hex-to-b64.sh` will convert a hex hash value into base64, e.g.:
+  ```
+  $ echo 867ac74e3864187b1d3d47d996a78ec5c8830777 | tools/hex-to-b64.sh
+  hnrHTjhkGHsdPUfZlqeOxciDB3c=
+  ```
+  For convenience, any slashes inside the hex value will be removed, allowing you to
+  copy-paste a path into the npm package cache and still get the base64 value:
+  ```
+  $ echo c7eb17c93e112cb1086fa6d8e51fb0667b79a5f9 | tools/hex-to-b64.sh
+  x+sXyT4RLLEIb6bY5R+wZnt5pfk=
+  $ echo c7/eb/17c93e112cb1086fa6d8e51fb0667b79a5f9 | tools/hex-to-b64.sh
+  x+sXyT4RLLEIb6bY5R+wZnt5pfk=
+  ```
+- `b64-integrity.sh INTEGRITY` will run `${INTEGRITY}sum` and then convert its output
+  into base64, e.g.:
+  ```
+  $ echo 123 | tools/b64-integrity.sh sha512
+  6i/la7jB+1rahJY7Qu1xt2SnSwktdXVRc63gby9KranADWwwLhhQNcvoX9/zFpi8qT6GYfDLzvUs8v9lhk/XQg==
+  ```
+  This is roughly equivalent to `echo 123 | sha512sum`, then converting the resulting
+  hex digest to base64 via `hex-to-b64.sh`.
