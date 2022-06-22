@@ -81,7 +81,7 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         destination: Optional[Path],
         *,
         is_dir: bool,
-        only_arches: Optional[List[str]] = None
+        only_arches: Optional[List[str]] = None,
     ) -> None:
         if destination is not None:
             if is_dir:
@@ -101,7 +101,7 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         path: Path,
         destination: Optional[Path] = None,
         *,
-        only_arches: Optional[List[str]] = None
+        only_arches: Optional[List[str]] = None,
     ) -> None:
         source: Dict[str, Any] = {
             'type': 'file',
@@ -117,7 +117,7 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         integrity: Integrity,
         destination: Optional[Path] = None,
         *,
-        only_arches: Optional[List[str]] = None
+        only_arches: Optional[List[str]] = None,
     ) -> None:
         source: Dict[str, Any] = {
             'type': 'file',

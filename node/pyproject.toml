@@ -24,6 +24,7 @@ flatpak-node-generator = "flatpak_node_generator.main:main"
 
 [tool.blue]
 line-length = 88
+target-version = ["py37"]
 
 [tool.isort]
 from_first = true
@@ -32,6 +33,7 @@ profile = "black"
 src_paths = ["flatpak_node_generator", "tests"]
 
 [tool.mypy]
+python_version = "3.7"
 exclude = "^(.*/)?((([^/]+)-quick-start)|(\\.venv))/.*$"
 strict = true
 
