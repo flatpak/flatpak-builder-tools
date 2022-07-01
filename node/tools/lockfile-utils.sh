@@ -55,6 +55,10 @@ tmpdir=$(mktemp -d)
 trap 'rm -rf -- "$tmpdir"' EXIT
 
 cp "$package_path/package.json" "$tmpdir"
+
+# Special-case handling for our test of a local package.
+[[ -d "$package_path/subdir" ]] && cp -r "$package_path/subdir" "$tmpdir"
+
 if [[ "$command_arg" == peek-cache ]]; then
   cp "$package_path/$pm_lockfile" "$tmpdir"
   echo "$pm_rc_contents" > "$tmpdir/$pm_rc_file"
