@@ -4,6 +4,7 @@ __license__ = 'MIT'
 import json
 from urllib.parse import urlparse, ParseResult, parse_qs
 import os
+import contextlib
 import glob
 import subprocess
 import argparse
@@ -19,6 +20,16 @@ CARGO_CRATES = f'{CARGO_HOME}/vendor'
 VENDORED_SOURCES = 'vendored-sources'
 GIT_CACHE = 'flatpak-cargo/git'
 COMMIT_LEN = 7
+
+
+@contextlib.contextmanager
+def workdir(path: str):
+    oldpath = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(oldpath)
 
 
 def canonical_url(url):
@@ -74,27 +85,6 @@ async def get_remote_sha256(url):
     return sha256.hexdigest()
 
 
-def find_cargo_toml(git_repo_dir):
-    if os.path.isfile(os.path.join(git_repo_dir, 'Cargo.toml')):
-        return load_toml(os.path.join(git_repo_dir, 'Cargo.toml')), '.'
-    # If Cargo.toml isn't found in repository root, scan subdirectories
-    toml_list = []
-    for entry in os.scandir(git_repo_dir):
-        if entry.is_dir():
-            toml_path = os.path.join(entry.path, 'Cargo.toml')
-            if os.path.isfile(toml_path):
-                toml_list.append((toml_path, os.path.relpath(entry.path, git_repo_dir)))
-    if len(toml_list) == 1:
-        return load_toml(toml_list[0][0]), toml_list[0][1]
-    if len(toml_list) > 1:
-        raise NotImplementedError(
-            f'Multiple Cargo.toml files found in {git_repo_dir}\n'
-            'Please report this error and the link to the affected repisitory here:\n'
-            'https://github.com/flatpak/flatpak-builder-tools/issues'
-            )
-    raise Exception(f'No Cargo.toml found in {git_repo_dir}')
-
-
 def load_toml(tomlfile='Cargo.lock'):
     with open(tomlfile, 'r') as f:
         toml_data = toml.load(f)
@@ -124,11 +114,28 @@ def fetch_git_repo(git_url, commit):
 async def get_git_repo_packages(git_url, commit):
     logging.info('Loading packages from %s', git_url)
     git_repo_dir = fetch_git_repo(git_url, commit)
-    root_toml, toml_dir = find_cargo_toml(git_repo_dir)
+    packages = {}
+
+    with workdir(git_repo_dir):
+        if os.path.isfile('Cargo.toml'):
+            packages.update(await get_cargo_toml_packages(load_toml('Cargo.toml'), '.'))
+        else:
+            for toml_path in glob.glob('*/Cargo.toml'):
+                packages.update(await get_cargo_toml_packages(load_toml(toml_path),
+                                                              os.path.dirname(toml_path)))
+
+    assert packages, f"No packages found in {git_repo_dir}"
+    logging.debug('Packages in %s:\n%s', git_url, json.dumps(packages, indent=4))
+    return packages
+
+
+async def get_cargo_toml_packages(root_toml, root_dir):
+    assert not os.path.isabs(root_dir) and os.path.isdir(root_dir)
     assert 'package' in root_toml or 'workspace' in root_toml
     packages = {}
 
     async def get_dep_packages(entry, toml_dir):
+        assert not os.path.isabs(toml_dir)
         # https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html
         if 'dependencies' in entry:
             for dep_name, dep in entry['dependencies'].items():
@@ -139,9 +146,9 @@ async def get_git_repo_packages(git_url, commit):
                 if dep_name in packages:
                     continue
                 dep_dir = os.path.normpath(os.path.join(toml_dir, dep['path']))
-                logging.debug("Loading dependency %s from %s in %s", dep_name, dep_dir, git_url)
-                dep_toml = load_toml(os.path.join(git_repo_dir, dep_dir, 'Cargo.toml'))
-                assert dep_toml['package']['name'] == dep_name, (git_url, toml_dir)
+                logging.debug("Loading dependency %s from %s", dep_name, dep_dir)
+                dep_toml = load_toml(os.path.join(dep_dir, 'Cargo.toml'))
+                assert dep_toml['package']['name'] == dep_name, toml_dir
                 await get_dep_packages(dep_toml, dep_dir)
                 packages[dep_name] = dep_dir
         if 'target' in entry:
@@ -149,19 +156,18 @@ async def get_git_repo_packages(git_url, commit):
                 await get_dep_packages(target, toml_dir)
 
     if 'package' in root_toml:
-        await get_dep_packages(root_toml, toml_dir)
-        packages[root_toml['package']['name']] = '.'
+        await get_dep_packages(root_toml, root_dir)
+        packages[root_toml['package']['name']] = root_dir
 
     if 'workspace' in root_toml:
         for member in root_toml['workspace']['members']:
-            for subpkg_toml in glob.glob(os.path.join(git_repo_dir, member, 'Cargo.toml')):
-                subpkg = os.path.relpath(os.path.dirname(subpkg_toml), git_repo_dir)
-                logging.debug("Loading workspace member %s in %s", member, git_url)
+            for subpkg_toml in glob.glob(os.path.join(root_dir, member, 'Cargo.toml')):
+                subpkg = os.path.relpath(os.path.dirname(subpkg_toml), root_dir)
+                logging.debug("Loading workspace member %s in %s", member, root_dir)
                 pkg_toml = load_toml(subpkg_toml)
                 await get_dep_packages(pkg_toml, subpkg)
                 packages[pkg_toml['package']['name']] = subpkg
 
-    logging.debug('Packages in %s:\n%s', git_url, json.dumps(packages, indent=4))
     return packages
 
 
