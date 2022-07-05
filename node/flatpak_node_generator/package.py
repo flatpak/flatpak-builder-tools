@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, NamedTuple, Optional, Tuple, Union
 
+import abc
 import functools
 import re
 
@@ -81,9 +82,18 @@ class SemVer:
         return SemVer(major, minor, patch, prerelease)
 
 
-class ResolvedSource(NamedTuple):
-    resolved: str
+class PackageSource(abc.ABC):
+    pass
+
+
+@dataclass(frozen=True, eq=True)
+class RegistrySource(PackageSource):
     integrity: Optional[Integrity]
+
+
+@dataclass(frozen=True, eq=True)
+class ResolvedSource(RegistrySource):
+    resolved: str
 
     async def retrieve_integrity(self) -> Integrity:
         if self.integrity is not None:
@@ -95,18 +105,17 @@ class ResolvedSource(NamedTuple):
             return metadata.integrity
 
 
-class GitSource(NamedTuple):
+@dataclass(frozen=True, eq=True)
+class GitSource(PackageSource):
     original: str
     url: str
     commit: str
     from_: Optional[str]
 
 
-class LocalSource(NamedTuple):
+@dataclass(frozen=True, eq=True)
+class LocalSource(PackageSource):
     path: str
-
-
-PackageSource = Union[ResolvedSource, GitSource, LocalSource]
 
 
 class Package(NamedTuple):
