@@ -21,7 +21,14 @@ import types
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
-from ..package import GitSource, LocalSource, Package, PackageSource, ResolvedSource
+from ..package import (
+    GitSource,
+    LocalSource,
+    Package,
+    PackageSource,
+    RegistrySource,
+    ResolvedSource,
+)
 from ..requests import Requests
 from ..url_metadata import RemoteUrlMetadata
 from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
@@ -65,7 +72,12 @@ class NpmLockfileProvider(LockfileProvider):
                 source = LocalSource(path=version[len('file:') :])
             else:
                 integrity = Integrity.parse(info['integrity'])
-                source = ResolvedSource(resolved=info['resolved'], integrity=integrity)
+                if 'resolved' in info:
+                    source = ResolvedSource(
+                        resolved=info['resolved'], integrity=integrity
+                    )
+                else:
+                    source = RegistrySource(integrity=integrity)
 
             yield Package(name=name, version=version, source=source, lockfile=lockfile)
 
@@ -175,7 +187,7 @@ class NpmModuleProvider(ModuleProvider):
         self.index_entries[index_path] = index
 
     async def resolve_source(self, package: Package) -> ResolvedSource:
-        assert isinstance(package.source, ResolvedSource)
+        assert isinstance(package.source, RegistrySource)
 
         # These results are going to be the same each time.
         if package.name not in self.registry_packages:
@@ -243,7 +255,7 @@ class NpmModuleProvider(ModuleProvider):
         self.all_lockfiles.add(package.lockfile)
         source = package.source
 
-        if isinstance(source, ResolvedSource):
+        if isinstance(source, RegistrySource):
             source = await self.resolve_source(package)
             assert source.resolved is not None
             assert source.integrity is not None
