@@ -177,6 +177,11 @@ class YarnModuleProvider(ModuleProvider):
         elif isinstance(source, LocalSource):
             assert (package.lockfile.parent / source.path / 'package.json').is_file()
 
+        else:
+            raise NotImplementedError(
+                f'Unknown source type {source.__class__.__name__}'
+            )
+
         await self.special_source_provider.generate_special_sources(package)
 
 
