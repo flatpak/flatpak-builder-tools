@@ -268,6 +268,11 @@ class NpmModuleProvider(ModuleProvider):
         elif isinstance(source, LocalSource):
             assert (package.lockfile.parent / source.path / 'package.json').is_file()
 
+        else:
+            raise NotImplementedError(
+                f'Unknown source type {source.__class__.__name__}'
+            )
+
     def relative_lockfile_dir(self, lockfile: Path) -> Path:
         return lockfile.parent.relative_to(self.lockfile_root)
 
