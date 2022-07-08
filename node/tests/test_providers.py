@@ -90,6 +90,33 @@ async def test_local_link(
     assert hello_txt.read_text() == 'Hello!'
 
 
+async def test_missing_resolved_field(
+    flatpak_builder: FlatpakBuilder,
+    npm_provider_factory_spec: ProviderFactorySpec,
+) -> None:
+    # Only test on lockfile v2.
+    node_version = 16
+
+    with ManifestGenerator() as gen:
+        await npm_provider_factory_spec.generate_modules(
+            'missing-resolved-npm', gen, node_version
+        )
+
+    flatpak_builder.build(
+        sources=gen.ordered_sources(),
+        commands=[
+            npm_provider_factory_spec.install_command,
+            f"""node -e 'require("word-wrap")'""",
+        ],
+        use_node=node_version,
+    )
+
+    word_wrap_package_json = (
+        flatpak_builder.module_dir / 'node_modules' / 'word-wrap' / 'package.json'
+    )
+    assert word_wrap_package_json.exists()
+
+
 async def test_special_electron(
     flatpak_builder: FlatpakBuilder,
     provider_factory_spec: ProviderFactorySpec,
