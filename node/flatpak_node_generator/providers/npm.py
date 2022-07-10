@@ -18,6 +18,7 @@ import re
 import shlex
 import textwrap
 import types
+import urllib.parse
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
@@ -59,6 +60,7 @@ class NpmLockfileProvider(LockfileProvider):
                 continue
 
             version: str = info['version']
+            version_url = urllib.parse.urlparse(version)
             alias_match = self._ALIAS_RE.match(version)
             if alias_match is not None:
                 name, version = alias_match.groups()
@@ -72,8 +74,8 @@ class NpmLockfileProvider(LockfileProvider):
                     from_ = from_[match.end('prefix') :]
 
                 source = self.parse_git_source(version, from_)
-            elif version.startswith('file:'):
-                source = LocalSource(path=version[len('file:') :])
+            elif version_url.scheme == 'file':
+                source = LocalSource(path=version_url.path)
             else:
                 integrity = Integrity.parse(info['integrity'])
                 if 'resolved' in info:
