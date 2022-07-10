@@ -27,6 +27,7 @@ from ..package import (
     LocalSource,
     Package,
     PackageSource,
+    PackageURLSource,
     RegistrySource,
     ResolvedSource,
 )
@@ -82,6 +83,8 @@ class NpmLockfileProvider(LockfileProvider):
                     source = ResolvedSource(
                         resolved=info['resolved'], integrity=integrity
                     )
+                elif version_url.scheme in {'http', 'https'}:
+                    source = PackageURLSource(resolved=version, integrity=integrity)
                 else:
                     source = RegistrySource(integrity=integrity)
 
@@ -280,6 +283,24 @@ class NpmModuleProvider(ModuleProvider):
             self.add_index_entry(source.resolved, metadata)
 
             await self.special_source_provider.generate_special_sources(package)
+
+        elif isinstance(source, PackageURLSource):
+            assert source.integrity is not None
+
+            self.gen.add_url_source(
+                url=source.resolved,
+                integrity=source.integrity,
+                destination=self.get_cacache_content_path(source.integrity),
+            )
+            self.add_index_entry(
+                url=source.resolved,
+                metadata=RemoteUrlMetadata(
+                    integrity=source.integrity,
+                    size=await RemoteUrlMetadata.get_size(
+                        source.resolved, cachable=True
+                    ),
+                ),
+            )
 
         # pyright: reportUnnecessaryIsInstance=false
         elif isinstance(source, GitSource):
