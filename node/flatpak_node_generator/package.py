@@ -87,12 +87,12 @@ class PackageSource(abc.ABC):
 
 
 @dataclass(frozen=True, eq=True)
-class RegistrySource(PackageSource):
+class PackageFileSource(PackageSource):
     integrity: Optional[Integrity]
 
 
 @dataclass(frozen=True, eq=True)
-class ResolvedSource(RegistrySource):
+class PackageURLSource(PackageFileSource):
     resolved: str
 
     async def retrieve_integrity(self) -> Integrity:
@@ -103,6 +103,16 @@ class ResolvedSource(RegistrySource):
             assert url is not None, 'registry source has no resolved URL'
             metadata = await RemoteUrlMetadata.get(url, cachable=True)
             return metadata.integrity
+
+
+@dataclass(frozen=True, eq=True)
+class RegistrySource(PackageFileSource):
+    pass
+
+
+@dataclass(frozen=True, eq=True)
+class ResolvedSource(RegistrySource, PackageURLSource):
+    pass
 
 
 @dataclass(frozen=True, eq=True)
