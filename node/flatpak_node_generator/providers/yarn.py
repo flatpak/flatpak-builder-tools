@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import Iterator, List, Optional, Type
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type
 
 import os
 import re
+import shlex
 import types
 import urllib.parse
 
@@ -37,6 +38,38 @@ class YarnLockfileProvider(LockfileProvider):
             return len([p for p in url.path.split('/') if p]) == 2
         return False
 
+    def parse_lockfile(self, lockfile: Path) -> Dict[str, Any]:
+        def _iter_lines() -> Iterator[Tuple[int, str]]:
+            indent = '  '
+            for line in lockfile.open():
+                level = 0
+                while line.startswith(indent):
+                    level += 1
+                    line = line[len(indent) :]
+                yield level, line.strip()
+
+        root_entry: Dict[str, Any] = {}
+        parent_entries = [root_entry]
+
+        for level, line in _iter_lines():
+            if line.startswith('#') or not line:
+                continue
+            assert level <= len(parent_entries) - 1
+            parent_entries = parent_entries[: level + 1]
+            if line.endswith(':'):
+                key = line[:-1]
+                child_entry = parent_entries[-1][key] = {}
+                parent_entries.append(child_entry)
+            else:
+                # NOTE shlex.split is handy, but slow;
+                # to speed up parsing we can use something less robust, e.g.
+                # _key, _value = line.split(' ', 1)
+                # parent_entries[-1][self.unquote(_key)] = self.unquote(_value)
+                key, value = shlex.split(line)
+                parent_entries[-1][key] = value
+
+        return root_entry
+
     def unquote(self, string: str) -> str:
         if string.startswith('"'):
             assert string.endswith('"')
@@ -44,81 +77,34 @@ class YarnLockfileProvider(LockfileProvider):
         else:
             return string
 
-    def parse_package_section(self, lockfile: Path, section: List[str]) -> Package:
-        assert section
-        name_line = section[0]
-        assert name_line.endswith(':'), name_line
-        name_line = name_line[:-1]
+    def process_package(
+        self, lockfile: Path, name_line: str, entry: Dict[str, Any]
+    ) -> Package:
+        assert name_line and entry
 
         name = self.unquote(name_line.split(',', 1)[0])
         name, version_constraint = name.rsplit('@', 1)
-
-        version: Optional[str] = None
-        resolved: Optional[str] = None
-        integrity: Optional[Integrity] = None
-
-        section_indent = 0
-
-        line = None
-        for line in section[1:]:
-            indent = 0
-            while line[indent].isspace():
-                indent += 1
-
-            assert indent, line
-            if not section_indent:
-                section_indent = indent
-            elif indent > section_indent:
-                # Inside some nested section.
-                continue
-
-            line = line.strip()
-
-            if line.startswith('"'):
-                # XXX: assuming no spaces in the quoted region!
-                key, value = line.split(' ', 1)
-                line = f'{self.unquote(key)} {value}'
-
-            if line.startswith('version'):
-                version = self.unquote(line.split(' ', 1)[1])
-            elif line.startswith('resolved'):
-                resolved = self.unquote(line.split(' ', 1)[1])
-            elif line.startswith('integrity'):
-                _, values_str = line.split(' ', 1)
-                values = self.unquote(values_str).split(' ')
-                integrity = Integrity.parse(values[0])
-
-        assert version, section
 
         source: PackageSource
         if self._LOCAL_PKG_RE.match(version_constraint):
             source = LocalSource(path=self._LOCAL_PKG_RE.sub('', version_constraint))
         else:
-            assert resolved, section
-            if self.is_git_version(resolved):
-                source = self.parse_git_source(version=resolved)
+            if self.is_git_version(entry['resolved']):
+                source = self.parse_git_source(version=entry['resolved'])
             else:
-                source = ResolvedSource(resolved=resolved, integrity=integrity)
+                if 'integrity' in entry:
+                    integrity = Integrity.parse(entry['integrity'])
+                else:
+                    integrity = None
+                source = ResolvedSource(resolved=entry['resolved'], integrity=integrity)
 
-        return Package(name=name, version=version, source=source, lockfile=lockfile)
+        return Package(
+            name=name, version=entry['version'], source=source, lockfile=lockfile
+        )
 
     def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
-        section: List[str] = []
-
-        with open(lockfile) as fp:
-            for line in map(str.rstrip, fp):
-                if not line.strip() or line.strip().startswith('#'):
-                    continue
-
-                if not line[0].isspace():
-                    if section:
-                        yield self.parse_package_section(lockfile, section)
-                        section = []
-
-                section.append(line)
-
-        if section:
-            yield self.parse_package_section(lockfile, section)
+        for name_line, package in self.parse_lockfile(lockfile).items():
+            yield self.process_package(lockfile, name_line, package)
 
 
 class YarnRCFileProvider(RCFileProvider):
