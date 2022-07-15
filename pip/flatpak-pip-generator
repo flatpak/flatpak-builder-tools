@@ -453,6 +453,7 @@ with open(output_filename, 'w') as output:
 
         OrderedDumper.add_representer(OrderedDict, dict_representer)
 
+        output.write("# Generated with flatpak-pip-generator " + " ".join(sys.argv[1:]) + "\n")
         yaml.dump(pypi_module, output, Dumper=OrderedDumper)
     else:
         output.write(json.dumps(pypi_module, indent=4))
