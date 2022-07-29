@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 
 from .cache import Cache, FilesystemBasedCache
 from .manifest import ManifestGenerator
@@ -187,6 +188,8 @@ async def _async_main() -> None:
     else:
         assert False, args.type
 
+    start_time = time.monotonic()
+
     print('Reading packages from lockfiles...')
     packages: Set[Package] = set()
     rcfile_node_headers: Set[NodeHeaders] = set()
@@ -246,6 +249,8 @@ async def _async_main() -> None:
             )
             gen.add_command(f'bash {gen.data_root / script_name}')
 
+    elapsed = round(time.monotonic() - start_time, 1)
+
     if args.split:
         i = 0
         for i, part in enumerate(gen.split_sources()):
@@ -254,7 +259,7 @@ async def _async_main() -> None:
             with open(output, 'w') as fp:
                 json.dump(part, fp, indent=ManifestGenerator.JSON_INDENT)
 
-        print(f'Wrote {gen.source_count} to {i + 1} file(s).')
+        print(f'Wrote {gen.source_count} to {i + 1} file(s) in {elapsed} second(s).')
     else:
         with open(args.output, 'w') as fp:
             json.dump(
@@ -270,7 +275,7 @@ async def _async_main() -> None:
                 )
                 print('  (Pass -s to enable splitting.)')
 
-        print(f'Wrote {gen.source_count} source(s).')
+        print(f'Wrote {gen.source_count} source(s) in {elapsed} second(s).')
 
 
 def main() -> None:
