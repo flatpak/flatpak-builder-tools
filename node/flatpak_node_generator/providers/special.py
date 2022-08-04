@@ -328,7 +328,12 @@ class SpecialSourceProvider:
             revision = int(browser['revision'])
 
             if name == 'chromium':
-                if revision < 792639:
+                # Revision number scheme was changed from Chromium revisions to incrementing
+                # integers above 1000; now it's same as for other browsers
+                if (
+                    SemVer.parse(package.version) < SemVer.parse('1.21.0')
+                    and revision < 792639
+                ):
                     url_tp = 'https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/%d/%s'
                     dl_file = 'chrome-linux.zip'
                 else:
