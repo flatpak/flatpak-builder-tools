@@ -5,6 +5,7 @@ A more modern successor for flatpak-npm-generator and flatpak-yarn-generator, fo
 
 ## Requirements
 
+- flatpak-builder 1.1.2 or newer
 - Python 3.6+.
 - aiohttp. (flatpak-node-generator will fall back onto urllib.request if aiohttp is not available,
   but performance will take a serious hit.)
@@ -69,6 +70,7 @@ optional arguments:
                         Download the ffmpeg binaries
   --electron-node-headers
                         Download the electron node headers
+  --xdg-layout          Use XDG layout for caches
 ```
 
 flatpak-node-generator.py takes the package manager (npm or yarn), and a path to a lockfile for
@@ -200,10 +202,11 @@ things to note:
 
 - For ARM in particular, electron-builder will misdetect the architecture and give
   an error about it being unsupported. To work around this, you have to pass the
-  architecture manually to electron-builder. flatpak-node-generator will write
-  a shell script at `flatpak-node/electron-builder-arch-args.sh` that can be sourced
-  to set the `$ELECTRON_BUILDER_ARCH_ARGS` environment variable. Then, this variable
-  can be passed to the electron-builder command.
+  architecture manually to electron-builder. flatpak-node-generator will create a script by adding
+  it as an entry to the sources file. During the build process script will be created at
+  `flatpak-node/electron-builder-arch-args.sh` so it can be sourced to set the
+  `$ELECTRON_BUILDER_ARCH_ARGS` environment variable. Then, this variable can be passed to the
+  electron-builder command.
 - For both ARM and ARM64, the electron-builder output directory will contain the
   architecture in its name.
 
@@ -235,3 +238,20 @@ use to overwrite the default Electron ffmpeg, e.g.:
 ```
 
 An short example of this is again in the electron-webpack-quick-start
+
+## NW.js
+
+This scripts assumes NW.js is used if the lockfile contains `nw-builder` package.
+
+### Specifying NW.js version
+
+Unlike Electron, NW.js engine version is not reflected in NPM package.
+
+- If the app you're building uses specific NW.js version, specify it
+  using `--nwjs-version` argument
+- If any NW.js version will suffice, this script will use latest;
+  the version number will be stored in `flatpak-node/nwjs-version` file.
+  You can tell `nw-builder` to use this version by passing `-v` arg to `nwbuild`:
+  ```bash
+  nwbuild -v $(<$FLATPAK_BUILDER_BUILDDIR/flatpak-node/nwjs-version)
+  ```

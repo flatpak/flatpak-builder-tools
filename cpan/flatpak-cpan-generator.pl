@@ -21,7 +21,7 @@ sub scan_deps {
 
   for (@deps)
   {
-      s/^Successfully installed (.*)/$1/;
+      s/^Successfully installed (\S+).*/$1/;
   }
 
    @deps
@@ -32,6 +32,7 @@ sub get_url_sha256 {
 
   my $state = Digest::SHA->new(256);
   my $ua = LWP::UserAgent->new;
+  $ua->env_proxy;
 
   my $resp = $ua->get($url, ':read_size_hint' => 1024,
                       ':content_cb' => sub {
@@ -65,7 +66,7 @@ sub get_source_for_dep {
 sub write_module_to_file {
   my ($output, $root) = @_;
 
-  my $serializer = JSON::MaybeXS->new(indent => 1, space_after => 1);
+  my $serializer = JSON::MaybeXS->new(indent => 1, space_after => 1, canonical => 1);
   my $json = $serializer->encode($root);
 
   open my $fh, '>', $output or die "Could not open $output for writing\n";
@@ -113,7 +114,8 @@ sub main {
 
   push @sources, {
     type => 'script',
-    'dest-filename' => "@{[$opts->dir]}/install.sh",
+    dest => $opts->dir,
+    'dest-filename' => 'install.sh',
     commands => [
       "set -e",
       "function make_install {",

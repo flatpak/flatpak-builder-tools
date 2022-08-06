@@ -3,9 +3,11 @@
 Tool to automatically generate `flatpak-builder` manifest json from a `Cargo.lock`.
 
 ## Requirements:
-- siphash
-- Python 3
 
+Python 3.8+ with following modules:
+
+- toml
+- aiohttp
 
 ## Usage:
 
