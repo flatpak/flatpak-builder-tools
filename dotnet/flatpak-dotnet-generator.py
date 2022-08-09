@@ -33,9 +33,9 @@ def main():
             'flatpak', 'run',
             '--env=DOTNET_CLI_TELEMETRY_OPTOUT=true',
             '--env=DOTNET_SKIP_FIRST_TIME_EXPERIENCE=true',
-            '--command=sh', '--runtime=org.freedesktop.Sdk//20.08', '--share=network',
-            '--filesystem=host', 'org.freedesktop.Sdk.Extension.dotnet5//20.08', '-c',
-            'PATH="${PATH}:/usr/lib/sdk/dotnet5/bin" LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/sdk/dotnet5/lib" exec dotnet restore "$@"',
+            '--command=sh', '--runtime=org.freedesktop.Sdk//21.08', '--share=network',
+            '--filesystem=host', 'org.freedesktop.Sdk.Extension.dotnet6//21.08', '-c',
+            'PATH="${PATH}:/usr/lib/sdk/dotnet6/bin" LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/sdk/dotnet6/lib" exec dotnet restore "$@"',
             '--', '--packages', tmp, args.project] + runtime_args)
 
         for path in Path(tmp).glob('**/*.nupkg.sha512'):
@@ -57,7 +57,11 @@ def main():
             })
 
     with open(args.output, 'w') as fp:
-        json.dump(sources, fp, indent=4)
+        json.dump(
+            sorted(sources, key=lambda n: n.get("dest-filename")),
+            fp,
+            indent=4
+        )
 
 
 if __name__ == '__main__':

@@ -13,6 +13,7 @@ import tempfile
 import urllib.request
 
 from collections import OrderedDict
+from typing import Dict
 
 try:
     import requirements
@@ -37,11 +38,21 @@ parser.add_argument('--build-isolation', action='store_true',
                         'Mostly useful on pip that does\'t '
                         'support the feature.'
                     ))
+parser.add_argument('--checker-data', action='store_true',
+                    help='Include x-checker-data in output for the "Flatpak External Data Checker"')
 parser.add_argument('--output', '-o',
                     help='Specify output file name')
 parser.add_argument('--runtime',
                     help='Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility')
+parser.add_argument('--yaml', action='store_true',
+                    help='Use YAML as output format instead of JSON')
 opts = parser.parse_args()
+
+if opts.yaml:
+    try:
+        import yaml
+    except ImportError:
+        exit('PyYAML modules is not installed. Run "pip install PyYAML"')
 
 
 def get_pypi_url(name: str, filename: str) -> str:
@@ -137,12 +148,16 @@ def fprint(string: str) -> None:
 
 
 packages = []
-if opts.requirements_file and os.path.exists(opts.requirements_file):
-    with open(opts.requirements_file, 'r') as req_file:
-        reqs = parse_continuation_lines(req_file)
-        reqs_as_str = '\n'.join([r.split('--hash')[0] for r in reqs])
-        packages = list(requirements.parse(reqs_as_str))
-        requirements_file = opts.requirements_file
+if opts.requirements_file:
+    requirements_file = os.path.expanduser(opts.requirements_file)
+    try:
+        with open(requirements_file, 'r') as req_file:
+            reqs = parse_continuation_lines(req_file)
+            reqs_as_str = '\n'.join([r.split('--hash')[0] for r in reqs])
+            packages = list(requirements.parse(reqs_as_str))
+    except FileNotFoundError:
+        pass
+
 elif opts.packages:
     packages = list(requirements.parse('\n'.join(opts.packages)))
     with tempfile.NamedTemporaryFile('w', delete=False, prefix='requirements.') as req_file:
@@ -150,6 +165,13 @@ elif opts.packages:
         requirements_file = req_file.name
 else:
     exit('Please specifiy either packages or requirements file argument')
+
+for i in packages:
+    if i["name"].lower().startswith("pyqt"):
+        print("PyQt packages are not supported by flapak-pip-generator")
+        print("However, there is a BaseApp for PyQt available, that you should use")
+        print("Visit https://github.com/flathub/com.riverbankcomputing.PyQt.BaseApp for more information")
+        sys.exit(0)
 
 with open(requirements_file, 'r') as req_file:
     use_hash = '--hash=' in req_file.read()
@@ -170,10 +192,12 @@ if opts.runtime:
         'run',
         opts.runtime
     ]
-    if opts.requirements_file and os.path.exists(opts.requirements_file):
-        prefix = os.path.realpath(opts.requirements_file)
-        flag = '--filesystem={}'.format(prefix)
-        flatpak_cmd.insert(1,flag)
+    if opts.requirements_file:
+        requirements_file = os.path.expanduser(opts.requirements_file)
+        if os.path.exists(requirements_file):
+            prefix = os.path.realpath(requirements_file)
+            flag = '--filesystem={}'.format(prefix)
+            flatpak_cmd.insert(1,flag)
 else:
     flatpak_cmd = [pip_executable]
 
@@ -190,7 +214,10 @@ elif len(packages) == 1:
     )
 else:
     output_package = 'python{}-modules'.format(python_version)
-output_filename = output_package + '.json'
+if opts.yaml:
+    output_filename = output_package + '.yaml'
+else:
+    output_filename = output_package + '.json'
 
 modules = []
 vcs_modules = []
@@ -226,7 +253,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
 
     fprint('Downloading arch independent packages')
     for filename in os.listdir(tempdir):
-        if not filename.endswith(('bz2', 'gz', 'xz', 'zip')):
+        if not filename.endswith(('bz2', 'any.whl', 'gz', 'xz', 'zip')):
             version = get_file_version(filename)
             name = get_package_name(filename)
             url = get_tar_package_url_pypi(name, version)
@@ -290,6 +317,12 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 ('type', 'file'),
                 ('url', url),
                 ('sha256', sha256)])
+            if opts.checker_data:
+                source['x-checker-data'] = {
+                    'type': 'pypi',
+                    'name': name}
+                if url.endswith(".whl"):
+                    source['x-checker-data']['packagetype'] = 'bdist_wheel'
             is_vcs = False
         sources[name] = {'source': source, 'vcs': is_vcs}
 
@@ -304,6 +337,7 @@ for package in packages:
         print('Append #egg=<pkgname> to the end of the requirement line to fix', file=sys.stderr)
         continue
     elif package.name.casefold() in system_packages:
+        print(f"{package.name} is in system_packages. Skipping.")
         continue
 
     if len(package.extras) > 0:
@@ -409,5 +443,18 @@ else:
 
 print()
 with open(output_filename, 'w') as output:
-    output.write(json.dumps(pypi_module, indent=4))
+    if opts.yaml:
+        class OrderedDumper(yaml.Dumper):
+            def increase_indent(self, flow=False, indentless=False):
+                return super(OrderedDumper, self).increase_indent(flow, False)
+
+        def dict_representer(dumper, data):
+            return dumper.represent_dict(data.items())
+
+        OrderedDumper.add_representer(OrderedDict, dict_representer)
+
+        output.write("# Generated with flatpak-pip-generator " + " ".join(sys.argv[1:]) + "\n")
+        yaml.dump(pypi_module, output, Dumper=OrderedDumper)
+    else:
+        output.write(json.dumps(pypi_module, indent=4))
     print('Output saved to {}'.format(output_filename))

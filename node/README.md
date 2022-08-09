@@ -3,11 +3,28 @@
 A more modern successor for flatpak-npm-generator and flatpak-yarn-generator, for Node 10+ only.
 (For Node 8, use flatpak-npm-generator and flatpak-yarn-generator.)
 
+**NOTE:** `--xdg-layout` was recently changed to be the default. In the stark
+majority of cases, this needed to be passed, so you can now omit using it
+explicitly. If you're on a relatively old Electron version before this was
+required, however, you can disable it explicitly via `--no-xdg-layout`.
+
 ## Requirements
 
-- Python 3.6+.
-- aiohttp. (flatpak-node-generator will fall back onto urllib.request if aiohttp is not available,
-  but performance will take a serious hit.)
+- flatpak-builder 1.1.2 or newer
+- Python 3.7+.
+- [pipx](https://pypa.github.io/pipx/) (recommended) or
+  [pip](https://pip.pypa.io/en/stable/) (both of these are usually available in
+  your distro repositories, the latter is often included with Python installs).
+
+## Usage
+
+The easiest way to use this tool is to install it via
+[pipx](https://pypa.github.io/pipx/), the officially recommended way of
+installing Python packages, by running the following from this directory:
+
+```
+$ pipx install .
+```
 
 ## Complete examples
 
@@ -27,15 +44,18 @@ get npm with electron-builder.
 ## Usage
 
 ```
-usage: flatpak-node-generator.py [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN]
-                                 [--registry REGISTRY] [--no-trim-index]
-                                 [--no-devel] [--no-aiohttp]
-                                 [--no-requests-cache] [--retries RETRIES]
-                                 [-P] [-s]
-                                 [--node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON]
-                                 [--electron-ffmpeg {archive,lib}]
-                                 [--electron-node-headers]
-                                 {npm,yarn} lockfile
+usage: flatpak-node-generator [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN]
+                              [--registry REGISTRY] [--no-trim-index]
+                              [--no-devel] [--no-requests-cache]
+                              [--max-parallel MAX_PARALLEL]
+                              [--retries RETRIES] [-P] [-s]
+                              [--node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON]
+                              [--electron-ffmpeg {archive,lib}]
+                              [--electron-node-headers]
+                              [--nwjs-version NWJS_VERSION]
+                              [--nwjs-node-headers] [--nwjs-ffmpeg]
+                              [--no-xdg-layout]
+                              {npm,yarn} lockfile
 
 Flatpak Node generator
 
@@ -43,7 +63,7 @@ positional arguments:
   {npm,yarn}
   lockfile              The lockfile path (package-lock.json or yarn.lock)
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -o OUTPUT, --output OUTPUT
                         The output sources file
@@ -55,9 +75,9 @@ optional arguments:
   --registry REGISTRY   The registry to use (npm only)
   --no-trim-index       Don't trim npm package metadata (npm only)
   --no-devel            Don't include devel dependencies (npm only)
-  --no-aiohttp          Don't use aiohttp, and silence any warnings related to
-                        it
   --no-requests-cache   Disable the requests cache
+  --max-parallel MAX_PARALLEL
+                        Maximium number of packages to process in parallel
   --retries RETRIES     Number of retries of failed requests
   -P, --no-autopatch    Don't automatically patch Git sources from
                         package*.json
@@ -66,10 +86,15 @@ optional arguments:
                         Use the ChromeDriver version associated with the given
                         Electron version for node-chromedriver
   --electron-ffmpeg {archive,lib}
-                        Download the ffmpeg binaries
+                        Download prebuilt ffmpeg for matching electron version
   --electron-node-headers
                         Download the electron node headers
-  --xdg-layout          Use XDG layout for caches
+  --nwjs-version NWJS_VERSION
+                        Specify NW.js version (will use latest otherwise)
+  --nwjs-node-headers   Download the NW.js node headers
+  --nwjs-ffmpeg         Download prebuilt ffmpeg for current NW.js version
+  --no-xdg-layout       Don't use the XDG layout for caches
+
 ```
 
 flatpak-node-generator.py takes the package manager (npm or yarn), and a path to a lockfile for
@@ -214,11 +239,28 @@ Both of these cases are handled by the electron-webpack-quick-start example.
 ### node-gyp and native dependencies
 
 Some node/electron versions are binary incompatible and require rebuilding of
-native node dependencies for electron. In offline mode, it may result in broken ABI.
-If you are seeing errors like
-`The module 'something.node' was compiled against a different Node.js version`,
-then pass `--electron-node-headers` option to flatpak-node-generator and set
-`npm_config_nodedir` to `flatpak-node/node-gyp/electron-current`.
+native node dependencies for electron. In offline mode, it may result in broken
+ABI. If you are seeing errors like `The module 'something.node' was compiled
+against a different Node.js version`, then pass `--electron-node-headers`
+option to flatpak-node-generator and set `npm_config_nodedir` to
+`flatpak-node/node-gyp/electron-current`.
+
+**Note**: Setting `npm_config_nodedir` should not be necessary when using XDG-compliant
+cache directories layout (the default, unless disabled via `--no-xdg-layout`).
+
+Some tools like *electron-rebuild* don't properly respect the
+XDG spec however. In this case, as a workaround, you might need to symlink the
+cache directory. For example:
+
+```yaml
+build-commands:
+  - |
+    ln -s $XDG_CACHE_HOME/node-gyp $HOME/.electron-gyp
+    npm run build
+```
+
+(Note that the build command must be ran as part of the same command as `ln`,
+i.e. it won't work if you run them as separate commands.)
 
 ### ffmpeg support
 
@@ -254,3 +296,66 @@ Unlike Electron, NW.js engine version is not reflected in NPM package.
   ```bash
   nwbuild -v $(<$FLATPAK_BUILDER_BUILDDIR/flatpak-node/nwjs-version)
   ```
+
+## Contributing
+
+We use [Poetry](https://python-poetry.org/) for local development. You can set up the
+local virtualenv via:
+
+```
+$ poetry install
+```
+
+After making any changes, you can re-run all the checks & unit tests via:
+
+```
+$ poetry run poe check
+```
+
+or invoke pytest manually:
+
+```
+$ poetry run pytest -n auto
+```
+
+Note that these tests can take up quite a bit of space in /tmp, so if you hit `No space
+left on device` errors, try expanding `/tmp` or changing `$TMPDIR`.
+
+### Utility Scripts
+
+A few utility scripts are included in the `tools` directory:
+
+- `lockfile-utils.sh` has a few different helpers for working with the lockfiles used
+  by test packages in `tests/data/packages`:
+  - `lockfile-utils.sh update-lockfile PACKAGE-MANAGER PACKAGE` will recreate the
+    lockfile for the given package manager (one of `npm-14` for Node 14's NPM, `npm-16`
+    for Node 16's npm, or `yarn`).
+  - `lockfile-utils.sh peek-cache PACKAGE-MANAGER PACKAGE` will install the dependencies
+    from the corresponding lockfile and then extract the resulting package cache (npm)
+    or mirror directory (yarn), for closer examination.
+- `b64-to-hex.sh` will convert a base64 hash value from npm into hex, e.g.:
+  ```
+  $ echo x+sXyT4RLLEIb6bY5R+wZnt5pfk= | tools/b64-to-hex.sh
+  c7eb17c93e112cb1086fa6d8e51fb0667b79a5f9
+  ```
+- `hex-to-b64.sh` will convert a hex hash value into base64, e.g.:
+  ```
+  $ echo 867ac74e3864187b1d3d47d996a78ec5c8830777 | tools/hex-to-b64.sh
+  hnrHTjhkGHsdPUfZlqeOxciDB3c=
+  ```
+  For convenience, any slashes inside the hex value will be removed, allowing you to
+  copy-paste a path into the npm package cache and still get the base64 value:
+  ```
+  $ echo c7eb17c93e112cb1086fa6d8e51fb0667b79a5f9 | tools/hex-to-b64.sh
+  x+sXyT4RLLEIb6bY5R+wZnt5pfk=
+  $ echo c7/eb/17c93e112cb1086fa6d8e51fb0667b79a5f9 | tools/hex-to-b64.sh
+  x+sXyT4RLLEIb6bY5R+wZnt5pfk=
+  ```
+- `b64-integrity.sh INTEGRITY` will run `${INTEGRITY}sum` and then convert its output
+  into base64, e.g.:
+  ```
+  $ echo 123 | tools/b64-integrity.sh sha512
+  6i/la7jB+1rahJY7Qu1xt2SnSwktdXVRc63gby9KranADWwwLhhQNcvoX9/zFpi8qT6GYfDLzvUs8v9lhk/XQg==
+  ```
+  This is roughly equivalent to `echo 123 | sha512sum`, then converting the resulting
+  hex digest to base64 via `hex-to-b64.sh`.
