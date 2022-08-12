@@ -42,7 +42,8 @@ def parse_modules(fh):
     for line in (l.strip() for l in fh if l.strip()):
         log.debug("Read line: %s", line)
         if line.startswith("# "):
-            _, name, line_version = line.split(" ")
+            splits = line.split(" ")
+            name, line_version = splits[-2], splits[-1]
             if '-' in line_version:
                 log.debug("Parsing version: %s", line_version)
                 _version, date_revision = line_version.strip().split("-", 1)
