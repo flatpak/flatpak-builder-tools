@@ -162,9 +162,18 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         self._add_source_with_destination(source, destination, is_dir=False)
 
     def add_git_source(
-        self, url: str, commit: str, destination: Optional[Path] = None
+        self,
+        url: str,
+        commit: Optional[str] = None,
+        destination: Optional[Path] = None,
+        tag: Optional[str] = None,
     ) -> None:
-        source = {'type': 'git', 'url': url, 'commit': commit}
+        source = {'type': 'git', 'url': url}
+        assert commit or tag
+        if commit:
+            source['commit'] = commit
+        if tag:
+            source['tag'] = tag
         self._add_source_with_destination(source, destination, is_dir=True)
 
     def add_script_source(self, commands: List[str], destination: Path) -> None:
