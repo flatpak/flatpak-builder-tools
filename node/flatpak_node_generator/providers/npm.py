@@ -311,7 +311,7 @@ class NpmModuleProvider(ModuleProvider):
             self.gen.add_git_source(source.url, source.commit, path)
 
         elif isinstance(source, LocalSource):
-            assert (package.lockfile.parent / source.path / 'package.json').is_file()
+            pass
 
         else:
             raise NotImplementedError(
