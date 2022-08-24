@@ -12,6 +12,7 @@ import sys
 import tempfile
 import urllib.request
 from collections import OrderedDict
+from typing import Any, Dict, List
 
 try:
     import requirements
@@ -52,8 +53,30 @@ if opts.yaml:
     except ImportError:
         exit('PyYAML modules is not installed. Run "pip install PyYAML"')
 
+# ---- Helper functions ------------------------------------------------------
+
 
 def get_pypi_url(name: str, filename: str) -> str:
+    """
+    Determine download url for a python package distribution.
+
+    Parameters
+    ----------
+    name : str
+        The python package name.
+    filename : str
+        The file name of the distribution.
+
+    Returns
+    -------
+    str
+        The url one can download the distribution from.
+
+    Raises
+    ------
+    Exception
+        The distribution couldn't be found on pypi.org
+    """
     url = 'https://pypi.org/pypi/{}/json'.format(name)
     print('Extracting download url for', name)
     with urllib.request.urlopen(url) as response:
@@ -66,6 +89,26 @@ def get_pypi_url(name: str, filename: str) -> str:
 
 
 def get_tar_package_url_pypi(name: str, version: str) -> str:
+    """
+    Determine download url of a sdist for a release of a python package.
+
+    Parameters
+    ----------
+    name : str
+        The package name.
+    version : str
+        The release identifier.
+
+    Returns
+    -------
+    str
+        The url one can download the sdist from.
+
+    Raises
+    ------
+    Exception
+        A sdist couldn't be found on pypi.org
+    """
     url = 'https://pypi.org/pypi/{}/{}/json'.format(name, version)
     with urllib.request.urlopen(url) as response:
         body = json.loads(response.read().decode('utf-8'))
@@ -78,6 +121,24 @@ def get_tar_package_url_pypi(name: str, version: str) -> str:
 
 
 def get_package_name(filename: str) -> str:
+    """
+    Extract the python package name from a distribution filename.
+
+    Parameters
+    ----------
+    filename : str
+        The filename of a distribution.
+
+    Returns
+    -------
+    str
+        The package name.
+
+    Raises
+    ------
+    Exception
+        Unknown distribution type.
+    """
     if filename.endswith(('bz2', 'gz', 'xz', 'zip')):
         segments = filename.split('-')
         if len(segments) == 2:
@@ -100,6 +161,19 @@ def get_package_name(filename: str) -> str:
 
 
 def get_file_version(filename: str) -> str:
+    """
+    Extract the version from the distribution file name of a python package.
+
+    Parameters
+    ----------
+    filename : str
+        The filename of the distribution.
+
+    Returns
+    -------
+    str
+        The version identifier.
+    """
     name = get_package_name(filename)
     segments = filename.split(name + '-')
     version = segments[1].split('-')[0]
@@ -109,6 +183,19 @@ def get_file_version(filename: str) -> str:
 
 
 def get_file_hash(filename: str) -> str:
+    """
+    Calculate the sha256 hash of a file.
+
+    Parameters
+    ----------
+    filename : str
+        The file to hash.
+
+    Returns
+    -------
+    str
+        The calculated hash.
+    """
     sha = hashlib.sha256()
     print('Generating hash for', filename.split('/')[-1])
     with open(filename, 'rb') as f:
@@ -121,6 +208,16 @@ def get_file_hash(filename: str) -> str:
 
 
 def download_tar_pypi(url: str, tempdir: str) -> None:
+    """
+    Download a file to a directory.
+
+    Parameters
+    ----------
+    url : str
+        The url the file can be accessed with.
+    tempdir : str
+        The directory to download to.
+    """
     with urllib.request.urlopen(url) as response:
         file_path = os.path.join(tempdir, url.split('/')[-1])
         with open(file_path, 'x+b') as tar_file:
@@ -128,6 +225,19 @@ def download_tar_pypi(url: str, tempdir: str) -> None:
 
 
 def parse_continuation_lines(fin):
+    """
+    Merge lines continued with `\` in a requirements file.
+
+    Parameters
+    ----------
+    fin : file object
+        The requirements file opened in read mode.
+
+    Yields
+    ------
+    str
+        The merged lines.
+    """
     for line in fin:
         line = line.rstrip('\n')
         while line.endswith('\\'):
@@ -144,6 +254,10 @@ def fprint(string: str) -> None:
     print(string)
     print(separator)
 
+
+# ---- Make a requirements file and a list of the packages
+# One can pass either a requirements file or a list of packages to the script
+# the script needs a list of packages while it calls pip with a requirements file
 
 packages = []
 if opts.requirements_file:
@@ -173,6 +287,8 @@ for i in packages:
 
 with open(requirements_file, 'r') as req_file:
     use_hash = '--hash=' in req_file.read()
+
+# ---- Process other parameters
 
 python_version = '2' if opts.python2 else '3'
 if opts.python2:
@@ -217,9 +333,13 @@ if opts.yaml:
 else:
     output_filename = output_package + '.json'
 
-modules = []
-vcs_modules = []
-sources = {}
+# ---- Download source distributions
+
+modules: List[OrderedDict] = []  # python package dependency json objects
+vcs_modules: List[OrderedDict] = []  # version control dependency json objects
+
+#: json object that will be dumped into the flatpak dependency file
+sources: Dict[str, Dict[str, Any]] = {}
 
 tempdir_prefix = 'pip-generator-{}'.format(os.path.basename(output_package))
 with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
@@ -249,6 +369,8 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         except FileNotFoundError:
             pass
 
+    # ---- Download sdist for arch dependent distributions
+
     fprint('Downloading arch independent packages')
     for filename in os.listdir(tempdir):
         if not filename.endswith(('bz2', 'any.whl', 'gz', 'xz', 'zip')):
@@ -263,7 +385,11 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             print('Downloading {}'.format(url))
             download_tar_pypi(url, tempdir)
 
-    files = {get_package_name(f): [] for f in os.listdir(tempdir)}
+    #: maps package to filenames of distributions of that package
+    files: Dict[str, List[str]] = {
+        get_package_name(f): []
+        for f in os.listdir(tempdir)
+    }
 
     for filename in os.listdir(tempdir):
         name = get_package_name(filename)
@@ -284,10 +410,14 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                         except FileNotFoundError:
                             pass
 
-    vcs_packages = {
-        x.name: {'vcs': x.vcs, 'revision': x.revision, 'uri': x.uri}
-        for x in packages
-        if x.vcs
+    #: maps package name to requirements specifications
+    vcs_packages: Dict[str, Dict[str, Any]] = {
+        x.name: {
+            'vcs': x.vcs,
+            'revision': x.revision,
+            'uri': x.uri
+        }
+        for x in packages if x.vcs
     }
 
     fprint('Obtaining hashes and urls')
@@ -324,6 +454,8 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             is_vcs = False
         sources[name] = {'source': source, 'vcs': is_vcs}
 
+# ---- Generate dependencies
+
 # Python3 packages that come as part of org.freedesktop.Sdk.
 system_packages = ['cython', 'easy_install', 'mako', 'markdown', 'meson', 'pip', 'pygments', 'setuptools', 'six', 'wheel']
 
@@ -355,8 +487,8 @@ for package in packages:
         pkg = package.name + extras + version
 
     dependencies = []
-    # Downloads the package again to list dependencies
 
+    # Downloads the package again to list dependencies
     tempdir_prefix = 'pip-generator-{}'.format(package.name)
     with tempfile.TemporaryDirectory(prefix='{}-{}'.format(tempdir_prefix, package.name)) as tempdir:
         pip_download = flatpak_cmd + [
@@ -392,6 +524,8 @@ for package in packages:
 
         package_sources.append(source['source'])
 
+    # ---- Create a module json object defining a package dependency
+
     if package.vcs:
         name_for_pip = '.'
     else:
@@ -423,10 +557,13 @@ for package in packages:
     elif opts.cleanup == 'scripts':
         module['cleanup'] = ['/bin', '/share/man/man1']
 
+    # sort dependencies so that vcs deps are listed first
     if package.vcs:
         vcs_modules.append(module)
     else:
         modules.append(module)
+
+# ---- Merge modules into one json object to dump
 
 modules = vcs_modules + modules
 if len(modules) == 1:
@@ -440,6 +577,9 @@ else:
     }
 
 print()
+
+# ---- Dump
+
 with open(output_filename, 'w') as output:
     if opts.yaml:
         class OrderedDumper(yaml.Dumper):
