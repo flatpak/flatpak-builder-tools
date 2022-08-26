@@ -7,6 +7,7 @@ authors = ["Ryan Gonzalez <ryan.gonzalez@collabora.com>", "Filippe LeMarchand <g
 [tool.poetry.dependencies]
 python = "^3.7"
 aiohttp = "^3.8.1"
+rich = "^12.6.0"
 
 [tool.poetry.dev-dependencies]
 blue = {git = "https://github.com/grantjenks/blue"}

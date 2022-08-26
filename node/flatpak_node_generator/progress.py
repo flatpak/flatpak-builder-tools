@@ -1,12 +1,74 @@
-from typing import Collection, ContextManager, Optional, Type
+from dataclasses import dataclass
+from typing import Collection, ContextManager, Optional, Set, Type
 
 import asyncio
 import shutil
 import sys
+import traceback
 import types
+
+from rich.console import (
+    Console,
+    ConsoleOptions,
+    ConsoleRenderable,
+    RenderableType,
+    RenderResult,
+)
+from rich.measure import Measurement
+from rich.segment import Segment
+from rich.status import Status
 
 from .package import Package
 from .providers import ModuleProvider
+
+
+def _generating_packages(finished: int, total: int) -> str:
+    return f'Generating packages [{finished}/{total}]'
+
+
+class _GeneratingPackagesRenderable(ConsoleRenderable):
+    def __init__(self, finished: int, total: int, processing: Set[Package]) -> None:
+        self.generating_string = _generating_packages(finished, total)
+        self.processing = processing
+
+    def __rich_measure__(
+        self, console: Console, options: ConsoleOptions
+    ) -> Measurement:
+        return Measurement(0, options.max_width)
+
+    def __rich_console__(
+        self, console: Console, options: ConsoleOptions
+    ) -> RenderResult:
+        ARROW = ' => '
+        ELLIPSES = '...'
+        SEPARATOR = ', '
+
+        yield Segment(self.generating_string)
+        space_remaining = options.max_width - len(self.generating_string)
+
+        generating_string_width = len(self.generating_string)
+        if space_remaining < len(ELLIPSES):
+            return
+        elif options.max_width < len(ELLIPSES) + len(ARROW):
+            return ELLIPSES
+
+        packages = sorted(
+            f'{package.name} @ {package.version}' for package in self.processing
+        )
+
+        yield Segment(ARROW)
+        space_remaining -= len(ARROW) + len(ELLIPSES)
+
+        for i, package in enumerate(packages):
+            if i:
+                package = SEPARATOR + package
+            if len(package) > space_remaining:
+                break
+
+            yield Segment(package)
+            space_remaining -= len(package)
+
+        yield Segment(ELLIPSES)
 
 
 class GeneratorProgress(ContextManager['GeneratorProgress']):
@@ -14,14 +76,21 @@ class GeneratorProgress(ContextManager['GeneratorProgress']):
         self,
         packages: Collection[Package],
         module_provider: ModuleProvider,
+        *,
         max_parallel: int,
+        traceback_on_interrupt: bool,
     ) -> None:
         self.finished = 0
+        self.processing: Set[Package] = set()
         self.packages = packages
         self.module_provider = module_provider
         self.parallel_limit = asyncio.Semaphore(max_parallel)
-        self.previous_package: Optional[Package] = None
-        self.current_package: Optional[Package] = None
+        self.traceback_on_interrupt = traceback_on_interrupt
+        self.status: Optional[Status] = None
+
+    @property
+    def _total(self) -> int:
+        return len(self.packages)
 
     def __exit__(
         self,
@@ -29,45 +98,56 @@ class GeneratorProgress(ContextManager['GeneratorProgress']):
         exc_value: Optional[BaseException],
         tb: Optional[types.TracebackType],
     ) -> None:
-        print()
-
-    def _format_package(self, package: Package, max_width: int) -> str:
-        result = f'{package.name} @ {package.version}'
-
-        if len(result) > max_width:
-            result = result[: max_width - 3] + '...'
-
-        return result
+        line = f'Generated {self._total} package(s).'
+        if self.status is not None:
+            self.status.update(line)
+            self.status.stop()
+        else:
+            print(line)
 
     def _update(self) -> None:
-        columns, _ = shutil.get_terminal_size()
+        if self.status is None:
+            # No TTY. Only print an update on multiples of 10 to avoid spamming
+            # the console.
+            if self.finished % 10 == 0 or self.finished == self._total:
+                print(
+                    f'{_generating_packages(self.finished, self._total)}...',
+                    flush=True,
+                )
+            return
 
-        sys.stdout.write('\r' + ' ' * columns)
-
-        prefix_string = f'\rGenerating packages [{self.finished}/{len(self.packages)}] '
-        sys.stdout.write(prefix_string)
-        max_package_width = columns - len(prefix_string)
-
-        if self.current_package is not None:
-            sys.stdout.write(
-                self._format_package(self.current_package, max_package_width)
-            )
-
-        sys.stdout.flush()
-
-    def _update_with_package(self, package: Package) -> None:
-        self.previous_package, self.current_package = (
-            self.current_package,
-            package,
+        self.status.update(
+            _GeneratingPackagesRenderable(self.finished, self._total, self.processing)
         )
-        self._update()
 
     async def _generate(self, package: Package) -> None:
         async with self.parallel_limit:
-            self._update_with_package(package)
-            await self.module_provider.generate_package(package)
+            self.processing.add(package)
+            # Don't bother printing an update here without live progress, since
+            # then the currently processing packages won't appear anyway.
+            if self.status is not None:
+                self._update()
+
+            try:
+                await self.module_provider.generate_package(package)
+            except asyncio.CancelledError:
+                if self.traceback_on_interrupt:
+                    print(f'========== {package.name} ==========', file=sys.stderr)
+                    traceback.print_exc()
+                    print(file=sys.stderr)
+                raise
+
             self.finished += 1
-            self._update_with_package(package)
+            self.processing.remove(package)
+            self._update()
+
+    def get_renderable(self, console: Console) -> RenderableType:
+        if self.status is not None:
+            assert self.status.console is console
+        else:
+            self.status = Status('', console=console)
+
+        return self.status
 
     async def run(self) -> None:
         self._update()
