@@ -13,6 +13,7 @@ from typing import (
 
 import asyncio
 import collections
+import functools
 import json
 import re
 import shlex
@@ -142,6 +143,8 @@ class NpmModuleProvider(ModuleProvider):
         self.git_sources: DefaultDict[
             Path, Dict[Path, GitSource]
         ] = collections.defaultdict(lambda: {})
+        # FIXME better pass the same provider object we created in main
+        self.rcfile_provider = NpmRCFileProvider()
 
     def __exit__(
         self,
@@ -209,7 +212,7 @@ class NpmModuleProvider(ModuleProvider):
             cache_future = asyncio.get_event_loop().create_future()
             self.registry_packages[package.name] = cache_future
 
-            data_url = f'{self.registry}/{package.name.replace("/", "%2f")}'
+            data_url = f'{self.get_package_registry(package)}/{package.name.replace("/", "%2f")}'
             # NOTE: Not cachable, because this is an API call.
             raw_data = await Requests.instance.read_all(data_url, cachable=False)
             data = json.loads(raw_data)
@@ -320,6 +323,23 @@ class NpmModuleProvider(ModuleProvider):
 
     def relative_lockfile_dir(self, lockfile: Path) -> Path:
         return lockfile.parent.relative_to(self.lockfile_root)
+
+    @functools.lru_cache(typed=True)
+    def get_lockfile_rc(self, lockfile: Path) -> Dict[str, str]:
+        rc = {}
+        rcfile_path = lockfile.parent / self.rcfile_provider.RCFILE_NAME
+        if rcfile_path.is_file():
+            rc.update(self.rcfile_provider.parse_rcfile(rcfile_path))
+        return rc
+
+    def get_package_registry(self, package: Package) -> str:
+        assert isinstance(package.source, RegistrySource)
+        rc = self.get_lockfile_rc(package.lockfile)
+        if rc and '/' in package.name:
+            scope, _ = package.name.split('/', maxsplit=1)
+            if f'{scope}:registry' in rc:
+                return rc[f'{scope}:registry']
+        return self.registry
 
     def _finalize(self) -> None:
         for _, async_index in self.registry_packages.items():
