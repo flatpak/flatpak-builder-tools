@@ -370,7 +370,7 @@ for package in packages:
         try:
             print('Generating dependencies for {}'.format(package.name))
             subprocess.run(pip_download + [pkg], check=True, stdout=subprocess.DEVNULL)
-            for filename in os.listdir(tempdir):
+            for filename in sorted(os.listdir(tempdir)):
                 dep_name = get_package_name(filename)
                 if dep_name.casefold() in system_packages:
                     continue
