@@ -34,7 +34,7 @@ from ..package import (
 )
 from ..requests import Requests
 from ..url_metadata import RemoteUrlMetadata
-from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
+from . import Config, ConfigProvider, LockfileProvider, ModuleProvider, ProviderFactory
 from .special import SpecialSourceProvider
 
 _NPM_CORGIDOC = (
@@ -170,8 +170,103 @@ class NpmLockfileProvider(LockfileProvider):
             )
 
 
-class NpmRCFileProvider(RCFileProvider):
-    RCFILE_NAME = '.npmrc'
+class NpmConfigProvider(ConfigProvider):
+    _COMMENT = ('#', ';')
+
+    @property
+    def _filename(self) -> str:
+        return '.npmrc'
+
+    def _parse_value_as_json(self, string: str) -> Any:
+        try:
+            return json.loads(string)
+        except json.JSONDecodeError:
+            return string
+
+    def _parse_value_literal(self, string: str) -> str:
+        result = ''
+        escaped = False
+        for c in string:
+            if escaped:
+                if c not in self._COMMENT and c != '\\':
+                    result += '\\'
+                result += c
+                escaped = False
+            elif c == '\\':
+                escaped = True
+            elif c in self._COMMENT:
+                break
+            else:
+                result += c
+
+        if escaped:
+            result += '\\'
+        return result.strip()
+
+    def _parse_value(self, string: str) -> Any:
+        SINGLE_QUOTE = "'"
+        DOUBLE_QUOTE = '"'
+
+        string = string.strip()
+
+        if string.startswith(SINGLE_QUOTE) and string.endswith(SINGLE_QUOTE):
+            return self._parse_value_as_json(string[1:-1])
+        elif string.startswith(DOUBLE_QUOTE) and string.endswith(DOUBLE_QUOTE):
+            return self._parse_value_as_json(string)
+        else:
+            return self._parse_value_literal(string)
+
+    def _coalesce_to_string(self, value: Any) -> Any:
+        if isinstance(value, list):
+            return ','.join(map(self._coalesce_to_string, value))
+        elif isinstance(value, dict):
+            return '[object Object]'
+        else:
+            return str(value)
+
+    def parse_config(self, path: Path) -> Dict[str, Any]:
+        LITERALS = {
+            'true': True,
+            'false': False,
+            'null': None,
+        }
+
+        result: Dict[str, Any] = {}
+
+        with path.open() as fp:
+            for line in fp:
+                line = line.strip()
+                if not line or line.startswith(self._COMMENT):
+                    continue
+
+                try:
+                    key_s, value_s = line.split('=', 1)
+                except ValueError:
+                    key_s = line
+                    value_s = 'true'
+
+                key = self._coalesce_to_string(self._parse_value(key_s))
+                is_array = False
+                if key.endswith('[]'):
+                    is_array = True
+                    key = key[:-2]
+
+                value = self._parse_value(value_s)
+                if isinstance(value, str):
+                    value = LITERALS.get(value, value)
+
+                if is_array and key not in result:
+                    result[key] = []
+                elif is_array and not isinstance(result[key], list):
+                    result[key] = [result[key]]
+
+                previous_value = result.get(key)
+                if isinstance(previous_value, list):
+                    previous_value.append(value)
+                else:
+                    result[key] = value
+
+        return result
 
 
 class NpmModuleProvider(ModuleProvider):
@@ -191,6 +286,7 @@ class NpmModuleProvider(ModuleProvider):
         special: SpecialSourceProvider,
         lockfile_root: Path,
         options: Options,
+        lockfile_configs: Dict[Path, Config],
     ) -> None:
         self.gen = gen
         self.special_source_provider = special
@@ -198,6 +294,7 @@ class NpmModuleProvider(ModuleProvider):
         self.registry = options.registry
         self.no_autopatch = options.no_autopatch
         self.no_trim_index = options.no_trim_index
+        self.lockfile_configs = lockfile_configs
         self.npm_cache_dir = self.gen.data_root / 'npm-cache'
         self.cacache_dir = self.npm_cache_dir / '_cacache'
         # Awaitable so multiple tasks can be waiting on the same package info.
@@ -210,8 +307,6 @@ class NpmModuleProvider(ModuleProvider):
         self.git_sources: DefaultDict[
             Path, Dict[Path, GitSource]
         ] = collections.defaultdict(lambda: {})
-        # FIXME better pass the same provider object we created in main
-        self.rcfile_provider = NpmRCFileProvider()
 
     def __exit__(
         self,
@@ -383,21 +478,16 @@ class NpmModuleProvider(ModuleProvider):
     def relative_lockfile_dir(self, lockfile: Path) -> Path:
         return lockfile.parent.relative_to(self.lockfile_root)
 
-    @functools.lru_cache(typed=True)
-    def get_lockfile_rc(self, lockfile: Path) -> Dict[str, str]:
-        rc = {}
-        rcfile_path = lockfile.parent / self.rcfile_provider.RCFILE_NAME
-        if rcfile_path.is_file():
-            rc.update(self.rcfile_provider.parse_rcfile(rcfile_path))
-        return rc
-
     def get_package_registry(self, package: Package) -> str:
         assert isinstance(package.source, RegistrySource)
-        rc = self.get_lockfile_rc(package.lockfile)
-        if rc and '/' in package.name:
-            scope, _ = package.name.split('/', maxsplit=1)
-            if f'{scope}:registry' in rc:
-                return rc[f'{scope}:registry']
+        if '/' in package.name:
+            config = self.lockfile_configs.get(package.lockfile)
+            if config is not None:
+                scope, _ = package.name.split('/', maxsplit=1)
+                registry = config.get_registry_for_scope(scope)
+                if registry is not None:
+                    return registry
+
         return self.registry
 
     def _finalize(self) -> None:
@@ -527,10 +617,19 @@ class NpmProviderFactory(ProviderFactory):
     def create_lockfile_provider(self) -> NpmLockfileProvider:
         return NpmLockfileProvider(self.options.lockfile)
 
-    def create_rcfile_providers(self) -> List[RCFileProvider]:
-        return [NpmRCFileProvider()]
+    def create_config_provider(self) -> NpmConfigProvider:
+        return NpmConfigProvider()
 
     def create_module_provider(
-        self, gen: ManifestGenerator, special: SpecialSourceProvider
+        self,
+        gen: ManifestGenerator,
+        special: SpecialSourceProvider,
+        lockfile_configs: Dict[Path, Config],
     ) -> NpmModuleProvider:
-        return NpmModuleProvider(gen, special, self.lockfile_root, self.options.module)
+        return NpmModuleProvider(
+            gen,
+            special,
+            self.lockfile_root,
+            self.options.module,
+            lockfile_configs,
+        )

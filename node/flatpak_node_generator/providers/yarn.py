@@ -10,8 +10,8 @@ import urllib.parse
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
 from ..package import GitSource, LocalSource, Package, PackageSource, ResolvedSource
-from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
-from .npm import NpmRCFileProvider
+from . import Config, ConfigProvider, LockfileProvider, ModuleProvider, ProviderFactory
+from .npm import NpmConfigProvider
 from .special import SpecialSourceProvider
 
 GIT_URL_PATTERNS = [
@@ -23,6 +23,47 @@ GIT_URL_PATTERNS = [
 ]
 
 GIT_URL_HOSTS = ['github.com', 'gitlab.com', 'bitbucket.com', 'bitbucket.org']
+
+
+def _unquote(string: str) -> str:
+    if string.startswith('"'):
+        assert string.endswith('"')
+        return string[1:-1]
+    else:
+        return string
+
+
+def _parse_lockfile(lockfile: Path) -> Dict[str, Any]:
+    def _iter_lines() -> Iterator[Tuple[int, str]]:
+        indent = '  '
+        for line in lockfile.open():
+            level = 0
+            while line.startswith(indent):
+                level += 1
+                line = line[len(indent) :]
+            yield level, line.strip()
+
+    root_entry: Dict[str, Any] = {}
+    parent_entries = [root_entry]
+
+    for level, line in _iter_lines():
+        if line.startswith('#') or not line:
+            continue
+        assert level <= len(parent_entries) - 1
+        parent_entries = parent_entries[: level + 1]
+        if line.endswith(':'):
+            key = line[:-1]
+            child_entry = parent_entries[-1][key] = {}
+            parent_entries.append(child_entry)
+        else:
+            # NOTE shlex.split is handy, but slow;
+            # to speed up parsing we can use something less robust, e.g.
+            # _key, _value = line.split(' ', 1)
+            # parent_entries[-1][self.unquote(_key)] = self.unquote(_value)
+            key, value = shlex.split(line)
+            parent_entries[-1][key] = value
+
+    return root_entry
 
 
 class YarnLockfileProvider(LockfileProvider):
@@ -38,51 +79,12 @@ class YarnLockfileProvider(LockfileProvider):
             return len([p for p in url.path.split('/') if p]) == 2
         return False
 
-    def parse_lockfile(self, lockfile: Path) -> Dict[str, Any]:
-        def _iter_lines() -> Iterator[Tuple[int, str]]:
-            indent = '  '
-            for line in lockfile.open():
-                level = 0
-                while line.startswith(indent):
-                    level += 1
-                    line = line[len(indent) :]
-                yield level, line.strip()
-
-        root_entry: Dict[str, Any] = {}
-        parent_entries = [root_entry]
-
-        for level, line in _iter_lines():
-            if line.startswith('#') or not line:
-                continue
-            assert level <= len(parent_entries) - 1
-            parent_entries = parent_entries[: level + 1]
-            if line.endswith(':'):
-                key = line[:-1]
-                child_entry = parent_entries[-1][key] = {}
-                parent_entries.append(child_entry)
-            else:
-                # NOTE shlex.split is handy, but slow;
-                # to speed up parsing we can use something less robust, e.g.
-                # _key, _value = line.split(' ', 1)
-                # parent_entries[-1][self.unquote(_key)] = self.unquote(_value)
-                key, value = shlex.split(line)
-                parent_entries[-1][key] = value
-
-        return root_entry
-
-    def unquote(self, string: str) -> str:
-        if string.startswith('"'):
-            assert string.endswith('"')
-            return string[1:-1]
-        else:
-            return string
-
     def process_package(
         self, lockfile: Path, name_line: str, entry: Dict[str, Any]
     ) -> Package:
         assert name_line and entry
 
-        name = self.unquote(name_line.split(',', 1)[0])
+        name = _unquote(name_line.split(',', 1)[0])
         name, version_constraint = name.rsplit('@', 1)
 
         source: PackageSource
@@ -103,12 +105,26 @@ class YarnLockfileProvider(LockfileProvider):
         )
 
     def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
-        for name_line, package in self.parse_lockfile(lockfile).items():
+        for name_line, package in _parse_lockfile(lockfile).items():
             yield self.process_package(lockfile, name_line, package)
 
 
-class YarnRCFileProvider(RCFileProvider):
-    RCFILE_NAME = '.yarnrc'
+class YarnConfigProvider(ConfigProvider):
+    @property
+    def _filename(self) -> str:
+        return '.yarnrc'
+
+    def parse_config(self, path: Path) -> Dict[str, Any]:
+        # yarn's config format is identical to its lockfile format.
+        return _parse_lockfile(path)
+
+    def load_config(self, lockfile: Path) -> Config:
+        config = super().load_config(lockfile)
+
+        npm_config = NpmConfigProvider().load_config(lockfile)
+        config.merge_new_keys_only(npm_config.data)
+
+        return config
 
 
 class YarnModuleProvider(ModuleProvider):
@@ -178,10 +194,13 @@ class YarnProviderFactory(ProviderFactory):
     def create_lockfile_provider(self) -> YarnLockfileProvider:
         return YarnLockfileProvider()
 
-    def create_rcfile_providers(self) -> List[RCFileProvider]:
-        return [YarnRCFileProvider(), NpmRCFileProvider()]
+    def create_config_provider(self) -> YarnConfigProvider:
+        return YarnConfigProvider()
 
     def create_module_provider(
-        self, gen: ManifestGenerator, special: SpecialSourceProvider
+        self,
+        gen: ManifestGenerator,
+        special: SpecialSourceProvider,
+        lockfile_configs: Dict[Path, Config],
     ) -> YarnModuleProvider:
         return YarnModuleProvider(gen, special)

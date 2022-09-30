@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any, Dict
 
 import itertools
 
@@ -6,6 +7,36 @@ import pytest
 
 from conftest import FlatpakBuilder, ProviderFactorySpec
 from flatpak_node_generator.manifest import ManifestGenerator
+from flatpak_node_generator.providers import ConfigProvider
+
+TEST_CONFIG_FILENAME = 'node-test.rc'
+
+
+async def test_config_loading(tmp_path: Path) -> None:
+    class TestConfigProvider(ConfigProvider):
+        @property
+        def _filename(self) -> str:
+            return TEST_CONFIG_FILENAME
+
+        def parse_config(self, path: Path) -> Dict[str, Any]:
+            return dict(x.split('=') for x in path.read_text().split(','))
+
+    inner_dir = tmp_path / 'inner'
+    inner_dir.mkdir(parents=True)
+
+    inner_rc = inner_dir / TEST_CONFIG_FILENAME
+    inner_rc.write_text('inner=a,override=b')
+
+    outer_rc = tmp_path / TEST_CONFIG_FILENAME
+    outer_rc.write_text('outer=c,override=d')
+
+    config_provider = TestConfigProvider()
+    config = config_provider.load_config(inner_dir / 'lockfile')
+    assert config.data == {
+        'inner': 'a',
+        'override': 'b',
+        'outer': 'c',
+    }
 
 
 async def test_minimal_git(
