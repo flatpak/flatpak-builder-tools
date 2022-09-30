@@ -5,10 +5,13 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 import enum
 import json
 import subprocess
+import sys
 
 from pytest_httpserver import HTTPServer
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from flatpak_node_generator.cache import Cache, FilesystemBasedCache, NullCache
 from flatpak_node_generator.manifest import ManifestGenerator
