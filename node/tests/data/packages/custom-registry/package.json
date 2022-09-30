@@ -1,0 +1,7 @@
+{
+  "name": "@flatpak-node-generator-tests/custom-registry",
+  "version": "1.0.0",
+  "dependencies": {
+    "@flatpak-node-generator-tests/registry-package": "*"
+  }
+}

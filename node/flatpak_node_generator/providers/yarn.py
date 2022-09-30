@@ -110,6 +110,9 @@ class YarnLockfileProvider(LockfileProvider):
 
 
 class YarnConfigProvider(ConfigProvider):
+    def __init__(self) -> None:
+        self._npm_config_provider = NpmConfigProvider()
+
     @property
     def _filename(self) -> str:
         return '.yarnrc'
@@ -121,7 +124,7 @@ class YarnConfigProvider(ConfigProvider):
     def load_config(self, lockfile: Path) -> Config:
         config = super().load_config(lockfile)
 
-        npm_config = NpmConfigProvider().load_config(lockfile)
+        npm_config = self._npm_config_provider.load_config(lockfile)
         config.merge_new_keys_only(npm_config.data)
 
         return config

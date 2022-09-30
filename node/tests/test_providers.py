@@ -39,6 +39,29 @@ async def test_config_loading(tmp_path: Path) -> None:
     }
 
 
+async def test_custom_registry(
+    flatpak_builder: FlatpakBuilder,
+    provider_factory_spec: ProviderFactorySpec,
+    node_version: int,
+) -> None:
+    with ManifestGenerator() as gen:
+        await provider_factory_spec.generate_modules(
+            'custom-registry', gen, node_version
+        )
+
+    flatpak_builder.build(
+        sources=gen.ordered_sources(),
+        commands=[
+            provider_factory_spec.install_command,
+            """node -e 'require("@flatpak-node-generator-tests/registry-package").sayHello()'""",
+        ],
+        use_node=node_version,
+    )
+
+    hello_txt = flatpak_builder.module_dir / 'hello.txt'
+    assert hello_txt.read_text() == 'Hello!'
+
+
 async def test_minimal_git(
     flatpak_builder: FlatpakBuilder,
     provider_factory_spec: ProviderFactorySpec,
