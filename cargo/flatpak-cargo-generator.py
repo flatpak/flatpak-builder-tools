@@ -287,7 +287,18 @@ async def get_package_sources(package, cargo_lock, git_repos):
     return (crate_sources, {'crates-io': {'replace-with': VENDORED_SOURCES}})
 
 
-async def generate_sources(cargo_lock, git_tarballs=False):
+def packages_dependencies(names, all_packages):
+    for name in names or ():
+        # Some are like "time 0.3.15"
+        name = name.split(' ')[0]
+        yield name
+        package = all_packages[name]
+        deps = package.get('dependencies')
+        for dep in packages_dependencies(deps, all_packages):
+            yield dep
+
+
+async def generate_sources(cargo_lock, packages=None, git_tarballs=False):
     # {
     #     "git-repo-url": {
     #         "lock": asyncio.Lock(),
@@ -305,12 +316,22 @@ async def generate_sources(cargo_lock, git_tarballs=False):
         VENDORED_SOURCES: {'directory': f'{CARGO_CRATES}'},
     }
 
-    pkg_coros = [get_package_sources(p, cargo_lock, git_repos) for p in cargo_lock['package']]
+    if packages:
+        packages = packages.split(',')
+        logging.debug('Considering only packages: %s', packages)
+        all_packages = {p['name']: p for p in cargo_lock['package']}
+        packages = list(packages_dependencies(packages, all_packages))
+    else:
+        logging.debug('Considering all packages')
+        packages = list([p['name'] for p in cargo_lock['package']])
+
+    pkg_coros = [get_package_sources(p, cargo_lock, git_repos)
+                 for p in cargo_lock['package']
+                 if p['name'] in packages]
     for pkg in await asyncio.gather(*pkg_coros):
         if pkg is None:
             continue
-        else:
-            pkg_sources, cargo_vendored_entry = pkg
+        pkg_sources, cargo_vendored_entry = pkg
         package_sources.extend(pkg_sources)
         cargo_vendored_sources.update(cargo_vendored_entry)
 
@@ -338,6 +359,7 @@ async def generate_sources(cargo_lock, git_tarballs=False):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('cargo_lock', help='Path to the Cargo.lock file')
+    parser.add_argument('-p', '--packages', help='Comma-separated packages in Cargo.lock to build')
     parser.add_argument('-o', '--output', required=False, help='Where to write generated sources')
     parser.add_argument('-t', '--git-tarballs', action='store_true', help='Download git repos as tarballs')
     parser.add_argument('-d', '--debug', action='store_true')
@@ -353,6 +375,7 @@ def main():
     logging.basicConfig(level=loglevel)
 
     generated_sources = asyncio.run(generate_sources(load_toml(args.cargo_lock),
+                                    packages=args.packages,
                                     git_tarballs=args.git_tarballs))
     with open(outfile, 'w') as out:
         json.dump(generated_sources, out, indent=4, sort_keys=False)
