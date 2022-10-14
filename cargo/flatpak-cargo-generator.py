@@ -101,7 +101,7 @@ def fetch_git_repo(git_url, commit):
     cache_dir = os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache'))
     clone_dir = os.path.join(cache_dir, 'flatpak-cargo', repo_dir)
     if not os.path.isdir(os.path.join(clone_dir, '.git')):
-        subprocess.run(['git', 'clone', git_url, clone_dir], check=True)
+        subprocess.run(['git', 'clone', '--depth=1', git_url, clone_dir], check=True)
     rev_parse_proc = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=clone_dir, check=True,
                                     stdout=subprocess.PIPE)
     head = rev_parse_proc.stdout.decode().strip()
