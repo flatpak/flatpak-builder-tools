@@ -67,8 +67,8 @@ async def generate_sources(dub_selections):
                 local_packages.append(local_package)
     sources += [
         {
-            "type": "file",
-            "url": "data:" + urllib.parse.quote(json.dumps(local_packages)),
+            "type": "inline",
+            "contents": json.dumps(local_packages),
             "dest": ".dub/packages",
             "dest-filename": "local-packages.json"
         },
