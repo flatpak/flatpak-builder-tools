@@ -44,6 +44,10 @@ parser.add_argument('--output', '-o',
                     help='Specify output file name')
 parser.add_argument('--runtime',
                     help='Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility')
+parser.add_argument('--arch-dependent-allow', action='store_true',
+                    help='Allow arch dependent packages to be used')
+parser.add_argument('--arch-dependent-force', action='store_true',
+                    help='Force arch dependent packages to be used')
 parser.add_argument('--yaml', action='store_true',
                     help='Use YAML as output format instead of JSON')
 opts = parser.parse_args()
@@ -251,19 +255,29 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         except FileNotFoundError:
             pass
 
-    fprint('Downloading arch independent packages')
-    for filename in os.listdir(tempdir):
-        if not filename.endswith(('bz2', 'any.whl', 'gz', 'xz', 'zip')):
-            version = get_file_version(filename)
-            name = get_package_name(filename)
-            url = get_tar_package_url_pypi(name, version)
-            print('Deleting', filename)
-            try:
-                os.remove(os.path.join(tempdir, filename))
-            except FileNotFoundError:
-                pass
-            print('Downloading {}'.format(url))
-            download_tar_pypi(url, tempdir)
+    if opts.arch_dependent_force:
+        fprint('Not using arch independent packages [--arch-dependent-force]')
+    else:
+        fprint('Downloading arch independent packages')
+        for filename in os.listdir(tempdir):
+            if not filename.endswith(('bz2', 'any.whl', 'gz', 'xz', 'zip')):
+                version = get_file_version(filename)
+                name = get_package_name(filename)
+                try:
+                    url = get_tar_package_url_pypi(name, version)
+                except Exception as e:
+                    if not opts.arch_dependent_allow:
+                        raise
+                    else:
+                        print('Ignoring "{}" [--arch-dependent-allow]'.format(e))
+                        continue
+                print('Deleting', filename)
+                try:
+                    os.remove(os.path.join(tempdir, filename))
+                except FileNotFoundError:
+                    pass
+                print('Downloading {}'.format(url))
+                download_tar_pypi(url, tempdir)
 
     files = {get_package_name(f): [] for f in os.listdir(tempdir)}
 
