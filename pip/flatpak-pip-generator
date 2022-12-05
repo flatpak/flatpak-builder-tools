@@ -29,6 +29,8 @@ parser.add_argument('--cleanup', choices=['scripts', 'all'],
                     help='Select what to clean up after build')
 parser.add_argument('--requirements-file', '-r',
                     help='Specify requirements.txt file')
+parser.add_argument('--pyproject-file',
+                    help='Specify pyproject.toml file')
 parser.add_argument('--build-only', action='store_const',
                     dest='cleanup', const='all',
                     help='Clean up all files after build')
@@ -59,6 +61,18 @@ parser.add_argument('--ignore-errors', action='store_true',
 parser.add_argument('--ignore-pkg', nargs='*',
                     help='Ignore a package when generating the manifest. Can only be used with a requirements file')
 opts = parser.parse_args()
+
+if opts.requirements_file and opts.pyproject_file:
+    exit('Can\'t use both requirements and pyproject files at the same time')
+
+if opts.pyproject_file:
+    try:
+        from tomllib import load as toml_load
+    except ModuleNotFoundError:
+        try:
+            from tomli import load as toml_load
+        except ModuleNotFoundError:
+            exit('tomli modules is not installed. Run "pip install tomli"')
 
 if opts.yaml:
     try:
@@ -180,6 +194,16 @@ if opts.requirements_file:
     except FileNotFoundError as err:
         print(err)
         sys.exit(1)
+
+elif opts.pyproject_file:
+    pyproject_file = os.path.expanduser(opts.pyproject_file)
+    with open(pyproject_file, "rb") as f:
+        pyproject_data = toml_load(f)
+    dependencies = pyproject_data.get("project", {}).get("dependencies", [])
+    packages = list(requirements.parse('\n'.join(dependencies)))
+    with tempfile.NamedTemporaryFile('w', delete=False, prefix='requirements.') as req_file:
+        req_file.write('\n'.join(dependencies))
+        requirements_file_output = req_file.name
 
 elif opts.packages:
     packages = list(requirements.parse('\n'.join(opts.packages)))

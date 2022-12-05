@@ -44,7 +44,8 @@ You can use that in your manifest like
 * `--build-isolation`: Enable build isolation with pip (recommended but not always work).
 * `--cleanup=(scripts|all)`: Add `cleanup` to the manifest. This is used when the packages installed are only used at build time.
 * `--build-only`: Alias to `--cleanup=all`.
-* `--requirements-file=`, `-r`: Reads the list of packages from `requirements.txt` file.
+* `--requirements-file=`, `-r`: Reads the list of packages from `requirements.txt` file. Mutually exclusive with `--pyproject-file`.
+* `--pyproject-file=`: Reads the list of packages from `pyproject.toml` file. Mutually exclusive with `--requirements-file` or `r`.
 * `--ignore-pkg=`: Ignore a specific package name in a requirements-file, otherwise ignored.
 * `--checker-data`: This adds `x-checker-data` to modules so you will be notified when new releases happen. See [flatpak-external-data-checker](https://github.com/flathub/flatpak-external-data-checker) for more details.
 * `--runtime=`: Runs `pip` inside of a specific Flatpak runtime instead of on your host. Highly recommended for reproducability and portability. Examples would be `org.freedesktop.Sdk//22.08` or `org.gnome.Sdk/aarch64/43`.
