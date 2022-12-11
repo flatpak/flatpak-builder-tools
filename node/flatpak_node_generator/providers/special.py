@@ -383,8 +383,11 @@ class SpecialSourceProvider:
         }
 
         for flatpak_arch, pkg_name in pkg_names.items():
-            dl_url = f'https://registry.npmjs.org/{pkg_name}/-/{pkg_name}-{package.version}.tgz'
-            metadata = await RemoteUrlMetadata.get(dl_url, cachable=True)
+            data_url = f'https://registry.npmjs.org/{pkg_name}/{package.version}'
+            registry_data = json.loads(await Requests.instance.read_all(data_url))
+
+            dl_url = registry_data['dist']['tarball']
+            integrity = Integrity.parse(registry_data['dist']['integrity'])
 
             cache_dst = self.gen.data_root / 'cache' / 'esbuild'
             archive_dst = cache_dst / '.package' / f'{pkg_name}@{package.version}'
@@ -393,7 +396,7 @@ class SpecialSourceProvider:
 
             self.gen.add_archive_source(
                 dl_url,
-                metadata.integrity,
+                integrity,
                 destination=archive_dst,
                 only_arches=[flatpak_arch],
                 strip_components=1,
