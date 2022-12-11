@@ -375,14 +375,17 @@ class SpecialSourceProvider:
             )
 
     async def _handle_esbuild(self, package: Package) -> None:
-        pkg_names = {
-            'x86_64': 'esbuild-linux-64',
-            'i386': 'esbuild-linux-32',
-            'arm': 'esbuild-linux-arm',
-            'aarch64': 'esbuild-linux-arm64',
-        }
+        pkg_names = [
+            ('x86_64', '@esbuild/linux-x64', 'esbuild-linux-64'),
+            ('i386', '@esbuild/linux-ia32', 'esbuild-linux-32'),
+            ('arm', '@esbuild/linux-arm', 'esbuild-linux-arm'),
+            ('aarch64', '@esbuild/linux-arm64', 'esbuild-linux-arm64'),
+        ]
 
-        for flatpak_arch, pkg_name in pkg_names.items():
+        pkg_name_is_scoped = SemVer.parse(package.version) >= SemVer.parse('0.16.0')
+
+        for flatpak_arch, new_pkg_name, old_pkg_name in pkg_names:
+            pkg_name = new_pkg_name if pkg_name_is_scoped else old_pkg_name
             data_url = f'https://registry.npmjs.org/{pkg_name}/{package.version}'
             registry_data = json.loads(await Requests.instance.read_all(data_url))
 
