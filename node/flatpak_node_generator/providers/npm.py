@@ -273,21 +273,11 @@ class NpmModuleProvider(ModuleProvider):
         self.all_lockfiles.add(package.lockfile)
         source = package.source
 
-        if isinstance(source, RegistrySource):
-            source = await self.resolve_source(package)
+        if isinstance(source, (RegistrySource, PackageURLSource)):
+            if isinstance(source, RegistrySource):
+                source = await self.resolve_source(package)
+
             assert source.resolved is not None
-            assert source.integrity is not None
-
-            integrity = await source.retrieve_integrity()
-            size = await RemoteUrlMetadata.get_size(source.resolved, cachable=True)
-            metadata = RemoteUrlMetadata(integrity=integrity, size=size)
-            content_path = self.get_cacache_content_path(integrity)
-            self.gen.add_url_source(source.resolved, integrity, content_path)
-            self.add_index_entry(source.resolved, metadata)
-
-            await self.special_source_provider.generate_special_sources(package)
-
-        elif isinstance(source, PackageURLSource):
             assert source.integrity is not None
 
             self.gen.add_url_source(
@@ -304,6 +294,8 @@ class NpmModuleProvider(ModuleProvider):
                     ),
                 ),
             )
+
+            await self.special_source_provider.generate_special_sources(package)
 
         # pyright: reportUnnecessaryIsInstance=false
         elif isinstance(source, GitSource):
