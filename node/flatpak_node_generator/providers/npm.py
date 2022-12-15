@@ -52,10 +52,10 @@ class NpmLockfileProvider(LockfileProvider):
     def __init__(self, options: Options):
         self.no_devel = options.no_devel
 
-    def process_dependencies(
-        self, lockfile: Path, dependencies: Dict[str, Dict[Any, Any]]
+    def _process_packages_v1(
+        self, lockfile: Path, entry: Dict[str, Dict[Any, Any]]
     ) -> Iterator[Package]:
-        for name, info in dependencies.items():
+        for name, info in entry.get('dependencies', {}).items():
             if info.get('dev') and self.no_devel:
                 continue
             elif info.get('bundled'):
@@ -92,15 +92,18 @@ class NpmLockfileProvider(LockfileProvider):
             yield Package(name=name, version=version, source=source, lockfile=lockfile)
 
             if 'dependencies' in info:
-                yield from self.process_dependencies(lockfile, info['dependencies'])
+                yield from self._process_packages_v1(lockfile, info)
 
     def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
         with open(lockfile) as fp:
             data = json.load(fp)
 
-        assert data['lockfileVersion'] <= 2, data['lockfileVersion']
-
-        yield from self.process_dependencies(lockfile, data.get('dependencies', {}))
+        if data['lockfileVersion'] in {1, 2}:
+            yield from self._process_packages_v1(lockfile, data)
+        else:
+            raise NotImplementedError(
+                f'Unknown lockfile version {data["lockfileVersion"]}'
+            )
 
 
 class NpmRCFileProvider(RCFileProvider):
