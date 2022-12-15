@@ -44,7 +44,7 @@ jobs:
         run: |
           flatpak --user remote-add flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak --user install -y flathub \
-            org.freedesktop.{Platform,Sdk{,.Extension.node{14,16}}}//21.08
+            org.freedesktop.{Platform,Sdk{,.Extension.node{14,16}}}//22.08
       - name: Install dependencies
         run: poetry install
       - name: Run checks
