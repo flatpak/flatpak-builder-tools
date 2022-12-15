@@ -2,6 +2,8 @@ from pathlib import Path
 
 import itertools
 
+import pytest
+
 from conftest import FlatpakBuilder, ProviderFactorySpec
 from flatpak_node_generator.manifest import ManifestGenerator
 
@@ -11,6 +13,9 @@ async def test_minimal_git(
     provider_factory_spec: ProviderFactorySpec,
     node_version: int,
 ) -> None:
+    if node_version >= 18:
+        pytest.xfail(reason='Git sources not yet supported for lockfile v2 syntax')
+
     with ManifestGenerator() as gen:
         await provider_factory_spec.generate_modules('minimal-git', gen, node_version)
 
@@ -93,9 +98,10 @@ async def test_local_link(
 async def test_missing_resolved_field(
     flatpak_builder: FlatpakBuilder,
     npm_provider_factory_spec: ProviderFactorySpec,
+    node_version: int,
 ) -> None:
-    # Only test on lockfile v2.
-    node_version = 16
+    if node_version < 16:
+        pytest.skip()
 
     with ManifestGenerator() as gen:
         await npm_provider_factory_spec.generate_modules(

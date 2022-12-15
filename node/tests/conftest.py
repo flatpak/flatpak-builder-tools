@@ -161,6 +161,7 @@ class ProviderFactoryType(enum.Enum):
 class ProviderPaths:
     _V1_JSON = '.v1.json'
     _V2_JSON = '.v2.json'
+    _V3_JSON = '.v3.json'
 
     type: ProviderFactoryType
     root: Path
@@ -173,7 +174,13 @@ class ProviderPaths:
     @property
     def lockfile_source(self) -> Path:
         if self.type == ProviderFactoryType.NPM:
-            suffix = self._V2_JSON if self.node_version >= 16 else self._V1_JSON
+            if self.node_version >= 18:
+                suffix = self._V3_JSON
+            elif self.node_version >= 16:
+                suffix = self._V2_JSON
+            else:
+                suffix = self._V1_JSON
+
             return (self.root / f'package-lock').with_suffix(suffix)
         elif self.type == ProviderFactoryType.YARN:
             return self.root / 'yarn.lock'
@@ -302,7 +309,7 @@ def provider_factory_spec(request: Any, shared_datadir: Path) -> ProviderFactory
     return ProviderFactorySpec(datadir=shared_datadir, type=type)
 
 
-@pytest.fixture(params=[14, 16])
+@pytest.fixture(params=[14, 16, 18])
 def node_version(request: Any) -> int:
     version = request.param
     assert isinstance(version, int)
