@@ -115,7 +115,7 @@ class FlatpakBuilder:
         manifest = {
             'id': 'com.test.Test',
             'runtime': 'org.freedesktop.Platform',
-            'runtime-version': '21.08',
+            'runtime-version': '22.08',
             'sdk': 'org.freedesktop.Sdk',
             'sdk-extensions': sdk_extensions,
             'modules': [

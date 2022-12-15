@@ -76,7 +76,7 @@ EOF
   --cwd="$tmpdir" \
   --filesystem="$tmpdir" \
   --share=network \
-  org.freedesktop.Sdk//21.08 \
+  org.freedesktop.Sdk//22.08 \
   -c "cp $gitconfig ~/.gitconfig && . /usr/lib/sdk/$pm_sdk_ext/enable.sh && $pm_name install")
 
 case "$command_arg" in
