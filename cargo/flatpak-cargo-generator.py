@@ -160,7 +160,7 @@ async def get_cargo_toml_packages(root_toml, root_dir):
         packages[root_toml['package']['name']] = root_dir
 
     if 'workspace' in root_toml:
-        for member in root_toml['workspace']['members']:
+        for member in root_toml['workspace'].get('members', []):
             for subpkg_toml in glob.glob(os.path.join(root_dir, member, 'Cargo.toml')):
                 subpkg = os.path.normpath(os.path.dirname(subpkg_toml))
                 logging.debug("Loading workspace member %s in %s", member, root_dir)
