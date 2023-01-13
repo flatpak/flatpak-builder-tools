@@ -1,5 +1,8 @@
 # Flatpak Go Get Generator
-Tool to automatically create the source list for a Go module.
+Tool to automatically create the source list for a Go module (legacy).
+
+It runs the build in a legacy `GOPATH` mode.
+For a module-aware mode, see [go-modules](../go-modules/README.md) or [flatpak-go-vendor-generator](./flatpak-go-vendor-generator.py) script.
 
 The script does not require Go in the host system.
 
