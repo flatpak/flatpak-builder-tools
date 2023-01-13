@@ -60,19 +60,7 @@ modules:
       - install -Dm 755 start-electron-webpack-quick-start.sh /app/bin/start-electron-webpack-quick-start
 
       # To allow separate locales
-      - |
-        APP_LOCALES_DIR=${FLATPAK_DEST}/electron-webpack-quick-start/locales
-        RUNTIME_LOCALES_DIR=${FLATPAK_DEST}/share/runtime/locale
-
-        if [ -d ${APP_LOCALES_DIR} ]
-        then
-          for lang in ${APP_LOCALES_DIR}/*.pak
-          do
-            locale="$(basename -s .pak $lang)"
-            install -Dm644 -t "${RUNTIME_LOCALES_DIR}/${locale%%-*}/" "$lang"
-            ln -sf "${RUNTIME_LOCALES_DIR}/${locale%%-*}/$(basename $lang)" "${APP_LOCALES_DIR}/$(basename $lang)"
-          done
-        fi
+      - setup-separate-locales ${FLATPAK_DEST}/electron-webpack-quick-start/locales
     sources:
       - type: git
         url: https://github.com/electron-userland/electron-webpack-quick-start
