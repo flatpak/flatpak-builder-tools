@@ -1,14 +1,14 @@
 app-id: org.electronjs.ElectronQuickStart
 branch: stable
 runtime: org.freedesktop.Platform
-runtime-version: '21.08'
+runtime-version: '22.08'
 sdk: org.freedesktop.Sdk
 # Use the Electron 2 BaseApp, which adds several common libraries we'll need.
 base: org.electronjs.Electron2.BaseApp
-base-version: '21.08'
+base-version: '22.08'
 # Add the Node 16 SDK extension.
 sdk-extensions:
-  - org.freedesktop.Sdk.Extension.node16
+  - org.freedesktop.Sdk.Extension.node18
 # Electron doesn't use a traditional locale format so separate-locales is useless.
 separate-locales: false
 command: start-electron-quick-start
@@ -32,14 +32,14 @@ modules:
   - name: node
     buildsystem: simple
     build-commands:
-      - /usr/lib/sdk/node16/install-sdk.sh
+      - /usr/lib/sdk/node18/install-sdk.sh
 
   # Now is the quickstart module.
   - name: electron-quick-start
     buildsystem: simple
     build-options:
       # Add the node bin directory.
-      append-path: /usr/lib/sdk/node16/bin
+      append-path: /usr/lib/sdk/node18/bin
       env:
         # Set the cache directory, used to find Electron and some other helper
         # tools.
@@ -48,7 +48,7 @@ modules:
         # Set the npm cache directory, used by npm to find its package metadata.
         npm_config_cache: /run/build/electron-quick-start/flatpak-node/npm-cache
         # Sets the directory where Node is located so that npm won't download the headers.
-        npm_config_nodedir: /usr/lib/sdk/node16
+        npm_config_nodedir: /usr/lib/sdk/node18
     build-commands:
       # Install the packages from our offline cache.
       # --prefix= is the path to our subdirectory (see the electron-quick-start source below).
@@ -65,15 +65,10 @@ modules:
     sources:
       - type: git
         url: https://github.com/electron/electron-quick-start
-        # Use the Electron 18 / Node 16 version.
-        commit: 0277cdea0b71f39d2eb162ef292f35bacbe0c042
+        # Use the Electron 22 version.
+        commit: 7f1b2bc2906a672084af9b930ccb2f333593b55c
+        branch: 22-x-y
         # Checkout into a subdirectory so we can copy the whole thing to /app.
-        dest: electron-quick-start
-      # TEMPORARY HACK: the package-lock.json in the upstream repo is in an old
-      # format that makes the latest npm try to pull down new metadata anyway.
-      # This can be removed once this PR is merged: https://github.com/electron/electron-quick-start/pull/600
-      - type: file
-        path: package-lock.json
         dest: electron-quick-start
       # Add the flatpak-node-generator generated sources.
       - generated-sources.json
