@@ -62,7 +62,7 @@ modules:
       - install -Dm 755 start-electron-quick-start.sh /app/bin/start-electron-quick-start
 
       # To allow separate locales
-      - setup-separate-locales ${FLATPAK_DEST}/electron-quick-start/locales
+      - setup-separate-locales ${FLATPAK_DEST}/electron-quick-start
     sources:
       - type: git
         url: https://github.com/electron/electron-quick-start
