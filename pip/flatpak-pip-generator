@@ -38,6 +38,13 @@ parser.add_argument('--build-isolation', action='store_true',
                         'Mostly useful on pip that does\'t '
                         'support the feature.'
                     ))
+parser.add_argument('--ignore-installed',
+                    type=lambda s: s.split(','),
+                    default='',
+                    help='Comma-separated list of package names for which pip '
+                    'should ignore already installed packages. Useful when '
+                    'the package is installed in the SDK but not in the '
+                    'runtime.')
 parser.add_argument('--checker-data', action='store_true',
                     help='Include x-checker-data in output for the "Flatpak External Data Checker"')
 parser.add_argument('--output', '-o',
@@ -411,6 +418,8 @@ for package in packages:
         '--prefix=${FLATPAK_DEST}',
         '"{}"'.format(name_for_pip)
     ]
+    if package.name in opts.ignore_installed:
+        pip_command.append('--ignore-installed')
     if not opts.build_isolation:
         pip_command.append('--no-build-isolation')
 
