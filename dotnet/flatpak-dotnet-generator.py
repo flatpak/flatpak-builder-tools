@@ -13,14 +13,19 @@ import tempfile
 
 
 def main():
+    # Bump this to latest freedesktop runtime version.
+    freedesktop_default = '22.08'
+    # Bump this to an LTS dotnet version.
+    dotnet_default = '6'
+
     parser = argparse.ArgumentParser()
     parser.add_argument('output', help='The output JSON sources file')
     parser.add_argument('project', help='The project file')
     parser.add_argument('--runtime', '-r', help='The target runtime to restore packages for')
     parser.add_argument('--freedesktop', '-f', help='The target version of the freedesktop sdk to use', 
-                        choices=['21.08', '22.08'], default='21.08')
+                        default=freedesktop_default)
     parser.add_argument('--dotnet', '-d', help='The target version of dotnet to use', 
-                        type=int, choices=range(5, 8), default=6)
+                        default=dotnet_default)
     parser.add_argument('--destdir',
                         help='The directory the generated sources file will save sources to',
                         default='nuget-sources')
