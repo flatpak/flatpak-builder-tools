@@ -37,9 +37,9 @@ def main():
             'flatpak', 'run',
             '--env=DOTNET_CLI_TELEMETRY_OPTOUT=true',
             '--env=DOTNET_SKIP_FIRST_TIME_EXPERIENCE=true',
-            '--command=sh', '--runtime=org.freedesktop.Sdk//{}'.format(args.freedesktop), '--share=network',
-            '--filesystem=host', 'org.freedesktop.Sdk.Extension.dotnet{}//{}'.format(args.dotnet, args.freedesktop), '-c',
-            'PATH="${PATH}:'+'/usr/lib/sdk/dotnet{0}/bin" LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/sdk/dotnet{0}/lib" exec dotnet restore "$@"'.format(args.dotnet),
+            '--command=sh', f'--runtime=org.freedesktop.Sdk//{args.freedesktop}', '--share=network',
+            '--filesystem=host', f'org.freedesktop.Sdk.Extension.dotnet{args.dotnet}//{args.freedesktop}', '-c',
+            f'PATH="${{PATH}}:/usr/lib/sdk/dotnet{args.dotnet}/bin" LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/sdk/dotnet{args.dotnet}/lib" exec dotnet restore "$@"',
             '--', '--packages', tmp, args.project] + runtime_args)
 
         for path in Path(tmp).glob('**/*.nupkg.sha512'):
