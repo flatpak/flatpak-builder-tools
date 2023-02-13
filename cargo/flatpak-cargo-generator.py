@@ -11,6 +11,8 @@ import argparse
 import logging
 import hashlib
 import asyncio
+from typing import Any, Dict, List, Optional, Tuple, TypedDict
+
 import aiohttp
 import toml
 
@@ -32,13 +34,13 @@ def workdir(path: str):
         os.chdir(oldpath)
 
 
-def canonical_url(url):
+def canonical_url(url: str) -> ParseResult:
     'Converts a string to a Cargo Canonical URL, as per https://github.com/rust-lang/cargo/blob/35c55a93200c84a4de4627f1770f76a8ad268a39/src/cargo/util/canonical_url.rs#L19'
     # Hrm. The upstream cargo does not replace those URLs, but if we don't then it doesn't work too well :(
     url = url.replace('git+https://', 'https://')
     u = urlparse(url)
     # It seems cargo drops query and fragment
-    u = ParseResult(u.scheme, u.netloc, u.path, None, None, None)
+    u = ParseResult(u.scheme, u.netloc, u.path, '', '', '')
     u = u._replace(path = u.path.rstrip('/'))
 
     if u.netloc == 'github.com':
@@ -51,7 +53,7 @@ def canonical_url(url):
     return u
 
 
-def get_git_tarball(repo_url, commit):
+def get_git_tarball(repo_url: str, commit: str) -> str:
     url = canonical_url(repo_url)
     path = url.path.split('/')[1:]
 
@@ -63,7 +65,7 @@ def get_git_tarball(repo_url, commit):
         repo = path[1]
     if url.hostname == 'github.com':
         return f'https://codeload.{url.hostname}/{owner}/{repo}/tar.gz/{commit}'
-    elif url.hostname.split('.')[0] == 'gitlab':
+    elif url.hostname.split('.')[0] == 'gitlab':  # type: ignore
         return f'https://{url.hostname}/{owner}/{repo}/-/archive/{commit}/{repo}-{commit}.tar.gz'
     elif url.hostname == 'bitbucket.org':
         return f'https://{url.hostname}/{owner}/{repo}/get/{commit}.tar.gz'
@@ -71,7 +73,7 @@ def get_git_tarball(repo_url, commit):
         raise ValueError(f'Don\'t know how to get tarball for {repo_url}')
 
 
-async def get_remote_sha256(url):
+async def get_remote_sha256(url: str) -> str:
     logging.info(f"started sha256({url})")
     sha256 = hashlib.sha256()
     async with aiohttp.ClientSession(raise_for_status=True) as http_session:
@@ -85,18 +87,21 @@ async def get_remote_sha256(url):
     return sha256.hexdigest()
 
 
-def load_toml(tomlfile='Cargo.lock'):
+_TomlType = Dict[str, Any]
+
+
+def load_toml(tomlfile: str = 'Cargo.lock') -> _TomlType:
     with open(tomlfile, 'r') as f:
         toml_data = toml.load(f)
     return toml_data
 
 
-def git_repo_name(git_url, commit):
+def git_repo_name(git_url: str, commit: str) -> str:
     name = canonical_url(git_url).path.split('/')[-1]
     return f'{name}-{commit[:COMMIT_LEN]}'
 
 
-def fetch_git_repo(git_url, commit):
+def fetch_git_repo(git_url: str, commit: str) -> str:
     repo_dir = git_url.replace('://', '_').replace('/', '_')
     cache_dir = os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache'))
     clone_dir = os.path.join(cache_dir, 'flatpak-cargo', repo_dir)
@@ -111,10 +116,13 @@ def fetch_git_repo(git_url, commit):
     return clone_dir
 
 
-async def get_git_repo_packages(git_url, commit):
+_GitPackagesType = Dict[str, str]
+
+
+async def get_git_repo_packages(git_url: str, commit: str) -> _GitPackagesType:
     logging.info('Loading packages from %s', git_url)
     git_repo_dir = fetch_git_repo(git_url, commit)
-    packages = {}
+    packages: _GitPackagesType = {}
 
     with workdir(git_repo_dir):
         if os.path.isfile('Cargo.toml'):
@@ -129,12 +137,12 @@ async def get_git_repo_packages(git_url, commit):
     return packages
 
 
-async def get_cargo_toml_packages(root_toml, root_dir):
+async def get_cargo_toml_packages(root_toml: _TomlType, root_dir: str) -> _GitPackagesType:
     assert not os.path.isabs(root_dir) and os.path.isdir(root_dir)
     assert 'package' in root_toml or 'workspace' in root_toml
-    packages = {}
+    packages: _GitPackagesType = {}
 
-    async def get_dep_packages(entry, toml_dir):
+    async def get_dep_packages(entry: _TomlType, toml_dir: str):
         assert not os.path.isabs(toml_dir)
         # https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html
         if 'dependencies' in entry:
@@ -171,7 +179,14 @@ async def get_cargo_toml_packages(root_toml, root_dir):
     return packages
 
 
-async def get_git_repo_sources(url, commit, tarball=False):
+_FlatpakSourceType = Dict[str, Any]
+
+
+async def get_git_repo_sources(
+    url: str,
+    commit: str,
+    tarball: bool = False,
+) -> List[_FlatpakSourceType]:
     name = git_repo_name(url, commit)
     if tarball:
         tarball_url = get_git_tarball(url, commit)
@@ -192,7 +207,15 @@ async def get_git_repo_sources(url, commit, tarball=False):
     return git_repo_sources
 
 
-async def get_git_package_sources(package, git_repos):
+_GitRepo = TypedDict('_GitRepo', {'lock': asyncio.Lock, 'commits': Dict[str, _GitPackagesType]})
+_GitReposType = Dict[str, _GitRepo]
+_VendorEntryType = Dict[str, Dict[str, str]]
+
+
+async def get_git_package_sources(
+    package: _TomlType,
+    git_repos: _GitReposType,
+) -> Tuple[List[_FlatpakSourceType], _VendorEntryType]:
     name = package['name']
     source = package['source']
     commit = urlparse(source).fragment
@@ -208,7 +231,7 @@ async def get_git_package_sources(package, git_repos):
         if commit not in git_repo['commits']:
             git_repo['commits'][commit] = await get_git_repo_packages(repo_url, commit)
 
-    cargo_vendored_entry = {
+    cargo_vendored_entry: _VendorEntryType = {
         repo_url: {
             'git': repo_url,
             'replace-with': VENDORED_SOURCES,
@@ -230,7 +253,7 @@ async def get_git_package_sources(package, git_repos):
     logging.info("Adding package %s from %s", name, repo_url)
     pkg_subpath = git_repo['commits'][commit][name]
     pkg_repo_dir = os.path.join(GIT_CACHE, git_repo_name(repo_url, commit), pkg_subpath)
-    git_sources = [
+    git_sources: List[_FlatpakSourceType] = [
         {
             'type': 'shell',
             'commands': [
@@ -248,14 +271,18 @@ async def get_git_package_sources(package, git_repos):
     return (git_sources, cargo_vendored_entry)
 
 
-async def get_package_sources(package, cargo_lock, git_repos):
+async def get_package_sources(
+    package: _TomlType,
+    cargo_lock: _TomlType,
+    git_repos: _GitReposType,
+) -> Optional[Tuple[List[_FlatpakSourceType], _VendorEntryType]]:
     metadata = cargo_lock.get('metadata')
     name = package['name']
     version = package['version']
 
     if 'source' not in package:
         logging.debug('%s has no source', name)
-        return
+        return None
     source = package['source']
 
     if source.startswith('git+'):
@@ -268,7 +295,7 @@ async def get_package_sources(package, cargo_lock, git_repos):
         checksum = package['checksum']
     else:
         logging.warning(f'{name} doesn\'t have checksum')
-        return
+        return None
     crate_sources = [
         {
             'type': 'archive',
@@ -287,7 +314,10 @@ async def get_package_sources(package, cargo_lock, git_repos):
     return (crate_sources, {'crates-io': {'replace-with': VENDORED_SOURCES}})
 
 
-async def generate_sources(cargo_lock, git_tarballs=False):
+async def generate_sources(
+    cargo_lock: _TomlType,
+    git_tarballs: bool = False,
+) -> List[_FlatpakSourceType]:
     # {
     #     "git-repo-url": {
     #         "lock": asyncio.Lock(),
@@ -298,8 +328,8 @@ async def generate_sources(cargo_lock, git_tarballs=False):
     #         }
     #     }
     # }
-    git_repos = {}
-    sources = []
+    git_repos: _GitReposType = {}
+    sources: List[_FlatpakSourceType] = []
     package_sources = []
     cargo_vendored_sources = {
         VENDORED_SOURCES: {'directory': f'{CARGO_CRATES}'},
