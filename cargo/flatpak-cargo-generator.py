@@ -5,6 +5,7 @@ import json
 from urllib.parse import urlparse, ParseResult, parse_qs
 import os
 import contextlib
+import copy
 import glob
 import subprocess
 import argparse
@@ -120,6 +121,23 @@ class _GitPackage(NamedTuple):
     path: str
     package: _TomlType
     workspace: Optional[_TomlType]
+
+    @property
+    def normalized(self) -> _TomlType:
+        package = copy.deepcopy(self.package)
+        if self.workspace is None:
+            return package
+        for section_key, section in package.items():
+            # XXX We ignore top-level lists here; maybe we should iterate over list items, too
+            if not isinstance(section, dict):
+                continue
+            for key, value in section.items():
+                if not isinstance(value, dict):
+                    continue
+                if not value.get('workspace'):
+                    continue
+                package[section_key][key] = self.workspace[section_key][key]
+        return package
 
 
 _GitPackagesType = Dict[str, _GitPackage]
@@ -292,6 +310,12 @@ async def get_git_package_sources(
             'commands': [
                 f'cp -r --reflink=auto "{pkg_repo_dir}" "{CARGO_CRATES}/{name}"'
             ],
+        },
+        {
+            'type': 'inline',
+            'contents': toml.dumps(git_pkg.normalized),
+            'dest': f'{CARGO_CRATES}/{name}', #-{version}',
+            'dest-filename': 'Cargo.toml',
         },
         {
             'type': 'inline',
