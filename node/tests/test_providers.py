@@ -13,9 +13,6 @@ async def test_minimal_git(
     provider_factory_spec: ProviderFactorySpec,
     node_version: int,
 ) -> None:
-    if node_version >= 18:
-        pytest.xfail(reason='Git sources not yet supported for lockfile v2 syntax')
-
     with ManifestGenerator() as gen:
         await provider_factory_spec.generate_modules('minimal-git', gen, node_version)
 
