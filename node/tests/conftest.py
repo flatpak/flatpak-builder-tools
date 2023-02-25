@@ -5,10 +5,13 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 import enum
 import json
 import subprocess
+import sys
 
 from pytest_httpserver import HTTPServer
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from flatpak_node_generator.cache import Cache, FilesystemBasedCache, NullCache
 from flatpak_node_generator.manifest import ManifestGenerator
@@ -112,7 +115,7 @@ class FlatpakBuilder:
         manifest = {
             'id': 'com.test.Test',
             'runtime': 'org.freedesktop.Platform',
-            'runtime-version': '21.08',
+            'runtime-version': '22.08',
             'sdk': 'org.freedesktop.Sdk',
             'sdk-extensions': sdk_extensions,
             'modules': [
@@ -158,6 +161,7 @@ class ProviderFactoryType(enum.Enum):
 class ProviderPaths:
     _V1_JSON = '.v1.json'
     _V2_JSON = '.v2.json'
+    _V3_JSON = '.v3.json'
 
     type: ProviderFactoryType
     root: Path
@@ -170,7 +174,13 @@ class ProviderPaths:
     @property
     def lockfile_source(self) -> Path:
         if self.type == ProviderFactoryType.NPM:
-            suffix = self._V2_JSON if self.node_version >= 16 else self._V1_JSON
+            if self.node_version >= 18:
+                suffix = self._V3_JSON
+            elif self.node_version >= 16:
+                suffix = self._V2_JSON
+            else:
+                suffix = self._V1_JSON
+
             return (self.root / f'package-lock').with_suffix(suffix)
         elif self.type == ProviderFactoryType.YARN:
             return self.root / 'yarn.lock'
@@ -299,7 +309,7 @@ def provider_factory_spec(request: Any, shared_datadir: Path) -> ProviderFactory
     return ProviderFactorySpec(datadir=shared_datadir, type=type)
 
 
-@pytest.fixture(params=[14, 16])
+@pytest.fixture(params=[14, 16, 18])
 def node_version(request: Any) -> int:
     version = request.param
     assert isinstance(version, int)

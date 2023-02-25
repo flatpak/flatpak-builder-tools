@@ -7,7 +7,7 @@ die() {
   exit 1
 }
 
-USAGE="$0 [update-lockfile|peek-cache] [npm-14|npm-16|yarn] <package>"
+USAGE="$0 [update-lockfile|peek-cache] [npm-14|npm-16|npm-18|yarn] <package>"
 
 [[ "$#" -eq 3 ]] || die "$USAGE"
 
@@ -18,14 +18,22 @@ package_arg="$3"
 [[ "$command_arg" == @(update-lockfile|peek-cache) ]] || die "$USAGE"
 
 case "$pm_arg" in
-  npm-14|npm-16)
-    if [[ "$pm_arg" == npm-16 ]]; then
-      pm_lockfile=package-lock.v2.json
-      pm_sdk_ext=node16
-    else
-      pm_lockfile=package-lock.v1.json
-      pm_sdk_ext=node14
-    fi
+  npm-*)
+    case "$pm_arg" in
+      npm-18)
+        pm_lockfile=package-lock.v3.json
+        pm_sdk_ext=node18
+      ;;
+      npm-16)
+        pm_lockfile=package-lock.v2.json
+        pm_sdk_ext=node16
+      ;;
+      npm-14)
+        pm_lockfile=package-lock.v1.json
+        pm_sdk_ext=node14
+      ;;
+      *) die "$USAGE" ;;
+    esac
 
     pm_actual_lockfile=package-lock.json
 
@@ -76,7 +84,7 @@ EOF
   --cwd="$tmpdir" \
   --filesystem="$tmpdir" \
   --share=network \
-  org.freedesktop.Sdk//21.08 \
+  org.freedesktop.Sdk//22.08 \
   -c "cp $gitconfig ~/.gitconfig && . /usr/lib/sdk/$pm_sdk_ext/enable.sh && $pm_name install")
 
 case "$command_arg" in

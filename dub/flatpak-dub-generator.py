@@ -47,7 +47,7 @@ async def get_sources(http_session, name, version_obj):
     local_package = {
         "name": name,
         "version": version,
-        "path": f"@builddir@/.flatpak-dub/{name}-{version}"
+        "path": f".flatpak-dub/{name}-{version}"
     }
     return (source, local_package)
 
@@ -67,15 +67,18 @@ async def generate_sources(dub_selections):
                 local_packages.append(local_package)
     sources += [
         {
-            "type": "file",
-            "url": "data:" + urllib.parse.quote(json.dumps(local_packages)),
+            "type": "inline",
+            "contents": json.dumps(local_packages),
             "dest": ".dub/packages",
             "dest-filename": "local-packages.json"
         },
         {
             "type": "shell",
             "commands": [
-                "sed \"s|@builddir@|$(pwd)|g\" -i .dub/packages/local-packages.json"
+                (
+                    "jq 'map(.path = ([$ENV.PWD] + (.path | split(\"/\")) | join(\"/\")))' "
+                    "<<<$(<.dub/packages/local-packages.json) > .dub/packages/local-packages.json"
+                )
             ]
         }
     ]

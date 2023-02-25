@@ -52,10 +52,10 @@ class NpmLockfileProvider(LockfileProvider):
     def __init__(self, options: Options):
         self.no_devel = options.no_devel
 
-    def process_dependencies(
-        self, lockfile: Path, dependencies: Dict[str, Dict[Any, Any]]
+    def _process_packages_v1(
+        self, lockfile: Path, entry: Dict[str, Dict[Any, Any]]
     ) -> Iterator[Package]:
-        for name, info in dependencies.items():
+        for name, info in entry.get('dependencies', {}).items():
             if info.get('dev') and self.no_devel:
                 continue
             elif info.get('bundled'):
@@ -92,15 +92,82 @@ class NpmLockfileProvider(LockfileProvider):
             yield Package(name=name, version=version, source=source, lockfile=lockfile)
 
             if 'dependencies' in info:
-                yield from self.process_dependencies(lockfile, info['dependencies'])
+                yield from self._process_packages_v1(lockfile, info)
+
+    def _process_packages_v2(
+        self, lockfile: Path, entry: Dict[str, Dict[Any, Any]]
+    ) -> Iterator[Package]:
+        for install_path, info in entry.get('packages', {}).items():
+            if (info.get('dev') or info.get('devOptional')) and self.no_devel:
+                continue
+            if info.get('link'):
+                # NOTE We're not interested in symlinks, NPM will create them at install time
+                # but we still could collect package symlinks anyway just for completeness
+                continue
+
+            name = info.get('name')
+
+            source: PackageSource
+            package_json_path = lockfile.parent / install_path / 'package.json'
+            if (
+                'node_modules' not in package_json_path.parents
+                and package_json_path.exists()
+            ):
+                source = LocalSource(path=install_path)
+                if name is None:
+                    with package_json_path.open('rb') as fp:
+                        name = json.load(fp)['name']
+            elif 'resolved' in info:
+                resolved_url = urllib.parse.urlparse(info['resolved'])
+                if resolved_url.scheme == 'file':
+                    source = LocalSource(path=resolved_url.path)
+                elif resolved_url.scheme in {'http', 'https'}:
+                    integrity = Integrity.parse(info['integrity'])
+                    # NOTE I don't know how to determine if the source came from a registry
+                    # based on the lockfile alone, so unconditionally handling it as if it was
+                    # a "URL as dependency" kind of source
+                    source = PackageURLSource(
+                        integrity=integrity, resolved=info['resolved']
+                    )
+                elif resolved_url.scheme.startswith('git+'):
+                    raise NotImplementedError(
+                        'Git sources in lockfile v2 format are not supported yet'
+                        f' (package {install_path} in {lockfile})'
+                    )
+            else:
+                raise NotImplementedError(
+                    f"Don't know how to handle package {install_path} in {lockfile}"
+                )
+
+            # NOTE We can't reliably determine the package name from the lockfile v2 syntax,
+            # but we need it for registry queries and special source processing;
+            # If we didn't get the package name at this point, try determining it from
+            # the install path as the last resort
+            if name is None:
+                path_list = install_path.split('/')
+                name = '/'.join(path_list[-path_list[::-1].index('node_modules') :])
+
+            yield Package(
+                name=name,
+                version=info.get('version'),
+                lockfile=lockfile,
+                source=source,
+            )
 
     def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
         with open(lockfile) as fp:
             data = json.load(fp)
 
-        assert data['lockfileVersion'] <= 2, data['lockfileVersion']
-
-        yield from self.process_dependencies(lockfile, data.get('dependencies', {}))
+        # TODO Once lockfile v2 syntax support is complete, use _process_packages_v2
+        # for both v2 and v2 lockfiles
+        if data['lockfileVersion'] in {1, 2}:
+            yield from self._process_packages_v1(lockfile, data)
+        elif data['lockfileVersion'] in {3}:
+            yield from self._process_packages_v2(lockfile, data)
+        else:
+            raise NotImplementedError(
+                f'Unknown lockfile version {data["lockfileVersion"]}'
+            )
 
 
 class NpmRCFileProvider(RCFileProvider):
@@ -273,21 +340,11 @@ class NpmModuleProvider(ModuleProvider):
         self.all_lockfiles.add(package.lockfile)
         source = package.source
 
-        if isinstance(source, RegistrySource):
-            source = await self.resolve_source(package)
+        if isinstance(source, (RegistrySource, PackageURLSource)):
+            if isinstance(source, RegistrySource):
+                source = await self.resolve_source(package)
+
             assert source.resolved is not None
-            assert source.integrity is not None
-
-            integrity = await source.retrieve_integrity()
-            size = await RemoteUrlMetadata.get_size(source.resolved, cachable=True)
-            metadata = RemoteUrlMetadata(integrity=integrity, size=size)
-            content_path = self.get_cacache_content_path(integrity)
-            self.gen.add_url_source(source.resolved, integrity, content_path)
-            self.add_index_entry(source.resolved, metadata)
-
-            await self.special_source_provider.generate_special_sources(package)
-
-        elif isinstance(source, PackageURLSource):
             assert source.integrity is not None
 
             self.gen.add_url_source(
@@ -304,6 +361,8 @@ class NpmModuleProvider(ModuleProvider):
                     ),
                 ),
             )
+
+            await self.special_source_provider.generate_special_sources(package)
 
         # pyright: reportUnnecessaryIsInstance=false
         elif isinstance(source, GitSource):

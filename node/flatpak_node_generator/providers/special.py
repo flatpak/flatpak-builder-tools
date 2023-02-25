@@ -375,16 +375,22 @@ class SpecialSourceProvider:
             )
 
     async def _handle_esbuild(self, package: Package) -> None:
-        pkg_names = {
-            'x86_64': 'esbuild-linux-64',
-            'i386': 'esbuild-linux-32',
-            'arm': 'esbuild-linux-arm',
-            'aarch64': 'esbuild-linux-arm64',
-        }
+        pkg_names = [
+            ('x86_64', '@esbuild/linux-x64', 'esbuild-linux-64'),
+            ('i386', '@esbuild/linux-ia32', 'esbuild-linux-32'),
+            ('arm', '@esbuild/linux-arm', 'esbuild-linux-arm'),
+            ('aarch64', '@esbuild/linux-arm64', 'esbuild-linux-arm64'),
+        ]
 
-        for flatpak_arch, pkg_name in pkg_names.items():
-            dl_url = f'https://registry.npmjs.org/{pkg_name}/-/{pkg_name}-{package.version}.tgz'
-            metadata = await RemoteUrlMetadata.get(dl_url, cachable=True)
+        pkg_name_is_scoped = SemVer.parse(package.version) >= SemVer.parse('0.16.0')
+
+        for flatpak_arch, new_pkg_name, old_pkg_name in pkg_names:
+            pkg_name = new_pkg_name if pkg_name_is_scoped else old_pkg_name
+            data_url = f'https://registry.npmjs.org/{pkg_name}/{package.version}'
+            registry_data = json.loads(await Requests.instance.read_all(data_url))
+
+            dl_url = registry_data['dist']['tarball']
+            integrity = Integrity.parse(registry_data['dist']['integrity'])
 
             cache_dst = self.gen.data_root / 'cache' / 'esbuild'
             archive_dst = cache_dst / '.package' / f'{pkg_name}@{package.version}'
@@ -393,7 +399,7 @@ class SpecialSourceProvider:
 
             self.gen.add_archive_source(
                 dl_url,
-                metadata.integrity,
+                integrity,
                 destination=archive_dst,
                 only_arches=[flatpak_arch],
                 strip_components=1,

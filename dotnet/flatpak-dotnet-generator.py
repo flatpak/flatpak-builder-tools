@@ -13,10 +13,19 @@ import tempfile
 
 
 def main():
+    # Bump this to latest freedesktop runtime version.
+    freedesktop_default = '22.08'
+    # Bump this to an LTS dotnet version.
+    dotnet_default = '6'
+
     parser = argparse.ArgumentParser()
     parser.add_argument('output', help='The output JSON sources file')
     parser.add_argument('project', help='The project file')
     parser.add_argument('--runtime', '-r', help='The target runtime to restore packages for')
+    parser.add_argument('--freedesktop', '-f', help='The target version of the freedesktop sdk to use', 
+                        default=freedesktop_default)
+    parser.add_argument('--dotnet', '-d', help='The target version of dotnet to use', 
+                        default=dotnet_default)
     parser.add_argument('--destdir',
                         help='The directory the generated sources file will save sources to',
                         default='nuget-sources')
@@ -33,9 +42,9 @@ def main():
             'flatpak', 'run',
             '--env=DOTNET_CLI_TELEMETRY_OPTOUT=true',
             '--env=DOTNET_SKIP_FIRST_TIME_EXPERIENCE=true',
-            '--command=sh', '--runtime=org.freedesktop.Sdk//21.08', '--share=network',
-            '--filesystem=host', 'org.freedesktop.Sdk.Extension.dotnet6//21.08', '-c',
-            'PATH="${PATH}:/usr/lib/sdk/dotnet6/bin" LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/sdk/dotnet6/lib" exec dotnet restore "$@"',
+            '--command=sh', f'--runtime=org.freedesktop.Sdk//{args.freedesktop}', '--share=network',
+            '--filesystem=host', f'org.freedesktop.Sdk.Extension.dotnet{args.dotnet}//{args.freedesktop}', '-c',
+            f'PATH="${{PATH}}:/usr/lib/sdk/dotnet{args.dotnet}/bin" LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/sdk/dotnet{args.dotnet}/lib" exec dotnet restore "$@"',
             '--', '--packages', tmp, args.project] + runtime_args)
 
         for path in Path(tmp).glob('**/*.nupkg.sha512'):

@@ -22,19 +22,20 @@ jobs:
           - '3.8'
           - '3.9'
           - '3.10'
+          - '3.11'
         poetry-version:
           - '1.1.13'
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Configure git
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: abatilo/actions-poetry@v2.0.0
+      - uses: abatilo/actions-poetry@v2.1.6
         with:
           poetry-version: ${{ matrix.poetry-version }}
       - name: Install OS dependencies
@@ -43,7 +44,7 @@ jobs:
         run: |
           flatpak --user remote-add flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak --user install -y flathub \
-            org.freedesktop.{Platform,Sdk{,.Extension.node{14,16}}}//21.08
+            org.freedesktop.{Platform,Sdk{,.Extension.node{14,16,18}}}//22.08
       - name: Install dependencies
         run: poetry install
       - name: Run checks

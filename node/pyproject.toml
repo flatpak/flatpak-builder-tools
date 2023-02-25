@@ -34,7 +34,7 @@ src_paths = ["flatpak_node_generator", "tests"]
 
 [tool.mypy]
 python_version = "3.7"
-exclude = "^(.*/)?((([^/]+)-quick-start)|(\\.venv))/.*$"
+exclude = "^(.*/)?((([^/]+)-quick-start)|(\\.venv)|npm-cache|yarn-mirror)/.*$"
 strict = true
 
 [tool.poe.tasks]
