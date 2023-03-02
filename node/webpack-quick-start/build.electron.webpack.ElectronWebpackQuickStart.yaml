@@ -9,8 +9,6 @@ base-version: '21.08'
 # Add the Node 12 SDK extension.
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.node12
-# Electron doesn't use a traditional locale format so separate-locales is useless.
-separate-locales: false
 command: start-electron-webpack-quick-start
 finish-args:
   # These three lines add the permissions needed for graphics.
@@ -60,6 +58,9 @@ modules:
       # - 'install -Dm 755 flatpak-node/libffmpeg.so -t /app/electron-webpack-quick-start'
       # Install the wrapper script to start it.
       - install -Dm 755 start-electron-webpack-quick-start.sh /app/bin/start-electron-webpack-quick-start
+
+      # To allow separate locales
+      - setup-separate-locales ${FLATPAK_DEST}/electron-webpack-quick-start
     sources:
       - type: git
         url: https://github.com/electron-userland/electron-webpack-quick-start

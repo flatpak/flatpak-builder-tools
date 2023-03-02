@@ -9,8 +9,6 @@ base-version: '22.08'
 # Add the Node 16 SDK extension.
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.node18
-# Electron doesn't use a traditional locale format so separate-locales is useless.
-separate-locales: false
 command: start-electron-quick-start
 finish-args:
   # These three lines add the permissions needed for graphics.
@@ -62,6 +60,9 @@ modules:
       - cp -r electron-quick-start /app
       # Install the wrapper script to start it.
       - install -Dm 755 start-electron-quick-start.sh /app/bin/start-electron-quick-start
+
+      # To allow separate locales
+      - setup-separate-locales ${FLATPAK_DEST}/electron-quick-start
     sources:
       - type: git
         url: https://github.com/electron/electron-quick-start
