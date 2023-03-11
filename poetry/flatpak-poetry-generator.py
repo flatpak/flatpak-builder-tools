@@ -70,12 +70,12 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
                     or package["category"] == "main"
                     and not package["optional"]
                 ):
+                    hashes = []
                     # Check for old metadata format (poetry version < 1.0.0b2)
                     if "hashes" in parsed_lockfile["metadata"]:
                         hashes = parsed_lockfile["metadata"]["hashes"][package["name"]]
-                    # Else new metadata format
-                    else:
-                        hashes = []
+                    # metadata format 1.1
+                    elif "files" in parsed_lockfile["metadata"]:
                         for package_name in parsed_lockfile["metadata"]["files"]:
                             if package_name == package["name"]:
                                 package_files = parsed_lockfile["metadata"]["files"][
@@ -86,6 +86,12 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
                                     match = hash_re.search(package_files[num]["hash"])
                                     if match:
                                         hashes.append(match.group(2))
+                    # metadata format 2.0
+                    else:
+                        for file in package["files"]:
+                            match = hash_re.search(file["hash"])
+                            if match:
+                                hashes.append(match.group(2))
                     url, hash = get_pypi_source(
                         package["name"], package["version"], hashes
                     )
