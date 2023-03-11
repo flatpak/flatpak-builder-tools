@@ -63,19 +63,23 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
     for section, packages in parsed_lockfile.items():
         if section == "package":
             for package in packages:
-                if (
-                    package["category"] == "dev"
-                    and include_devel
-                    and not package["optional"]
-                    or package["category"] == "main"
-                    and not package["optional"]
+                if "category" not in package or (
+                    (
+                        package.get("category") == "dev"
+                        and include_devel
+                        and not package.get("optional")
+                    )
+                    or (
+                        package.get("category") == "main"
+                        and not package.get("optional")
+                    )
                 ):
+                    hashes = []
                     # Check for old metadata format (poetry version < 1.0.0b2)
                     if "hashes" in parsed_lockfile["metadata"]:
                         hashes = parsed_lockfile["metadata"]["hashes"][package["name"]]
-                    # Else new metadata format
-                    else:
-                        hashes = []
+                    # metadata format 1.1
+                    elif "files" in parsed_lockfile["metadata"]:
                         for package_name in parsed_lockfile["metadata"]["files"]:
                             if package_name == package["name"]:
                                 package_files = parsed_lockfile["metadata"]["files"][
@@ -86,6 +90,12 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
                                     match = hash_re.search(package_files[num]["hash"])
                                     if match:
                                         hashes.append(match.group(2))
+                    # metadata format 2.0
+                    else:
+                        for file in package["files"]:
+                            match = hash_re.search(file["hash"])
+                            if match:
+                                hashes.append(match.group(2))
                     package_source = package.get("source")
                     if package_source and package_source["type"] == "directory":
                         print(f'Skipping download url and hash extraction for {package["name"]}, source type is directory')
@@ -112,12 +122,16 @@ def get_dep_names(parsed_lockfile: dict, include_devel: bool = True) -> list:
     for section, packages in parsed_lockfile.items():
         if section == "package":
             for package in packages:
-                if (
-                    package["category"] == "dev"
-                    and include_devel
-                    and not package["optional"]
-                    or package["category"] == "main"
-                    and not package["optional"]
+                if "category" not in package or (
+                    (
+                        package.get("category") == "dev"
+                        and include_devel
+                        and not package.get("optional")
+                    )
+                    or (
+                        package.get("category") == "main"
+                        and not package.get("optional")
+                    )
                 ):
                     dep_names.append(package["name"])
     return dep_names
