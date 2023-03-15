@@ -133,6 +133,13 @@ async def get_cargo_toml_packages(root_toml, root_dir):
     assert not os.path.isabs(root_dir) and os.path.isdir(root_dir)
     assert 'package' in root_toml or 'workspace' in root_toml
     packages = {}
+    excluded_paths = None
+
+    def is_excluded(path):
+        if not excluded_paths:
+            return False
+        return any(os.path.commonpath([excluded_path, path]) == excluded_path
+                   for excluded_path in excluded_paths)
 
     async def get_dep_packages(entry, toml_dir):
         assert not os.path.isabs(toml_dir)
@@ -146,6 +153,9 @@ async def get_cargo_toml_packages(root_toml, root_dir):
                 if dep_name in packages:
                     continue
                 dep_dir = os.path.normpath(os.path.join(toml_dir, dep['path']))
+                if is_excluded(dep_dir):
+                    logging.warning("Excluded dependency at %s", dep_dir)
+                    return
                 logging.debug("Loading dependency %s from %s", dep_name, dep_dir)
                 dep_toml = load_toml(os.path.join(dep_dir, 'Cargo.toml'))
                 assert dep_toml['package']['name'] == dep_name, toml_dir
@@ -160,9 +170,16 @@ async def get_cargo_toml_packages(root_toml, root_dir):
         packages[root_toml['package']['name']] = root_dir
 
     if 'workspace' in root_toml:
-        for member in root_toml['workspace'].get('members', []):
+        workspace = root_toml['workspace']
+        if 'exclude' in workspace:
+            excluded_paths = [os.path.normpath(os.path.join(root_dir, excluded))
+                              for excluded in workspace['exclude']]
+        for member in workspace.get('members', []):
             for subpkg_toml in glob.glob(os.path.join(root_dir, member, 'Cargo.toml')):
                 subpkg = os.path.normpath(os.path.dirname(subpkg_toml))
+                if is_excluded(subpkg):
+                    logging.warning("Excluded member at %s", subpkg)
+                    continue
                 logging.debug("Loading workspace member %s in %s", member, root_dir)
                 pkg_toml = load_toml(subpkg_toml)
                 await get_dep_packages(pkg_toml, subpkg)
