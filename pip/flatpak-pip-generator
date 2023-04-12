@@ -53,6 +53,8 @@ parser.add_argument('--runtime',
                     help='Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility')
 parser.add_argument('--yaml', action='store_true',
                     help='Use YAML as output format instead of JSON')
+parser.add_argument('--ignore-errors', action='store_true',
+                    help='Ignore errors when downloading packages')
 opts = parser.parse_args()
 
 if opts.yaml:
@@ -251,6 +253,9 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     except subprocess.CalledProcessError:
         print('Failed to download')
         print('Please fix the module manually in the generated file')
+        if not opts.ignore_errors:
+            print('Ignore the error by passing --ignore-errors')
+            raise
 
     if not opts.requirements_file:
         try:
