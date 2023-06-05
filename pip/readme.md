@@ -46,6 +46,7 @@ You can use that in your manifest like
 * `--requirements-file=`, `-r`: Reads the list of packages from `requirements.txt` file.
 * `--checker-data`: This adds `x-checker-data` to modules so you will be notified when new releases happen. See [flatpak-external-data-checker](https://github.com/flathub/flatpak-external-data-checker) for more details.
 * `--runtime=`: Runs `pip` inside of a specific Flatpak runtime instead of on your host. Highly recommended for reproducability and portability. Examples would be `org.freedesktop.Sdk//22.08` or `org.gnome.Sdk/aarch64/43`.
+* `--ignore-errors=`: Allow the generation of empty or otherwise broken files when downloading packages fails.
 * `--ignore-installed=`: Comma-separated list of package names for which pip should ignore already installed packages. Useful when the package is installed in the SDK but not in the runtime.
 * `--output=`: Sets an output file.
 * `--yaml`: Outputs a YAML file.
