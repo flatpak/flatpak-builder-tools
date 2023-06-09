@@ -13,7 +13,7 @@ Generated manifests are supported by flatpak-builder 1.2.x or newer.
 
 ## Usage:
 
-The first step is to convert the locked depenencies by Cargo into a format flatpak-builder can understand
+The first step is to convert the locked dependencies by Cargo into a format flatpak-builder can understand
 ```
 python3 ./flatpak-cargo-generator.py ./quickstart/Cargo.lock -o cargo-sources.json
 ```
