@@ -210,8 +210,11 @@ if opts.runtime:
 else:
     flatpak_cmd = [pip_executable]
 
+output_path = ''
+
 if opts.output:
-    output_package = opts.output
+    output_path = os.path.dirname(opts.output)
+    output_package = os.path.basename(opts.output)
 elif opts.requirements_file:
     output_package = 'python{}-{}'.format(
         python_version,
@@ -224,15 +227,15 @@ elif len(packages) == 1:
 else:
     output_package = 'python{}-modules'.format(python_version)
 if opts.yaml:
-    output_filename = output_package + '.yaml'
+    output_filename = os.path.join(output_path, output_package) + '.yaml'
 else:
-    output_filename = output_package + '.json'
+    output_filename = os.path.join(output_path, output_package) + '.json'
 
 modules = []
 vcs_modules = []
 sources = {}
 
-tempdir_prefix = 'pip-generator-{}'.format(os.path.basename(output_package))
+tempdir_prefix = 'pip-generator-{}'.format(output_package)
 with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     pip_download = flatpak_cmd + [
         'download',
