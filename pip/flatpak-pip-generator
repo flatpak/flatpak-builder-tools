@@ -186,7 +186,10 @@ elif opts.packages:
         req_file.write('\n'.join(opts.packages))
         requirements_file_output = req_file.name
 else:
-    exit('Please specifiy either packages or requirements file argument')
+    if not len(sys.argv) > 1:
+        exit('Please specifiy either packages or requirements file argument')
+    else:
+        exit('This option can only be used with requirements file')
 
 for i in packages:
     if i["name"].lower().startswith("pyqt"):
