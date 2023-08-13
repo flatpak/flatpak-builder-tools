@@ -6,6 +6,7 @@ import argparse
 import json
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -165,7 +166,9 @@ if opts.requirements_file:
         with open(requirements_file_input, 'r') as req_file:
             reqs = parse_continuation_lines(req_file)
             reqs_as_str = '\n'.join([r.split('--hash')[0] for r in reqs])
-            reqs_list = reqs_as_str.splitlines()
+            reqs_list_raw = reqs_as_str.splitlines()
+            py_version_regex = re.compile(r';.*python_version .+$') # Remove when pip-generator can handle python_version
+            reqs_list = [py_version_regex.sub('', p) for p in reqs_list_raw]
             if opts.ignore_pkg:
                 reqs_new = '\n'.join(i for i in reqs_list if i not in opts.ignore_pkg)
             else:
