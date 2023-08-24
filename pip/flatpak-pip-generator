@@ -268,7 +268,9 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     print('Running: "{}"'.format(cmd))
     try:
         subprocess.run(pip_download, check=True)
+        os.remove(requirements_file_output)
     except subprocess.CalledProcessError:
+        os.remove(requirements_file_output)
         print('Failed to download')
         print('Please fix the module manually in the generated file')
         if not opts.ignore_errors:
