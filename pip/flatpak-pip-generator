@@ -177,8 +177,9 @@ if opts.requirements_file:
             with tempfile.NamedTemporaryFile('w', delete=False, prefix='requirements.') as req_file:
                 req_file.write(reqs_new)
                 requirements_file_output = req_file.name
-    except FileNotFoundError:
-        pass
+    except FileNotFoundError as err:
+        print(err)
+        sys.exit(1)
 
 elif opts.packages:
     packages = list(requirements.parse('\n'.join(opts.packages)))
