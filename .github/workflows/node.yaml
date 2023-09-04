@@ -27,7 +27,7 @@ jobs:
           - '1.1.13'
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Configure git
         run: |
           git config --global user.name 'github-actions[bot]'
