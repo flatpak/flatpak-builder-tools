@@ -5,6 +5,8 @@ import json
 import os
 import tempfile
 import yaml
+import requests
+from bs4 import BeautifulSoup
 
 
 def get_module_info(module):
@@ -19,6 +21,30 @@ def get_module_info(module):
         text=True,
     )
     return module_name, json.loads(result.stdout)
+
+
+def get_git_url(module_name):
+    if "gitlab.com" in module_name:
+        return (
+            f"https://gitlab.com/{module_name}"
+            if module_name.endswith(".git")
+            else f"https://gitlab.com/{module_name}.git"
+        )
+    elif "github.com" in module_name:
+        return (
+            f"https://github.com/{module_name}"
+            if module_name.endswith(".git")
+            else f"https://github.com/{module_name}.git"
+        )
+    else:
+        response = requests.get(f"https://{module_name}/?go-get=1")
+        if response.status_code != 200:
+            return None
+        soup = BeautifulSoup(response.content, "html.parser")
+        meta_tag = soup.find("meta", {"name": "go-import"})
+        if meta_tag:
+            return meta_tag["content"].split(" ")[2]
+        return None
 
 
 def main():
@@ -75,6 +101,10 @@ def main():
             if not version:
                 continue
 
+            git_url = get_git_url(module_name)
+            if not git_url:
+                git_url = f"https://{module_name}.git"
+
             if version.startswith("v"):
                 ref_type = "tag"
             else:
@@ -83,7 +113,7 @@ def main():
             sources.append(
                 {
                     "type": "git",
-                    "url": f"https://{module_name}.git",
+                    "url": git_url,
                     ref_type: version,
                     "dest": f"src/{path.replace('.', '/')}",
                 }

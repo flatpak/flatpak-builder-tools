@@ -1,6 +1,6 @@
 # Go
 
-This script requires Go and git to be installed.
+This script requires Go and git to be installed. You also need the Python in [requirements.txt](./requirements.txt).
 
 This script works by creating a new Go module in a temporary folder, add the given Go package as a dependency, and then runs `go list -m all` to get the full list of Go modules. For each module, it uses `go list -m -json <module>` to get detailed information. And then finally, it outputs the module in YAML format.
 
