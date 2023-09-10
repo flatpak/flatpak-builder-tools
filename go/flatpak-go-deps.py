@@ -36,6 +36,8 @@ def get_git_url(module_name):
             if module_name.endswith(".git")
             else f"https://github.com/{module_name.lstrip('github.com/')}.git"
         )
+    elif "git.torproject.org" in module_name:
+        return f"https://{module_name}"
     else:
         response = requests.get(f"https://{module_name}/?go-get=1")
         if response.status_code != 200:
