@@ -36,8 +36,7 @@ body:
         - cpan/flatpak-cpan-generator.pl
         - dotnet/flatpak-dotnet-generator.py
         - dub/flatpak-dub-generator.py
-        - go-get/flatpak-go-get-generator.py
-        - go-get/flatpak-go-vendor-generator.py
+        - go/flatpak-go-deps.py
         - node/flatpak-node-generator.py
         - npm/flatpak-npm-generator.py
         - pip/flatpak-pip-generator
