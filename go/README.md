@@ -29,7 +29,7 @@ remote: Enumerating objects: 2676, done.
 remote: Counting objects: 100% (658/658), done.
 remote: Compressing objects: 100% (281/281), done.
 remote: Total 2676 (delta 372), reused 658 (delta 372), pack-reused 2018
-Receiving objects: 100% (2676/2676), 549.97 KiB | 440.00 KiB/s, done.
+Receiving objects: 100% (2676/2676), 549.97 KiB | 981.00 KiB/s, done.
 Resolving deltas: 100% (1546/1546), done.
 Note: switching to 'v0.38.0'.
 
@@ -62,41 +62,41 @@ sources:
 - dest: src/git/torproject/org/pluggable-transports/goptlib/git
   tag: v1.1.0
   type: git
-  url: https://git.torproject.org/pluggable-transports/goptlib.git.git
+  url: https://gitlab.torproject.org/tpo/anti-censorship.git
 - dest: src/github/com/andybalholm/brotli
   tag: v1.0.4
   type: git
-  url: https://github.com/andybalholm/brotli.git
+  url: https://github.com/github.com/andybalholm/brotli.git
 - dest: src/github/com/klauspost/compress
   tag: v1.15.9
   type: git
-  url: https://github.com/klauspost/compress.git
+  url: https://github.com/github.com/klauspost/compress.git
 - dest: src/github/com/refraction-networking/utls
   tag: v1.1.5
   type: git
-  url: https://github.com/refraction-networking/utls.git
+  url: https://github.com/github.com/refraction-networking/utls.git
 - dest: src/golang/org/x/crypto
   tag: v0.0.0-20220829220503-c86fa9a7ed90
   type: git
-  url: https://golang.org/x/crypto.git
+  url: https://go.googlesource.com/crypto
 - dest: src/golang/org/x/net
   tag: v0.0.0-20220909164309-bea034e7d591
   type: git
-  url: https://golang.org/x/net.git
+  url: https://go.googlesource.com/net
 - dest: src/golang/org/x/sys
   tag: v0.0.0-20220728004956-3c1f35247d10
   type: git
-  url: https://golang.org/x/sys.git
+  url: https://go.googlesource.com/sys
 - dest: src/golang/org/x/term
   tag: v0.0.0-20210927222741-03fcf44c2211
   type: git
-  url: https://golang.org/x/term.git
+  url: https://go.googlesource.com/term
 - dest: src/golang/org/x/text
   tag: v0.3.7
   type: git
-  url: https://golang.org/x/text.git
+  url: https://go.googlesource.com/text
 - dest: src/golang/org/x/tools
   tag: v0.0.0-20180917221912-90fa682c2a6e
   type: git
-  url: https://golang.org/x/tools.git
+  url: https://go.googlesource.com/tools
 ```

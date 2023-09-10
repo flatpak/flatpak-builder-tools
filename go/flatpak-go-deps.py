@@ -26,15 +26,15 @@ def get_module_info(module):
 def get_git_url(module_name):
     if "gitlab.com" in module_name:
         return (
-            f"https://gitlab.com/{module_name}"
+            f"https://gitlab.com/{module_name.lstrip('gitlab.com/')}"
             if module_name.endswith(".git")
-            else f"https://gitlab.com/{module_name}.git"
+            else f"https://gitlab.com/{module_name.lstrip('gitlab.com/')}.git"
         )
     elif "github.com" in module_name:
         return (
-            f"https://github.com/{module_name}"
+            f"https://github.com/{module_name.lstrip('github.com/')}"
             if module_name.endswith(".git")
-            else f"https://github.com/{module_name}.git"
+            else f"https://github.com/{module_name.lstrip('github.com/')}.git"
         )
     else:
         response = requests.get(f"https://{module_name}/?go-get=1")
