@@ -51,10 +51,14 @@ def get_git_url(module_name):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: ./flatpak-go-deps.py <repository/folder@version>")
+        print("Usage: ./flatpak-go-deps.py <repository/folder[@version]>")
         sys.exit(1)
 
-    repo_and_folder, version = sys.argv[1].split("@")
+    if "@" in sys.argv[1]:
+        repo_and_folder, version = sys.argv[1].split("@")
+    else:
+        repo_and_folder = sys.argv[1]
+        version = None
 
     if "/" in repo_and_folder:
         repo, folder = repo_and_folder.rsplit("/", 1)
@@ -74,14 +78,16 @@ def main():
                 ["git", "clone", f"https://{repo}", f"src/{repo_name}"], check=True
             )
             os.chdir(f"src/{repo_name}")
-            subprocess.run(["git", "checkout", version], check=True)
+
+            if version:
+                subprocess.run(["git", "checkout", version], check=True)
+
             os.chdir(temp_dir)
+
             if folder:
                 os.chdir(f"src/{repo_name}/{folder}")
         except subprocess.CalledProcessError:
-            print(
-                f"Error fetching {repo}@{version}. Please verify the repository and version."
-            )
+            print(f"Error fetching {sys.argv[1]}")
             sys.exit(1)
 
         result = subprocess.run(
