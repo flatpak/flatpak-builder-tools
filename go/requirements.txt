@@ -1,3 +1,4 @@
 pyyaml
 requests
 bs4
+click

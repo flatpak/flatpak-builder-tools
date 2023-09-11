@@ -1,4 +1,4 @@
-# Go
+# Flatpak Go Generator
 
 This script requires Go and git to be installed. You also need the Python in [requirements.txt](./requirements.txt).
 

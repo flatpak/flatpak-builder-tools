@@ -7,8 +7,10 @@ import json
 import os
 import re
 import tempfile
+
 import yaml
 import requests
+import click
 from bs4 import BeautifulSoup
 
 
@@ -129,16 +131,13 @@ def get_git_url(module_name):
         return None
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("✨ Usage: ./flatpak-go-deps.py <repository/folder[@version]>")
-        sys.exit(1)
-
-    if "@" in sys.argv[1]:
-        repo_and_folder, version = sys.argv[1].split("@")
-    else:
-        repo_and_folder = sys.argv[1]
-        version = None
+@click.command()
+@click.argument("repo_and_folder", type=str)
+@click.option("--version", default=None, help="Version of the repository.")
+@click.option("--github_api_token", default=None, help="GitHub API Token.")
+@click.option("--gitlab_api_token", default=None, help="GitLab API Token.")
+def main(repo_and_folder, version, github_api_token, gitlab_api_token):
+    """Flatpak Go Generator"""
 
     if "/" in repo_and_folder:
         repo, folder = repo_and_folder.rsplit("/", 1)
