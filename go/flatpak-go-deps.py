@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# coding: utf-8
+
 import subprocess
 import sys
 import json
@@ -25,20 +27,50 @@ def extract_commit_id(module_version):
 
 
 def get_commit_id_from_git(git_url, version=None):
+    # If it's a GitHub URL, use the GitHub API
+    if "github.com" in git_url:
+        repo_parts = git_url.replace("https://github.com/", "").split("/")
+        if len(repo_parts) == 2:
+            owner, repo = repo_parts
+            tag_url = (
+                f"https://api.github.com/repos/{owner}/{repo}/git/refs/tags/{version}"
+            )
+            response = requests.get(tag_url)
+            if response.status_code == 200:
+                json_data = response.json()
+                commit_id = json_data["object"]["sha"]
+                print(f"✨ Used GitHub API to find commit ID: {commit_id}")
+                return commit_id
+
+    # If it's a GitLab URL, use the GitLab API
+    elif "gitlab.com" in git_url:
+        repo_parts = (
+            git_url.replace("https://gitlab.com/", "").rstrip(".git").split("/")
+        )
+        if len(repo_parts) >= 2:
+            tag_url = f"https://gitlab.com/api/v4/projects/{'%2F'.join(repo_parts)}/repository/tags/{version}"
+            response = requests.get(tag_url)
+            if response.status_code == 200:
+                json_data = response.json()
+                commit_id = json_data["commit"]["id"]
+                print(f"✨ Used GitHub API to find commit ID: {commit_id}")
+                return commit_id
+
+    # Otherwise, clone the git repo to find the commit id
     with tempfile.TemporaryDirectory() as tmp_dir:
         try:
             if version:
-                print(f"Cloning {git_url}@{version}...")
+                print(f"✨ Cloning {git_url}@{version} to find commit ID")
                 subprocess.run(
                     ["git", "clone", "-b", version, git_url, tmp_dir], check=True
                 )
             else:
-                print(f"Cloning {git_url}...")
+                print(f"✨ Cloning {git_url} to find commit ID")
                 subprocess.run(["git", "clone", git_url, tmp_dir], check=True)
         except subprocess.CalledProcessError:
             # If cloning with a specific tag fails, fall back to default branch
             if version:
-                print(f"Tag {version} not found. Cloning {git_url} default branch...")
+                print(f"✨ Tag {version} not found. Cloning {git_url} default branch...")
                 subprocess.run(["git", "clone", git_url, tmp_dir], check=True)
 
         try:
@@ -87,13 +119,19 @@ def get_git_url(module_name):
         soup = BeautifulSoup(response.content, "html.parser")
         meta_tag = soup.find("meta", {"name": "go-import"})
         if meta_tag:
-            return meta_tag["content"].split(" ")[2]
+            url = meta_tag["content"].split(" ")[2]
+            r = requests.get(url, allow_redirects=True)
+            if r.history:
+                return r.url
+            else:
+                return url
+
         return None
 
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: ./flatpak-go-deps.py <repository/folder[@version]>")
+        print("✨ Usage: ./flatpak-go-deps.py <repository/folder[@version]>")
         sys.exit(1)
 
     if "@" in sys.argv[1]:
@@ -113,15 +151,18 @@ def main():
     with tempfile.TemporaryDirectory() as temp_dir:
         os.chdir(temp_dir)
 
+        print("✨ Creating temporary Go module")
         subprocess.run(["go", "mod", "init", "tempmod"], check=True)
 
         try:
+            print("✨ Cloning the target repository")
             subprocess.run(
                 ["git", "clone", f"https://{repo}", f"src/{repo_name}"], check=True
             )
             os.chdir(f"src/{repo_name}")
 
             if version:
+                print(f"✨ Checking out version {version}")
                 subprocess.run(["git", "checkout", version], check=True)
 
             os.chdir(temp_dir)
@@ -129,7 +170,7 @@ def main():
             if folder:
                 os.chdir(f"src/{repo_name}/{folder}")
         except subprocess.CalledProcessError:
-            print(f"Error fetching {sys.argv[1]}")
+            print(f"✨ Error fetching {sys.argv[1]}")
             sys.exit(1)
 
         result = subprocess.run(
@@ -141,18 +182,24 @@ def main():
 
         modules = result.stdout.strip().split("\n")
         modules = modules[1:]  # Skip the first module, which is the current module
+
+        print(f"✨ Found {len(modules)} dependencies")
+
         sources = []
 
         for module in modules:
             module_name, module_version = module.split(" ", 1)
-            if module_version.endswith("+incompatible"):
-                module_version = module_version[:-13]
+            print(f"✨ Module: {module}")
 
             commit_id = extract_commit_id(module_version)
+            if commit_id:
+                print(f"✨ Found commit_id early: {commit_id}")
 
             info = get_module_info(module_name)
             path = info.get("Path")
             version = info.get("Version")
+            if version.endswith("+incompatible"):
+                version = version[:-13]
             if not version:
                 continue
 
@@ -160,16 +207,14 @@ def main():
             if not git_url:
                 git_url = f"https://{module_name}.git"
 
-            print(
-                f"[] module_name: {module_name}, git_url: {git_url}, version: {version}"
-            )
+            print(f"✨ Git URL: {git_url}")
 
             if not commit_id:
                 commit_id = get_commit_id_from_git(git_url, version)
 
             if not commit_id:
                 print(
-                    f"Error: Could not retrieve commit ID for {module_name}@{version}."
+                    f"✨ Error: Could not retrieve commit ID for {module_name}@{version}."
                 )
                 continue
 
@@ -192,7 +237,7 @@ def main():
             "sources": sources,
         }
 
-        print()
+        print("✨ 🌟 ✨")
         print(yaml.dump(yaml_data))
 
 
