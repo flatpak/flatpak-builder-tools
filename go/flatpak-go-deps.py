@@ -28,7 +28,9 @@ def extract_commit_id(module_version):
     return None
 
 
-def get_commit_id_from_git(git_url, version=None):
+def get_commit_id_from_git(
+    git_url, version=None, github_api_token=None, gitlab_api_token=None
+):
     # If it's a GitHub URL, use the GitHub API
     if "github.com" in git_url:
         repo_parts = git_url.replace("https://github.com/", "").split("/")
@@ -37,7 +39,12 @@ def get_commit_id_from_git(git_url, version=None):
             tag_url = (
                 f"https://api.github.com/repos/{owner}/{repo}/git/refs/tags/{version}"
             )
-            response = requests.get(tag_url)
+
+            headers = {}
+            if github_api_token:
+                headers["Authorization"] = f"token {github_api_token}"
+
+            response = requests.get(tag_url, headers=headers)
             if response.status_code == 200:
                 json_data = response.json()
                 commit_id = json_data["object"]["sha"]
@@ -51,6 +58,11 @@ def get_commit_id_from_git(git_url, version=None):
         )
         if len(repo_parts) >= 2:
             tag_url = f"https://gitlab.com/api/v4/projects/{'%2F'.join(repo_parts)}/repository/tags/{version}"
+
+            headers = {}
+            if gitlab_api_token:
+                headers["Private-Token"] = gitlab_api_token
+
             response = requests.get(tag_url)
             if response.status_code == 200:
                 json_data = response.json()
@@ -83,7 +95,9 @@ def get_commit_id_from_git(git_url, version=None):
                 capture_output=True,
                 text=True,
             )
-            return result.stdout.strip()
+            commit_id = result.stdout.strip()
+            print(f"✨ Found commit ID: {commit_id}")
+            return commit_id
         except subprocess.CalledProcessError:
             return None
 
@@ -121,7 +135,7 @@ def get_git_url(module_name):
         soup = BeautifulSoup(response.content, "html.parser")
         meta_tag = soup.find("meta", {"name": "go-import"})
         if meta_tag:
-            url = meta_tag["content"].split(" ")[2]
+            url = meta_tag["content"].split()[2]
             r = requests.get(url, allow_redirects=True)
             if r.history:
                 return r.url
@@ -209,7 +223,9 @@ def main(repo_and_folder, version, github_api_token, gitlab_api_token):
             print(f"✨ Git URL: {git_url}")
 
             if not commit_id:
-                commit_id = get_commit_id_from_git(git_url, version)
+                commit_id = get_commit_id_from_git(
+                    git_url, version, github_api_token, gitlab_api_token
+                )
 
             if not commit_id:
                 print(
