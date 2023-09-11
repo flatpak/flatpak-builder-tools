@@ -68,18 +68,16 @@ def get_git_url(module_name):
     # Remove the version suffix, if present
     module_name = re.sub(r"/v\d+$", "", module_name)
 
+    # Remove the subdirectory, if present (e.g. github.com/foo/bar/subdir -> github.com/foo/bar)
+    if "gitlab.com" in module_name or "github.com" in module_name:
+        url_parts = module_name.split("/")
+        if len(url_parts) > 3:
+            module_name = "/".join(url_parts[:3])
+
     if "gitlab.com" in module_name:
-        return (
-            f"https://gitlab.com/{module_name.replace('gitlab.com/', '')}"
-            if module_name.endswith(".git")
-            else f"https://gitlab.com/{module_name.replace('gitlab.com/', '')}.git"
-        )
+        return f"https://gitlab.com/{module_name.replace('gitlab.com/', '')}"
     elif "github.com" in module_name:
-        return (
-            f"https://github.com/{module_name.replace('github.com/', '')}"
-            if module_name.endswith(".git")
-            else f"https://github.com/{module_name.replace('github.com/', '')}.git"
-        )
+        return f"https://github.com/{module_name.replace('github.com/', '')}"
     elif "git.torproject.org" in module_name:
         return f"https://{module_name}"
     else:
@@ -161,6 +159,10 @@ def main():
             git_url = get_git_url(module_name)
             if not git_url:
                 git_url = f"https://{module_name}.git"
+
+            print(
+                f"[] module_name: {module_name}, git_url: {git_url}, version: {version}"
+            )
 
             if not commit_id:
                 commit_id = get_commit_id_from_git(git_url, version)
