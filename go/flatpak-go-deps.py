@@ -29,8 +29,30 @@ def extract_commit_id(module_version):
 
 
 def get_commit_id_from_git(
-    git_url, version=None, github_api_token=None, gitlab_api_token=None
+    git_url,
+    version=None,
+    short_commit_id=None,
+    github_api_token=None,
+    gitlab_api_token=None,
 ):
+    # If short_commit_id is provided, simply expand it
+    if short_commit_id:
+        print(
+            f"✨ Cloning {git_url} to find long commit ID version of {short_commit_id}"
+        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            subprocess.run(["git", "clone", "--bare", git_url, tmp_dir], check=True)
+            result = subprocess.run(
+                ["git", "rev-parse", short_commit_id],
+                cwd=tmp_dir,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            commit_id = result.stdout.strip()
+            print(f"✨ Found commit ID: {commit_id}")
+            return commit_id
+
     # If it's a GitHub URL, use the GitHub API
     if "github.com" in git_url:
         repo_parts = git_url.replace("https://github.com/", "").split("/")
@@ -76,16 +98,17 @@ def get_commit_id_from_git(
             if version:
                 print(f"✨ Cloning {git_url}@{version} to find commit ID")
                 subprocess.run(
-                    ["git", "clone", "-b", version, git_url, tmp_dir], check=True
+                    ["git", "clone", "--bare", "-b", version, git_url, tmp_dir],
+                    check=True,
                 )
             else:
                 print(f"✨ Cloning {git_url} to find commit ID")
-                subprocess.run(["git", "clone", git_url, tmp_dir], check=True)
+                subprocess.run(["git", "clone", "--bare", git_url, tmp_dir], check=True)
         except subprocess.CalledProcessError:
             # If cloning with a specific tag fails, fall back to default branch
             if version:
                 print(f"✨ Tag {version} not found. Cloning {git_url} default branch...")
-                subprocess.run(["git", "clone", git_url, tmp_dir], check=True)
+                subprocess.run(["git", "clone", "--bare", git_url, tmp_dir], check=True)
 
         try:
             result = subprocess.run(
@@ -204,9 +227,9 @@ def main(repo_and_folder, version, github_api_token, gitlab_api_token):
             module_name, module_version = module.split(" ", 1)
             print(f"✨ Module: {module}")
 
-            commit_id = extract_commit_id(module_version)
-            if commit_id:
-                print(f"✨ Found commit_id early: {commit_id}")
+            short_commit_id = extract_commit_id(module_version)
+            if short_commit_id:
+                print(f"✨ Found short_commit_id: {short_commit_id}")
 
             info = get_module_info(module_name)
             path = info.get("Path")
@@ -222,10 +245,9 @@ def main(repo_and_folder, version, github_api_token, gitlab_api_token):
 
             print(f"✨ Git URL: {git_url}")
 
-            if not commit_id:
-                commit_id = get_commit_id_from_git(
-                    git_url, version, github_api_token, gitlab_api_token
-                )
+            commit_id = get_commit_id_from_git(
+                git_url, version, short_commit_id, github_api_token, gitlab_api_token
+            )
 
             if not commit_id:
                 print(

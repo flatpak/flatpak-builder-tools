@@ -13,9 +13,9 @@ This script works by creating a new Go module in a temporary folder, add the giv
 For example, here's how you'd get Flatpak manifests for some Tor pluggable transports:
 
 ```
-./flatpak-go-deps.py git.torproject.org/pluggable-transports/meek.git/meek-client@v0.38.0
-./flatpak-go-deps.py git.torproject.org/pluggable-transports/snowflake.git/client@v2.6.0
-./flatpak-go-deps.py gitlab.com/yawning/obfs4.git/obfs4proxy@obfs4proxy-0.0.14
+./flatpak-go-deps.py git.torproject.org/pluggable-transports/meek.git/meek-client --version v0.38.0
+./flatpak-go-deps.py git.torproject.org/pluggable-transports/snowflake.git/client --version v2.6.0
+./flatpak-go-deps.py gitlab.com/yawning/obfs4.git/obfs4proxy --version obfs4proxy-0.0.14
 ```
 
 This is what the output looks like:
