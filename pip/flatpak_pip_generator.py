@@ -133,6 +133,9 @@ def main():
                             'Mostly useful on pip that does\'t '
                             'support the feature.'
                         ))
+    parser.add_argument('--no-deps', action='store_true',
+                        default=False,
+                        help=('Do not fetch sources for dependencies.'))
     parser.add_argument('--ignore-installed',
                         type=lambda s: s.split(','),
                         default='',
@@ -262,6 +265,10 @@ def main():
             '-r',
             requirements_file_output
         ]
+
+        if opts.no_deps:
+            pip_download.append('--no-deps')
+
         if use_hash:
             pip_download.append('--require-hashes')
     
