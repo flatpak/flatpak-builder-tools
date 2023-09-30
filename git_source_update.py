@@ -40,7 +40,7 @@ def main():
                     module['sources'] = update_sources(module['sources'], update_dict)
 
         with open(args.file, 'w') as file:
-            yaml.dump(data, file, default_flow_style=False)
+            yaml.dump(data, file, sort_keys=False)
 
         print(f"Updated {args.file} with new module versions.")
 
