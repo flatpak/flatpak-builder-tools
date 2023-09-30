@@ -1,6 +1,11 @@
 import argparse
 import yaml
 
+# https://reorx.com/blog/python-yaml-tips/
+class IndentDumper(yaml.Dumper):
+    def increase_indent(self, flow=False, indentless=False):
+        return super(IndentDumper, self).increase_indent(flow, False)
+
 def update_sources(sources, new_versions):
     updated_sources = []
     for source in sources:
@@ -40,7 +45,7 @@ def main():
                     module['sources'] = update_sources(module['sources'], update_dict)
 
         with open(args.file, 'w') as file:
-            yaml.dump(data, file, sort_keys=False)
+            yaml.dump(data, file, sort_keys=False, Dumper=IndentDumper)
 
         print(f"Updated {args.file} with new module versions.")
 
