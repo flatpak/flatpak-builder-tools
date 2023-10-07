@@ -1,5 +1,9 @@
 from typing import Dict, Iterator, NamedTuple, Optional
 
+import hashlib
+import os.path
+import urllib.parse
+
 from .integrity import Integrity
 from .package import SemVer
 from .requests import Requests
@@ -16,6 +20,14 @@ class ElectronBinaryManager:
         integrity: Integrity
 
         arch: Optional['ElectronBinaryManager.Arch'] = None
+
+        @property
+        def url_hash(self) -> str:
+            url = urllib.parse.urlparse(self.url)
+            url_dir = urllib.parse.urlunparse(
+                url._replace(path=os.path.dirname(url.path))
+            )
+            return hashlib.sha256(url_dir.encode()).hexdigest()
 
     ELECTRON_ARCHES_TO_FLATPAK = {
         'ia32': 'i386',
