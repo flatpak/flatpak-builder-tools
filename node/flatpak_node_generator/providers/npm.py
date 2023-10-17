@@ -104,20 +104,14 @@ class NpmLockfileProvider(LockfileProvider):
                 # NOTE We're not interested in symlinks, NPM will create them at install time
                 # but we still could collect package symlinks anyway just for completeness
                 continue
+            if install_path == '':
+                # The root project is typically listed with a key of ''
+                continue
 
             name = info.get('name')
 
             source: PackageSource
-            package_json_path = lockfile.parent / install_path / 'package.json'
-            if (
-                'node_modules' not in package_json_path.parts[:-1]
-                and package_json_path.exists()
-            ):
-                source = LocalSource(path=install_path)
-                if name is None:
-                    with package_json_path.open('rb') as fp:
-                        name = json.load(fp)['name']
-            elif 'resolved' in info:
+            if 'resolved' in info:
                 resolved_url = urllib.parse.urlparse(info['resolved'])
                 if resolved_url.scheme == 'file':
                     source = LocalSource(path=resolved_url.path)
