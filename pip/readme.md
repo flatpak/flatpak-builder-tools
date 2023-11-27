@@ -41,6 +41,7 @@ You can use that in your manifest like
 ## Options
 
 * `--python2`: Build with Python 2. Note that you will have to build [the Python 2 shared-module](https://github.com/flathub/shared-modules/tree/master/python2.7) as it is not in any runtime.
+* `--build-isolation`: Enable build isolation with pip (recommended but not always work).
 * `--cleanup=(scripts|all)`: Add `cleanup` to the manifest. This is used when the packages installed are only used at build time.
 * `--build-only`: Alias to `--cleanup=all`.
 * `--requirements-file=`, `-r`: Reads the list of packages from `requirements.txt` file.
