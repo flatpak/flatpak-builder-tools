@@ -1,11 +1,16 @@
 from pathlib import Path
-from typing import Iterator, List, Set
+from typing import Any, ContextManager, Iterator, List, Optional, Set
 
 import argparse
 import asyncio
+import contextlib
 import json
 import os
 import sys
+import time
+
+from rich.console import Console, Group, RenderableType
+from rich.live import Live
 
 from .cache import Cache, FilesystemBasedCache
 from .manifest import ManifestGenerator
@@ -17,6 +22,8 @@ from .providers.npm import NpmLockfileProvider, NpmModuleProvider, NpmProviderFa
 from .providers.special import SpecialSourceProvider
 from .providers.yarn import YarnProviderFactory
 from .requests import Requests, StubRequests
+
+_CONSOLE_REFRESH_PER_SECOND = 12.5
 
 
 def _scan_for_lockfiles(base: Path, patterns: List[str]) -> Iterator[Path]:
@@ -51,6 +58,11 @@ async def _async_main() -> None:
         '--recursive-pattern',
         action='append',
         help='Given -r, restrict files to those matching the given pattern.',
+    )
+    parser.add_argument(
+        '--no-live-progress',
+        action='store_true',
+        help='Disable live progress output',
     )
     parser.add_argument(
         '--registry',
@@ -135,12 +147,19 @@ async def _async_main() -> None:
         dest='xdg_layout',
         help="Don't use the XDG layout for caches",
     )
-    # Internal option, useful for testing.
+    # Internal options, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument(
+        '--traceback-on-interrupt',
+        action='store_true',
+        help=argparse.SUPPRESS,
+    )
 
     args = parser.parse_args()
 
     Requests.retries = args.retries
+
+    console = Console() if not args.no_live_progress and sys.stdout.isatty else None
 
     if args.type == 'yarn' and (args.no_devel or args.no_autopatch):
         sys.exit('--no-devel and --no-autopatch do not apply to Yarn.')
@@ -187,6 +206,8 @@ async def _async_main() -> None:
     else:
         assert False, args.type
 
+    start_time = time.monotonic()
+
     print('Reading packages from lockfiles...')
     packages: Set[Package] = set()
     rcfile_node_headers: Set[NodeHeaders] = set()
@@ -220,16 +241,45 @@ async def _async_main() -> None:
         )
         special = SpecialSourceProvider(gen, options)
 
-        with provider_factory.create_module_provider(gen, special) as module_provider:
-            with GeneratorProgress(
+        live: ContextManager[Any]
+        if console is not None:
+            requests_renderable = Requests.instance.get_renderable(console)
+            generator_renderable: Optional[RenderableType] = None
+
+            def get_renderable() -> RenderableType:
+                if generator_renderable is not None:
+                    return Group(
+                        requests_renderable,
+                        generator_renderable,
+                    )
+                else:
+                    return requests_renderable
+
+            live = Live(
+                get_renderable=get_renderable,
+                refresh_per_second=_CONSOLE_REFRESH_PER_SECOND,
+                console=console,
+            )
+        else:
+            live = contextlib.nullcontext()
+
+        with live:
+            with provider_factory.create_module_provider(
+                gen, special
+            ) as module_provider, GeneratorProgress(
                 packages,
                 module_provider,
-                args.max_parallel,
+                max_parallel=args.max_parallel,
+                traceback_on_interrupt=args.traceback_on_interrupt,
             ) as progress:
+                if console is not None:
+                    generator_renderable = progress.get_renderable(console)
+
                 await progress.run()
-        for headers in rcfile_node_headers:
-            print(f'Generating headers {headers.runtime} @ {headers.target}')
-            await special.generate_node_headers(headers)
+
+            for headers in rcfile_node_headers:
+                print(f'Generating headers {headers.runtime} @ {headers.target}...')
+                await special.generate_node_headers(headers)
 
         if args.xdg_layout:
             script_name = 'setup_sdk_node_headers.sh'
@@ -246,6 +296,8 @@ async def _async_main() -> None:
             )
             gen.add_command(f'bash {gen.data_root / script_name}')
 
+    elapsed = round(time.monotonic() - start_time, 1)
+
     if args.split:
         i = 0
         for i, part in enumerate(gen.split_sources()):
@@ -254,7 +306,7 @@ async def _async_main() -> None:
             with open(output, 'w') as fp:
                 json.dump(part, fp, indent=ManifestGenerator.JSON_INDENT)
 
-        print(f'Wrote {gen.source_count} to {i + 1} file(s).')
+        print(f'Wrote {gen.source_count} to {i + 1} file(s) in {elapsed} second(s).')
     else:
         with open(args.output, 'w') as fp:
             json.dump(
@@ -270,7 +322,7 @@ async def _async_main() -> None:
                 )
                 print('  (Pass -s to enable splitting.)')
 
-        print(f'Wrote {gen.source_count} source(s).')
+        print(f'Wrote {gen.source_count} source(s) in {elapsed} second(s).')
 
 
 def main() -> None:
