@@ -12,6 +12,7 @@ required, however, you can disable it explicitly via `--no-xdg-layout`.
 
 - flatpak-builder 1.1.2 or newer
 - Python 3.7+.
+- Python dev package (install on fedora via `sudo dnf install python3-devel`)
 - [pipx](https://pypa.github.io/pipx/) (recommended) or
   [pip](https://pip.pypa.io/en/stable/) (both of these are usually available in
   your distro repositories, the latter is often included with Python installs).
