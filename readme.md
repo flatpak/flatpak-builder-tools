@@ -11,7 +11,14 @@ See the sub-directories of the respective tools for more information and license
 
 ## Converting JSON to YAML with flatpak-json2yaml.py
 
- 1. Save the contents of `flatpak-json2yaml.py` to any directory.
+### With repo cloning
+
+ 1. Clone the repo: `git clone https://github.com/flatpak/flatpak-builder-tools`
+ 2. Execute the following command: `flatpak-json2yaml.py /path/to/sample-file.json --output sample-file.yml`
+
+### Without repo cloning
+
+ 1. Save the contents of `flatpak-json2yaml.py` to any directory with the same filename.
  2. Execute the following command: `python3 flatpak-json2yaml.py /path/to/sample-file.json --output sample-file.yml`
 
 If you experience any errors with packages, create a virtual environment and install the missing packages.
