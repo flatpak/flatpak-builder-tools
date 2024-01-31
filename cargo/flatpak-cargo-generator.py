@@ -134,9 +134,10 @@ class _GitPackage(NamedTuple):
             for key, value in section.items():
                 if not isinstance(value, dict):
                     continue
-                if not value.get('workspace'):
+                try:
+                    package[section_key][key] = self.workspace[section_key][key]
+                except KeyError:
                     continue
-                package[section_key][key] = self.workspace[section_key][key]
         return package
 
 
