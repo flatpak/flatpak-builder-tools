@@ -124,6 +124,10 @@ def update_workspace_keys(pkg, workspace):
                 if 'dependencies' in target:
                     update_workspace_keys(target['dependencies'], workspace['dependencies'])
             continue;
+        # dev-dependencies should reference root dependencies table from workspace
+        elif key == 'dev-dependencies':
+            update_workspace_keys(item, workspace['dependencies'])
+            continue;
 
         if not key in workspace:
             continue;
