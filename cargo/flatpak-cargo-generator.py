@@ -116,6 +116,31 @@ def fetch_git_repo(git_url: str, commit: str) -> str:
         subprocess.run(['git', 'checkout', commit], cwd=clone_dir, check=True)
     return clone_dir
 
+def update_workspace_keys(pkg, workspace):
+    for key, item in pkg.items():
+        # target.cfg(..).dependencies should reference root dependencies table from workspace
+        if key == 'target':
+            for target in item.values():
+                if 'dependencies' in target:
+                    update_workspace_keys(target['dependencies'], workspace['dependencies'])
+            continue;
+
+        if not key in workspace:
+            continue;
+
+        workspace_item = workspace[key]
+
+        if 'workspace' in item:
+            if isinstance(workspace_item, dict):
+                del item['workspace']
+                item.update(workspace_item)
+            elif len(item) > 1:
+                del item['workspace']
+                item.update({ 'version': workspace_item })
+            else:
+                pkg[key] = workspace_item
+        elif isinstance(item, dict):
+            update_workspace_keys(item, workspace_item)
 
 class _GitPackage(NamedTuple):
     path: str
@@ -127,18 +152,10 @@ class _GitPackage(NamedTuple):
         package = copy.deepcopy(self.package)
         if self.workspace is None:
             return package
-        for section_key, section in package.items():
-            # XXX We ignore top-level lists here; maybe we should iterate over list items, too
-            if not isinstance(section, dict):
-                continue
-            for key, value in section.items():
-                if not isinstance(value, dict):
-                    continue
-                if not value.get('workspace'):
-                    continue
-                package[section_key][key] = self.workspace[section_key][key]
-        return package
 
+        update_workspace_keys(package, self.workspace)
+
+        return package
 
 _GitPackagesType = Dict[str, _GitPackage]
 
