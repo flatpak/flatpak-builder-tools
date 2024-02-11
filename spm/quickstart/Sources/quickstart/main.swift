@@ -6,7 +6,7 @@ import Adwaita
 @main
 struct QuickStart: App {
 
-    let id = "com.flatpak.quickstart"
+    let id = "org.flatpak.quickstart"
     var app: GTUIApp!
 
     var scene: Scene {
