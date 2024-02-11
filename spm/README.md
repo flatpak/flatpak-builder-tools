@@ -31,8 +31,7 @@ The tool creates a `generated-sources.json` and a `setup-offline.sh` file in the
     "build-commands": [
         "./setup-offline.sh",
         "swift build -c release --static-swift-stdlib",
-        "mkdir /app/bin",
-        "cp .build/release/quickstart /app/bin"
+        "install -Dm755 .build/release/quickstart /app/bin/quickstart"
     ]
 }
 ```
