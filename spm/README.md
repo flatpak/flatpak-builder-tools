@@ -29,7 +29,6 @@ The tool creates a `generated-sources.json` and a `setup-offline.sh` file in the
         "generated-sources.json"
     ],
     "build-commands": [
-        "chmod +x ./setup-offline.sh ./setup-offline.sh",
         "./setup-offline.sh",
         "swift build -c release --static-swift-stdlib",
         "rm -r -f /app/bin",

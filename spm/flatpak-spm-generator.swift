@@ -58,10 +58,18 @@ content.removeLast()
 content.append("\n]")
 
 // Save the files.
+let pathToSetup = "\(pathToManifest)/setup-offline.sh"
+
 let contentData = content.data(using: .utf8)
 let shellContentData = shellContent.data(using: .utf8)
 try contentData?.write(to: .init(fileURLWithPath: "\(pathToManifest)/generated-sources.json"))
-try shellContentData?.write(to: .init(fileURLWithPath: "\(pathToManifest)/setup-offline.sh"))
+try shellContentData?.write(to: .init(fileURLWithPath: pathToSetup))
+
+let executable = Process()
+executable.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+executable.arguments = ["chmod", "+x", pathToSetup]
+try executable.run()
+executable.waitUntilExit()
 
 // Types for decoding workspace state file.
 struct Dependency: Codable {
