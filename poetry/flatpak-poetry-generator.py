@@ -86,6 +86,10 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
                                     match = hash_re.search(package_files[num]["hash"])
                                     if match:
                                         hashes.append(match.group(2))
+                    package_source = package.get("source")
+                    if package_source and package_source["type"] == "directory":
+                        print(f'Skipping download url and hash extraction for {package["name"]}, source type is directory')
+                        continue
                     url, hash = get_pypi_source(
                         package["name"], package["version"], hashes
                     )
