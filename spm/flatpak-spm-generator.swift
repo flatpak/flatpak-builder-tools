@@ -47,14 +47,21 @@ for dependency in workspaceState.object.dependencies {
             "dest": ".build/checkouts/\(subpath)"
         },
     """)
-    if let folder = repositoriesContent.first(where: { $0.hasPrefix(subpath) }) {
+    if let folder = repositoriesContent.first(where: { $0.hasPrefix(subpath + "-") }) {
         shellContent.append("""
 
+        mkdir ./\(folder)
         cp -r ../checkouts/\(subpath)/.git/* ./\(folder)
         """)
     }
 }
-content.removeLast()
+content.append("""
+
+        {
+             "type": "file",
+             "path": "setup-offline.sh"
+        }
+""")
 content.append("\n]")
 
 // Save the files.
