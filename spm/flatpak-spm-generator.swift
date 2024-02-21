@@ -47,7 +47,7 @@ for dependency in workspaceState.object.dependencies {
             "dest": ".build/checkouts/\(subpath)"
         },
     """)
-    if let folder = repositoriesContent.first(where: { $0.hasPrefix(subpath) }) {
+    if let folder = repositoriesContent.first(where: { $0.hasPrefix(subpath + "-") }) {
         shellContent.append("""
 
         mkdir ./\(folder)
