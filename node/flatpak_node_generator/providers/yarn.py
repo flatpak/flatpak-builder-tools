@@ -197,7 +197,7 @@ class YarnModuleProvider(ModuleProvider):
         self.gen = gen
         self.special_source_provider = special
         self.mirror_dir = self.gen.data_root / 'yarn-mirror'
-        self.mirror_berry_dir = self.mirror_dir / 'yarn-berry'
+        self.mirror_berry_dir = self.mirror_dir / 'global' / 'cache'
         self.mirror_locator_dir = self.mirror_berry_dir / 'locator'
         self.registry = 'https://registry.yarnpkg.com'
         self.has_resolution = False
@@ -379,21 +379,8 @@ class YarnModuleProvider(ModuleProvider):
 
         with open(Path(__file__).parents[1] / 'flatpak-yarn.js', mode='r') as f:
             yarn2_plugin_source = f.read()
-            js_dest = self.gen.data_root / 'flatpak-builder.js'
+            js_dest = self.gen.data_root / 'flatpak-yarn.js'
             self.gen.add_data_source(yarn2_plugin_source, destination=js_dest)
-            script_dest = self.gen.data_root / 'yarn2-setup.sh'
-            self.gen.add_script_source(
-                [
-                    'yarn config set enableInlineBuilds true',
-                    'yarn config set enableTelemetry false',
-                    'yarn config set enableNetwork false',
-                    'yarn config set enableGlobalCache false',
-                    f'yarn config set cacheFolder $FLATPAK_BUILDER_BUILDDIR/{self.mirror_berry_dir}',
-                    f'yarn plugin import $FLATPAK_BUILDER_BUILDDIR/{js_dest}',
-                    'yarn convertToZip $(which yarn)',
-                ],
-                destination=script_dest,
-            )
 
 
 class YarnProviderFactory(ProviderFactory):
