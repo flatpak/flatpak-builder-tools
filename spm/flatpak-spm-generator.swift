@@ -57,10 +57,10 @@ for dependency in workspaceState.object.dependencies {
 }
 content.append("""
 
-        {
-             "type": "file",
-             "path": "setup-offline.sh"
-        }
+    {
+         "type": "file",
+         "path": "setup-offline.sh"
+    }
 """)
 content.append("\n]")
 
