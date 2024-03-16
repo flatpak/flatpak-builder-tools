@@ -13,9 +13,6 @@ async def test_minimal_git(
     provider_factory_spec: ProviderFactorySpec,
     node_version: int,
 ) -> None:
-    if node_version >= 18:
-        pytest.xfail(reason='Git sources not yet supported for lockfile v2 syntax')
-
     with ManifestGenerator() as gen:
         await provider_factory_spec.generate_modules('minimal-git', gen, node_version)
 
@@ -24,6 +21,24 @@ async def test_minimal_git(
         commands=[
             provider_factory_spec.install_command,
             """node -e 'require("nop")'""",
+        ],
+        use_node=node_version,
+    )
+
+
+async def test_git(
+    flatpak_builder: FlatpakBuilder,
+    provider_factory_spec: ProviderFactorySpec,
+    node_version: int,
+) -> None:
+    with ManifestGenerator() as gen:
+        await provider_factory_spec.generate_modules('git', gen, node_version)
+
+    flatpak_builder.build(
+        sources=itertools.chain(gen.ordered_sources()),
+        commands=[
+            provider_factory_spec.install_command,
+            """node -e 'require("to-camel-case");require("to-capital-case");require("to-no-case");require("to-space-case");'""",
         ],
         use_node=node_version,
     )
