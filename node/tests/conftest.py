@@ -172,6 +172,14 @@ class ProviderPaths:
         return self.root / 'package.json'
 
     @property
+    def npmrc(self) -> Path:
+        return self.root / '.npmrc'
+
+    @property
+    def yarnrc(self) -> Path:
+        return self.root / '.yarnrc'
+
+    @property
     def lockfile_source(self) -> Path:
         if self.type == ProviderFactoryType.NPM:
             if self.node_version >= 18:
@@ -199,6 +207,11 @@ class ProviderPaths:
     def add_to_manifest(self, gen: ManifestGenerator) -> None:
         gen.add_local_file_source(self.package_json)
         gen.add_local_file_source(self.lockfile_source, Path(self.lockfile_dest))
+
+        for rc in self.npmrc, self.yarnrc:
+            if rc.exists():
+                gen.add_local_file_source(rc)
+
         if self.type == ProviderFactoryType.YARN:
             gen.add_data_source(
                 f'yarn-offline-mirror "./flatpak-node/yarn-mirror"', Path('.yarnrc')
@@ -273,7 +286,12 @@ class ProviderFactorySpec:
         )
         special = SpecialSourceProvider(gen, self.special)
 
-        with factory.create_module_provider(gen, special) as module:
+        config_provider = factory.create_config_provider()
+        lockfile_configs = {
+            paths.lockfile_source: config_provider.load_config(paths.lockfile_source),
+        }
+
+        with factory.create_module_provider(gen, special, lockfile_configs) as module:
             for package in factory.create_lockfile_provider().process_lockfile(
                 paths.lockfile_source
             ):
