@@ -123,6 +123,31 @@ async def test_missing_resolved_field(
     assert word_wrap_package_json.exists()
 
 
+async def test_name_as_dep(
+    flatpak_builder: FlatpakBuilder,
+    npm_provider_factory_spec: ProviderFactorySpec,
+    node_version: int,
+) -> None:
+    with ManifestGenerator() as gen:
+        await npm_provider_factory_spec.generate_modules(
+            'name-as-dep', gen, node_version
+        )
+
+    flatpak_builder.build(
+        sources=gen.ordered_sources(),
+        commands=[
+            npm_provider_factory_spec.install_command,
+            f"""node -e 'require("word-wrap")'""",
+        ],
+        use_node=node_version,
+    )
+
+    word_wrap_package_json = (
+        flatpak_builder.module_dir / 'node_modules' / 'word-wrap' / 'package.json'
+    )
+    assert word_wrap_package_json.exists()
+
+
 async def test_url_as_dep(
     flatpak_builder: FlatpakBuilder,
     npm_provider_factory_spec: ProviderFactorySpec,
