@@ -41,6 +41,11 @@ _NPM_CORGIDOC = (
     'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*'
 )
 
+# TODO Once lockfile v2 syntax support is complete, use _process_packages_v2 for
+# both v2 and v3 lockfiles
+_LOCKFILE_V1_VERSIONS = {1, 2}
+_LOCKFILE_V2_VERSIONS = {3}
+
 
 class NpmLockfileProvider(LockfileProvider):
     _ALIAS_RE = re.compile(r'^npm:(.[^@]*)@(.*)$')
@@ -106,6 +111,16 @@ class NpmLockfileProvider(LockfileProvider):
                 continue
 
             name = info.get('name')
+            inferred_name = False
+
+            # NOTE We can't reliably determine the package name from the lockfile v2 syntax,
+            # but we need it for registry queries and special source processing;
+            # If we didn't get the package name at this point, try determining it from
+            # the install path as the last resort
+            if name is None:
+                inferred_name = True
+                path_list = install_path.split('/')
+                name = '/'.join(path_list[-path_list[::-1].index('node_modules') :])
 
             source: PackageSource
             package_json_path = lockfile.parent / install_path / 'package.json'
@@ -114,7 +129,8 @@ class NpmLockfileProvider(LockfileProvider):
                 and package_json_path.exists()
             ):
                 source = LocalSource(path=install_path)
-                if name is None:
+                if inferred_name:
+                    # Prefer getting the name directly instead of inferring it.
                     with package_json_path.open('rb') as fp:
                         name = json.load(fp)['name']
             elif 'resolved' in info:
@@ -130,22 +146,11 @@ class NpmLockfileProvider(LockfileProvider):
                         integrity=integrity, resolved=info['resolved']
                     )
                 elif resolved_url.scheme.startswith('git+'):
-                    raise NotImplementedError(
-                        'Git sources in lockfile v2 format are not supported yet'
-                        f' (package {install_path} in {lockfile})'
-                    )
+                    source = self.parse_git_source(info['resolved'], name)
             else:
                 raise NotImplementedError(
                     f"Don't know how to handle package {install_path} in {lockfile}"
                 )
-
-            # NOTE We can't reliably determine the package name from the lockfile v2 syntax,
-            # but we need it for registry queries and special source processing;
-            # If we didn't get the package name at this point, try determining it from
-            # the install path as the last resort
-            if name is None:
-                path_list = install_path.split('/')
-                name = '/'.join(path_list[-path_list[::-1].index('node_modules') :])
 
             yield Package(
                 name=name,
@@ -158,11 +163,9 @@ class NpmLockfileProvider(LockfileProvider):
         with open(lockfile) as fp:
             data = json.load(fp)
 
-        # TODO Once lockfile v2 syntax support is complete, use _process_packages_v2
-        # for both v2 and v2 lockfiles
-        if data['lockfileVersion'] in {1, 2}:
+        if data['lockfileVersion'] in _LOCKFILE_V1_VERSIONS:
             yield from self._process_packages_v1(lockfile, data)
-        elif data['lockfileVersion'] in {3}:
+        elif data['lockfileVersion'] in _LOCKFILE_V2_VERSIONS:
             yield from self._process_packages_v2(lockfile, data)
         else:
             raise NotImplementedError(
@@ -426,14 +429,21 @@ class NpmModuleProvider(ModuleProvider):
 
         if self.git_sources:
             # Generate jq scripts to patch the package*.json files.
+
+            # NOTE: In package.json, we always assign to .value regardless of
+            # $match_against, because even if we're matching against the keys / package
+            # names, what we actually want to set is the value / version. With
+            # package-lock.json, we are in fact matching the values themselves,
+            # so we re-assign to it directly.
             scripts = {
                 'package.json': r"""
                     walk(
                         if type == "object"
                         then
                             to_entries | map(
-                                if (.value | type == "string") and $data[.value]
-                                then .value = "git+file:\($buildroot)/\($data[.value])"
+                                .[$match_against] as $match |
+                                if ($match | type == "string") and $data[$match]
+                                then .value = "git+file:\($buildroot)/\($data[$match])"
                                 else .
                                 end
                             ) | from_entries
@@ -443,9 +453,13 @@ class NpmModuleProvider(ModuleProvider):
                 """,
                 'package-lock.json': r"""
                     walk(
-                        if type == "object" and (.version | type == "string") and $data[.version]
-                        then
-                            .version = "git+file:\($buildroot)/\($data[.version])"
+                        if type == "object" then
+                            .[$match_against] as $match |
+                            if ($match | type == "string") and $data[$match]
+                            then .[$match_against] =
+                                "git+file:\($buildroot)/\($data[$match])"
+                            else .
+                            end
                         else .
                         end
                     )
@@ -453,6 +467,20 @@ class NpmModuleProvider(ModuleProvider):
             }
 
             for lockfile, sources in self.git_sources.items():
+                with lockfile.open() as fp:
+                    version = json.load(fp)['lockfileVersion']
+
+                if version in _LOCKFILE_V2_VERSIONS:
+                    match_against = {
+                        'package.json': 'key',
+                        'package-lock.json': 'resolved',
+                    }
+                else:
+                    match_against = {
+                        'package.json': 'value',
+                        'package-lock.json': 'version',
+                    }
+
                 prefix = self.relative_lockfile_dir(lockfile)
                 data: Dict[str, Dict[str, str]] = {
                     'package.json': {},
@@ -486,6 +514,7 @@ class NpmModuleProvider(ModuleProvider):
                     patch_commands[lockfile].append(
                         'jq'
                         ' --arg buildroot "$FLATPAK_BUILDER_BUILDDIR"'
+                        f' --arg match_against {match_against[filename]}'
                         f' --argjson data {shlex.quote(json_data)}'
                         f' {shlex.quote(script)} {target}'
                         f' > {target}.new'
