@@ -118,11 +118,10 @@ def fetch_git_repo(git_url: str, commit: str) -> str:
 
 def update_workspace_keys(pkg, workspace):
     for key, item in pkg.items():
-        # target.cfg(..).dependencies should reference root dependencies table from workspace
+        # Recurse for keys under target.cfg(..)
         if key == 'target':
             for target in item.values():
-                if 'dependencies' in target:
-                    update_workspace_keys(target['dependencies'], workspace.get('dependencies', None))
+                update_workspace_keys(target, workspace)
             continue;
         # dev-dependencies should reference root dependencies table from workspace
         elif key == 'dev-dependencies':
