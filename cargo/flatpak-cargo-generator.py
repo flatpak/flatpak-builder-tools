@@ -123,8 +123,8 @@ def update_workspace_keys(pkg, workspace):
             for target in item.values():
                 update_workspace_keys(target, workspace)
             continue;
-        # dev-dependencies should reference root dependencies table from workspace
-        elif key == 'dev-dependencies':
+        # dev-dependencies and build-dependencies should reference root dependencies table from workspace
+        elif key == 'dev-dependencies' or key == 'build-dependencies':
             update_workspace_keys(item, workspace.get('dependencies', None))
             continue;
 
