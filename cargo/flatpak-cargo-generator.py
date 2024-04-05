@@ -136,7 +136,13 @@ def update_workspace_keys(pkg, workspace):
         if 'workspace' in item:
             if isinstance(workspace_item, dict):
                 del item['workspace']
-                item.update(workspace_item)
+
+                for dep_key, workspace_value in workspace_item.items():
+                    # features are additive
+                    if dep_key == 'features' and 'features' in item:
+                        item['features'] += workspace_value
+                    else:
+                        item[dep_key] = workspace_value
             elif len(item) > 1:
                 del item['workspace']
                 item.update({ 'version': workspace_item })
