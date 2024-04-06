@@ -114,6 +114,11 @@ def fetch_git_repo(git_url: str, commit: str) -> str:
     if head[:COMMIT_LEN] != commit[:COMMIT_LEN]:
         subprocess.run(['git', 'fetch', 'origin', commit], cwd=clone_dir, check=True)
         subprocess.run(['git', 'checkout', commit], cwd=clone_dir, check=True)
+
+    # Get the submodules as they might contain dependencies. This is a noop if
+    # there are no submodules in the repository
+    subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'], cwd=clone_dir, check=True)
+
     return clone_dir
 
 def update_workspace_keys(pkg, workspace):
