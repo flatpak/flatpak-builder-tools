@@ -189,14 +189,14 @@ async def get_git_repo_packages(git_url: str, commit: str) -> _GitPackagesType:
         with workdir(root_dir):
             if os.path.exists('Cargo.toml'):
                 cargo_toml = load_toml('Cargo.toml')
+                workspace = cargo_toml.get('workspace') or workspace
+
                 if 'package' in cargo_toml:
                     packages[cargo_toml['package']['name']] = _GitPackage(
                         path=os.path.normpath(root_dir),
                         package=cargo_toml,
                         workspace=workspace
                     )
-
-                workspace = cargo_toml.get('workspace') or workspace
         for child in os.scandir(root_dir):
             if child.is_dir():
                 # the workspace can be referenced by any subdirectory
