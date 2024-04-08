@@ -123,6 +123,10 @@ def fetch_git_repo(git_url: str, commit: str) -> str:
 
 def update_workspace_keys(pkg, workspace):
     for key, item in pkg.items():
+        # There cannot be a 'workspace' key if the item is not a dict.
+        if not isinstance(item, dict):
+            continue;
+
         # Recurse for keys under target.cfg(..)
         if key == 'target':
             for target in item.values():
@@ -153,7 +157,7 @@ def update_workspace_keys(pkg, workspace):
                 item.update({ 'version': workspace_item })
             else:
                 pkg[key] = workspace_item
-        elif isinstance(item, dict):
+        else:
             update_workspace_keys(item, workspace_item)
 
 class _GitPackage(NamedTuple):
