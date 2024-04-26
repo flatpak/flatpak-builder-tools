@@ -2,18 +2,21 @@
 
 Tool to automatically generate `flatpak-builder` manifest json from a `Cargo.lock`.
 
-## Requirements:
+## Requirements
 
-Python 3.8+ with following modules:
+Poetry users can run `poetry install` and skip this.
 
+Otherwise install Python 3.8+ with these modules:
 - toml
 - aiohttp
 
 Generated manifests are supported by flatpak-builder 1.2.x or newer.
 
-## Usage:
+## Usage
 
-The first step is to convert the locked dependencies by Cargo into a format flatpak-builder can understand
+Poetry users: first activate your virtualenv by running `poetry shell`.
+
+Convert the locked dependencies by Cargo into a format flatpak-builder can understand:
 ```
 python3 ./flatpak-cargo-generator.py ./quickstart/Cargo.lock -o cargo-sources.json
 ```
