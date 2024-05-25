@@ -16,6 +16,7 @@ _GIT_SCHEMES: Dict[str, Dict[str, str]] = {
     'git': {},
     'git+http': {'scheme': 'http'},
     'git+https': {'scheme': 'https'},
+    'git+ssh': {'scheme': 'https'},
 }
 
 
@@ -33,6 +34,14 @@ class LockfileProvider:
         if not new_url.netloc:
             path = new_url.path.split('/')
             new_url = new_url._replace(netloc=path[0], path='/'.join(path[1:]))
+        # Replace https://git@github.com:ianstormtaylor/to-camel-case.git
+        # wth     https://git@github.com/ianstormtaylor/to-camel-case.git
+        # for git+ssh URLs
+        if ':' in new_url.netloc:
+            netloc_split = new_url.netloc.split(':')
+            new_url = new_url._replace(
+                netloc=netloc_split[0], path=f'/{netloc_split[1]}{new_url.path}'
+            )
 
         return GitSource(
             original=original_url.geturl(),
