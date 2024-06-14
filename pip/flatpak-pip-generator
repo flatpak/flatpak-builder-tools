@@ -19,7 +19,7 @@ from typing import Dict
 try:
     import requirements
 except ImportError:
-    exit('Requirements modules is not installed. Run "pip install requirements-parser"')
+    exit('Required python modules are not installed. Run "pip install setuptools requirements-parser"')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('packages', nargs='*')
