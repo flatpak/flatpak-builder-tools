@@ -26,6 +26,11 @@ jobs:
         poetry-version:
           - '1.6.1'
     runs-on: ubuntu-22.04
+    services:
+      verdaccio:
+        image: verdaccio/verdaccio
+        ports:
+          - 4873:4873
     steps:
       - uses: actions/checkout@v4
       - name: Configure git
@@ -45,6 +50,8 @@ jobs:
           flatpak --user remote-add flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak --user install -y flathub \
             org.freedesktop.{Platform,Sdk{,.Extension.node{14,16,18}}}//22.08
+      - name: Setup the local npm registry
+        run: tools/setup-local-registry.sh
       - name: Install dependencies
         run: poetry install
       - name: Run checks

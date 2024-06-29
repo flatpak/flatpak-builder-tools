@@ -321,6 +321,19 @@ $ poetry run pytest -n auto
 Note that these tests can take up quite a bit of space in /tmp, so if you hit `No space
 left on device` errors, try expanding `/tmp` or changing `$TMPDIR`.
 
+### Local Registry
+
+Some of the tests require a local npm registry to work. For this purpose, you can use
+[Verdaccio](https://verdaccio.org/), preferably via Docker / podman:
+
+```bash
+$ docker run --rm -it -p 4873:4873 verdaccio/verdaccio
+```
+
+Then run `tools/setup-local-registry.sh` to set up this registry with a pre-published
+package. (Note that running it twice will result in an error, since it tries to publish
+the same package twice.)
+
 ### Utility Scripts
 
 A few utility scripts are included in the `tools` directory:
@@ -333,6 +346,8 @@ A few utility scripts are included in the `tools` directory:
   - `lockfile-utils.sh peek-cache PACKAGE-MANAGER PACKAGE` will install the dependencies
     from the corresponding lockfile and then extract the resulting package cache (npm)
     or mirror directory (yarn), for closer examination.
+- `setup-local-registry.sh` will set up a local npm registry as [described
+  above](#local-registry).
 - `b64-to-hex.sh` will convert a base64 hash value from npm into hex, e.g.:
   ```
   $ echo x+sXyT4RLLEIb6bY5R+wZnt5pfk= | tools/b64-to-hex.sh
