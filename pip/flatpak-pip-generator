@@ -414,10 +414,11 @@ for package in packages:
     is_vcs = True if package.vcs else False
     package_sources = []
     for dependency in dependencies:
-        if dependency in sources:
-            source = sources[dependency]
-        elif dependency.replace('_', '-') in sources:
-            source = sources[dependency.replace('_', '-')]
+        casefolded = dependency.casefold()
+        if casefolded in sources:
+            source = sources[casefolded]
+        elif casefolded.replace('_', '-') in sources:
+            source = sources[casefolded.replace('_', '-')]
         else:
             continue
 
