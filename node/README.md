@@ -101,8 +101,12 @@ flatpak-node-generator.py takes the package manager (npm or yarn), and a path to
 that package manager. It will then write an output sources file (default is generated-sources.json)
 containing all the sources set up like needed for the given package manager.
 
-If you're on npm and you don't want to include devel dependencies, pass --no-devel, and pass
---production to `npm install` itself when you call.
+If you're on npm and you don't want to include devel dependencies, pass `--no-devel`, and pass
+`--production` to `npm install` itself when you call.
+
+If you're using npm, you must run this script when the `node_modules` directory is **NOT** present.
+If you generate the `generated-sources.json` in CI, you can do this by passing `--package-lock-only`
+to `npm install`.
 
 ### Caching
 
