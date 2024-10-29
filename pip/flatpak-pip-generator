@@ -328,6 +328,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     for filename in os.listdir(tempdir):
         name = get_package_name(filename)
         sha256 = get_file_hash(os.path.join(tempdir, filename))
+        is_pypi = False
 
         if name in vcs_packages:
             uri = vcs_packages[name]['uri']
@@ -344,6 +345,8 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             ])
             is_vcs = True
         else:
+            name = name.casefold()
+            is_pypi = True
             url = get_pypi_url(name, filename)
             source = OrderedDict([
                 ('type', 'file'),
@@ -356,7 +359,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 if url.endswith(".whl"):
                     source['x-checker-data']['packagetype'] = 'bdist_wheel'
             is_vcs = False
-        sources[name] = {'source': source, 'vcs': is_vcs}
+        sources[name] = {'source': source, 'vcs': is_vcs, 'pypi': is_pypi}
 
 # Python3 packages that come as part of org.freedesktop.Sdk.
 system_packages = ['cython', 'easy_install', 'mako', 'markdown', 'meson', 'pip', 'pygments', 'setuptools', 'six', 'wheel']
@@ -415,10 +418,20 @@ for package in packages:
     package_sources = []
     for dependency in dependencies:
         casefolded = dependency.casefold()
-        if casefolded in sources:
+        if casefolded in sources and sources[casefolded].get("pypi") is True:
             source = sources[casefolded]
-        elif casefolded.replace('_', '-') in sources:
-            source = sources[casefolded.replace('_', '-')]
+        elif dependency in sources and sources[dependency].get("pypi") is False:
+            source = sources[dependency]
+        elif (
+            casefolded.replace("_", "-") in sources
+            and sources[casefolded.replace("_", "-")].get("pypi") is True
+        ):
+            source = sources[casefolded.replace("_", "-")]
+        elif (
+            dependency.replace("_", "-") in sources
+            and sources[dependency.replace("_", "-")].get("pypi") is False
+        ):
+            source = sources[dependency.replace("_", "-")]
         else:
             continue
 
