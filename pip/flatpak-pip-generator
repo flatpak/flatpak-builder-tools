@@ -356,7 +356,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 if url.endswith(".whl"):
                     source['x-checker-data']['packagetype'] = 'bdist_wheel'
             is_vcs = False
-        sources[name] = {'source': source, 'vcs': is_vcs}
+        sources[name.casefold()] = {'source': source, 'vcs': is_vcs}
 
 # Python3 packages that come as part of org.freedesktop.Sdk.
 system_packages = ['cython', 'easy_install', 'mako', 'markdown', 'meson', 'pip', 'pygments', 'setuptools', 'six', 'wheel']
