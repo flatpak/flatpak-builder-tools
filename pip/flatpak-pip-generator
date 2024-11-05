@@ -326,7 +326,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
 
     fprint('Obtaining hashes and urls')
     for filename in os.listdir(tempdir):
-        name = get_package_name(filename)
+        name = get_package_name(filename).lower()
         sha256 = get_file_hash(os.path.join(tempdir, filename))
 
         if name in vcs_packages:
