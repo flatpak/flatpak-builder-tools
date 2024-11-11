@@ -10,7 +10,7 @@ import binascii
 import json
 import subprocess
 import tempfile
-
+import concurrent.futures
 
 def main():
     # Bump this to latest freedesktop runtime version.
@@ -20,8 +20,8 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('output', help='The output JSON sources file')
-    parser.add_argument('project', help='The project file')
-    parser.add_argument('--runtime', '-r', nargs='+', default=[None], help='The target runtime to restore packages for')
+    parser.add_argument('project', nargs='+', help='The project file(s)')
+    parser.add_argument('--runtime', '-r', nargs='+', default=[None], help='The target runtime(s) to restore packages for')
     parser.add_argument('--freedesktop', '-f', help='The target version of the freedesktop sdk to use', 
                         default=freedesktop_default)
     parser.add_argument('--dotnet', '-d', help='The target version of dotnet to use', 
@@ -34,11 +34,7 @@ def main():
     sources = []
 
     with tempfile.TemporaryDirectory(dir=Path()) as tmp:
-        for runtime in args.runtime:
-            runtime_args = []
-            if runtime is not None:
-                runtime_args.extend(('-r', runtime))
-
+        def restore_project(project, runtime):
             subprocess.run([
                 'flatpak', 'run',
                 '--env=DOTNET_CLI_TELEMETRY_OPTOUT=true',
@@ -46,7 +42,17 @@ def main():
                 '--command=sh', f'--runtime=org.freedesktop.Sdk//{args.freedesktop}', '--share=network',
                 '--filesystem=host', f'org.freedesktop.Sdk.Extension.dotnet{args.dotnet}//{args.freedesktop}', '-c',
                 f'PATH="${{PATH}}:/usr/lib/sdk/dotnet{args.dotnet}/bin" LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/sdk/dotnet{args.dotnet}/lib" exec dotnet restore "$@"',
-                '--', '--packages', tmp, args.project] + runtime_args)
+                '--', '--packages', tmp, project] + (['-r', runtime] if runtime else []))
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = []
+            for project in args.project:
+                if args.runtime:
+                    for runtime in args.runtime:
+                        futures.append(executor.submit(restore_project, project, runtime))
+                else:
+                    futures.append(executor.submit(restore_project, project, None))
+            concurrent.futures.wait(futures)
 
         for path in Path(tmp).glob('**/*.nupkg.sha512'):
             name = path.parent.parent.name
