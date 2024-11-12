@@ -1,0 +1,45 @@
+{
+  "name": "@flatpak-node-generator-tests/git",
+  "version": "1.0.0",
+  "lockfileVersion": 1,
+  "requires": true,
+  "dependencies": {
+    "is-empty-object": {
+      "version": "git+ssh://git@github.com/gummesson/is-empty-object.git#7b50c8eb4e14135631f7c94e01c0c8a36e5d75f8",
+      "from": "is-empty-object@github:gummesson/is-empty-object#7b50c8eb4e14135631f7c94e01c0c8a36e5d75f8"
+    },
+    "is-number": {
+      "version": "git+ssh://git@github.com/jonschlinkert/is-number.git#98e8ff1da1a89f93d1397a24d7413ed15421c139",
+      "from": "is-number@github:jonschlinkert/is-number"
+    },
+    "person-lib": {
+      "version": "git+ssh://git@gitlab.com/volodymyrkr/person-lib.git#752fd1828b1eb3a9635bf725ae5e1704a375e524",
+      "from": "person-lib@gitlab:volodymyrkr/person-lib"
+    },
+    "to-camel-case": {
+      "version": "git+ssh://git@github.com/ianstormtaylor/to-camel-case.git#00a20429b600ddb6e4f8ff5b17c52914f40fe67d",
+      "from": "git+ssh://git@github.com/ianstormtaylor/to-camel-case.git",
+      "requires": {
+        "to-space-case": "^1.0.0"
+      }
+    },
+    "to-capital-case": {
+      "version": "git+https://git@github.com/ianstormtaylor/to-capital-case.git#b82f61e00e099b01514e25177bb2d56d0f64b157",
+      "from": "git+https://git@github.com/ianstormtaylor/to-capital-case.git",
+      "requires": {
+        "to-space-case": "^1.0.0"
+      }
+    },
+    "to-no-case": {
+      "version": "git+https://git@github.com/ianstormtaylor/to-no-case.git#9078578dcf394e63f34fd7c6666772192e537b90",
+      "from": "git+https://git@github.com/ianstormtaylor/to-no-case.git#9078578dcf394e63f34fd7c6666772192e537b90"
+    },
+    "to-space-case": {
+      "version": "git+ssh://git@github.com/ianstormtaylor/to-space-case.git#aa68213d1211745ce7c6c725ba072e6b13bef640",
+      "from": "git+ssh://git@github.com/ianstormtaylor/to-space-case.git#aa68213d1211745ce7c6c725ba072e6b13bef640",
+      "requires": {
+        "to-no-case": "^1.0.0"
+      }
+    }
+  }
+}
