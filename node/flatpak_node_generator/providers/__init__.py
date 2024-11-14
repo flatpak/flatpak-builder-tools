@@ -1,7 +1,8 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import ContextManager, Dict, Iterator, List, Optional
+from typing import Any, ContextManager, Dict, Iterator, List, Optional, Tuple
 
-import re
+import dataclasses
 import urllib.parse
 
 from ..manifest import ManifestGenerator
@@ -45,31 +46,47 @@ class LockfileProvider:
         raise NotImplementedError()
 
 
-class RCFileProvider:
-    RCFILE_NAME: str
+@dataclass
+class Config:
+    data: Dict[str, Any] = dataclasses.field(default_factory=lambda: {})
 
-    def parse_rcfile(self, rcfile: Path) -> Dict[str, str]:
-        with open(rcfile, 'r') as r:
-            rcfile_text = r.read()
-        parser_re = re.compile(
-            r'^(?!#|;)(\S+)(?:\s+|\s*=\s*)(?:"(.+)"|(\S+))$', re.MULTILINE
-        )
-        result: Dict[str, str] = {}
-        for key, quoted_val, val in parser_re.findall(rcfile_text):
-            result[key] = quoted_val or val
-        return result
+    def merge_new_keys_only(self, other: Dict[str, Any]) -> None:
+        for key, value in other.items():
+            if key not in self.data:
+                self.data[key] = value
 
-    def get_node_headers(self, rcfile: Path) -> Optional[NodeHeaders]:
-        rc_data = self.parse_rcfile(rcfile)
-        if 'target' not in rc_data:
+    def get_node_headers(self) -> Optional[NodeHeaders]:
+        if 'target' not in self.data:
             return None
-        target = rc_data['target']
-        runtime = rc_data.get('runtime')
-        disturl = rc_data.get('disturl')
+        target = self.data['target']
+        runtime = self.data.get('runtime')
+        disturl = self.data.get('disturl')
 
         assert isinstance(runtime, str) and isinstance(disturl, str)
 
         return NodeHeaders.with_defaults(target, runtime, disturl)
+
+    def get_registry_for_scope(self, scope: str) -> Optional[str]:
+        return self.data.get(f'{scope}:registry')
+
+
+class ConfigProvider:
+    @property
+    def _filename(self) -> str:
+        raise NotImplementedError()
+
+    def parse_config(self, path: Path) -> Dict[str, Any]:
+        raise NotImplementedError()
+
+    def load_config(self, lockfile: Path) -> Config:
+        config = Config()
+
+        for parent in lockfile.parents:
+            path = parent / self._filename
+            if path.exists():
+                config.merge_new_keys_only(self.parse_config(path))
+
+        return config
 
 
 class ModuleProvider(ContextManager['ModuleProvider']):
@@ -81,10 +98,13 @@ class ProviderFactory:
     def create_lockfile_provider(self) -> LockfileProvider:
         raise NotImplementedError()
 
-    def create_rcfile_providers(self) -> List[RCFileProvider]:
+    def create_config_provider(self) -> ConfigProvider:
         raise NotImplementedError()
 
     def create_module_provider(
-        self, gen: ManifestGenerator, special: SpecialSourceProvider
+        self,
+        gen: ManifestGenerator,
+        special: SpecialSourceProvider,
+        lockfile_configs: Dict[Path, Config],
     ) -> ModuleProvider:
         raise NotImplementedError()
