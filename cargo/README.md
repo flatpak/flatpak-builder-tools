@@ -29,7 +29,7 @@ The output file should be added to the manifest like
     "build-commands": [
         "cargo --offline fetch --manifest-path Cargo.toml --verbose",
         "cargo --offline build --release --verbose",
-        "install -Dm755 ./target/debug/quickstart -t /app/bin/"
+        "install -Dm755 ./target/release/quickstart -t /app/bin/"
     ],
     "sources": [
         {
@@ -45,3 +45,4 @@ Make sure to override CARGO_HOME env variable to point it to `/run/build/$module
 
 
 For a complete example see the quickstart project.
+
