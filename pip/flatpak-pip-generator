@@ -295,7 +295,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 print('Downloading {}'.format(url))
                 download_tar_pypi(url, tempdir)
             except Exception as err:
-                # Can happen if only a arch dependend whl is available like for wasmtime-27.0.2
+                # Can happen if only an arch dependent wheel is available like for wasmtime-27.0.2
                 unresolved_dependencies_errors.append(err)
             print('Deleting', filename)
             try:
