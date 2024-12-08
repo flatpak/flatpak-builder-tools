@@ -1,0 +1,113 @@
+{
+  "name": "@flatpak-node-generator-tests/git",
+  "version": "1.0.0",
+  "lockfileVersion": 2,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "@flatpak-node-generator-tests/git",
+      "version": "1.0.0",
+      "dependencies": {
+        "is-empty-object": "github:gummesson/is-empty-object#7b50c8eb4e14135631f7c94e01c0c8a36e5d75f8",
+        "is-number": "github:jonschlinkert/is-number",
+        "person-lib": "gitlab:volodymyrkr/person-lib",
+        "to-camel-case": "git+ssh://git@github.com:ianstormtaylor/to-camel-case.git",
+        "to-capital-case": "git+https://git@github.com/ianstormtaylor/to-capital-case.git",
+        "to-no-case": "git+https://git@github.com/ianstormtaylor/to-no-case.git#9078578dcf394e63f34fd7c6666772192e537b90",
+        "to-space-case": "git+ssh://git@github.com:ianstormtaylor/to-space-case.git#aa68213d1211745ce7c6c725ba072e6b13bef640"
+      }
+    },
+    "node_modules/is-empty-object": {
+      "version": "1.1.1",
+      "resolved": "git+ssh://git@github.com/gummesson/is-empty-object.git#7b50c8eb4e14135631f7c94e01c0c8a36e5d75f8",
+      "integrity": "sha512-OQNk2je1cKQ0Y0AYZ2X9hwapnDsOaKIa9wDdCjtmaU6JsnNHmbk27kPn1HNtgeIuLca3HvrBocDRt6y7+2aHJA==",
+      "license": "MIT"
+    },
+    "node_modules/is-number": {
+      "version": "7.0.0",
+      "resolved": "git+ssh://git@github.com/jonschlinkert/is-number.git#98e8ff1da1a89f93d1397a24d7413ed15421c139",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.12.0"
+      }
+    },
+    "node_modules/person-lib": {
+      "version": "1.0.1",
+      "resolved": "git+ssh://git@gitlab.com/volodymyrkr/person-lib.git#752fd1828b1eb3a9635bf725ae5e1704a375e524",
+      "license": "ISC"
+    },
+    "node_modules/to-camel-case": {
+      "version": "1.0.0",
+      "resolved": "git+ssh://git@github.com/ianstormtaylor/to-camel-case.git#00a20429b600ddb6e4f8ff5b17c52914f40fe67d",
+      "license": "MIT",
+      "dependencies": {
+        "to-space-case": "^1.0.0"
+      }
+    },
+    "node_modules/to-capital-case": {
+      "version": "1.0.0",
+      "resolved": "git+https://git@github.com/ianstormtaylor/to-capital-case.git#b82f61e00e099b01514e25177bb2d56d0f64b157",
+      "license": "MIT",
+      "dependencies": {
+        "to-space-case": "^1.0.0"
+      }
+    },
+    "node_modules/to-no-case": {
+      "version": "1.0.0",
+      "resolved": "git+https://git@github.com/ianstormtaylor/to-no-case.git#9078578dcf394e63f34fd7c6666772192e537b90",
+      "integrity": "sha512-E6uMYyFvmgQWszuxWtCz0NN+BgdVvQjVCU6Nnq0BSxi8q/QKRCBs14pGUWbPQghmpjJbdkKgjICDWihePrJGOQ==",
+      "license": "MIT"
+    },
+    "node_modules/to-space-case": {
+      "version": "1.0.0",
+      "resolved": "git+ssh://git@github.com/ianstormtaylor/to-space-case.git#aa68213d1211745ce7c6c725ba072e6b13bef640",
+      "integrity": "sha512-i7ZtWv1WzR6xrLpd5wpSU/RZxoEDaoD3uLU5pDgXEZfUZJh0QpPtjJdLf7i+nr24Z80ls8qYCfBeFpZk6RzXKQ==",
+      "license": "MIT",
+      "dependencies": {
+        "to-no-case": "^1.0.0"
+      }
+    }
+  },
+  "dependencies": {
+    "is-empty-object": {
+      "version": "git+ssh://git@github.com/gummesson/is-empty-object.git#7b50c8eb4e14135631f7c94e01c0c8a36e5d75f8",
+      "integrity": "sha512-OQNk2je1cKQ0Y0AYZ2X9hwapnDsOaKIa9wDdCjtmaU6JsnNHmbk27kPn1HNtgeIuLca3HvrBocDRt6y7+2aHJA==",
+      "from": "is-empty-object@github:gummesson/is-empty-object#7b50c8eb4e14135631f7c94e01c0c8a36e5d75f8"
+    },
+    "is-number": {
+      "version": "git+ssh://git@github.com/jonschlinkert/is-number.git#98e8ff1da1a89f93d1397a24d7413ed15421c139",
+      "from": "is-number@github:jonschlinkert/is-number"
+    },
+    "person-lib": {
+      "version": "git+ssh://git@gitlab.com/volodymyrkr/person-lib.git#752fd1828b1eb3a9635bf725ae5e1704a375e524",
+      "from": "person-lib@gitlab:volodymyrkr/person-lib"
+    },
+    "to-camel-case": {
+      "version": "git+ssh://git@github.com/ianstormtaylor/to-camel-case.git#00a20429b600ddb6e4f8ff5b17c52914f40fe67d",
+      "from": "to-camel-case@git+ssh://git@github.com:ianstormtaylor/to-camel-case.git",
+      "requires": {
+        "to-space-case": "^1.0.0"
+      }
+    },
+    "to-capital-case": {
+      "version": "git+https://git@github.com/ianstormtaylor/to-capital-case.git#b82f61e00e099b01514e25177bb2d56d0f64b157",
+      "from": "to-capital-case@git+https://git@github.com/ianstormtaylor/to-capital-case.git",
+      "requires": {
+        "to-space-case": "^1.0.0"
+      }
+    },
+    "to-no-case": {
+      "version": "git+https://git@github.com/ianstormtaylor/to-no-case.git#9078578dcf394e63f34fd7c6666772192e537b90",
+      "integrity": "sha512-E6uMYyFvmgQWszuxWtCz0NN+BgdVvQjVCU6Nnq0BSxi8q/QKRCBs14pGUWbPQghmpjJbdkKgjICDWihePrJGOQ==",
+      "from": "to-no-case@git+https://git@github.com/ianstormtaylor/to-no-case.git#9078578dcf394e63f34fd7c6666772192e537b90"
+    },
+    "to-space-case": {
+      "version": "git+ssh://git@github.com/ianstormtaylor/to-space-case.git#aa68213d1211745ce7c6c725ba072e6b13bef640",
+      "integrity": "sha512-i7ZtWv1WzR6xrLpd5wpSU/RZxoEDaoD3uLU5pDgXEZfUZJh0QpPtjJdLf7i+nr24Z80ls8qYCfBeFpZk6RzXKQ==",
+      "from": "to-space-case@git+ssh://git@github.com:ianstormtaylor/to-space-case.git#aa68213d1211745ce7c6c725ba072e6b13bef640",
+      "requires": {
+        "to-no-case": "^1.0.0"
+      }
+    }
+  }
+}
