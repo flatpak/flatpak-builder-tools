@@ -1,0 +1,13 @@
+{
+  "name": "@flatpak-node-generator-tests/custom-registry",
+  "version": "1.0.0",
+  "lockfileVersion": 1,
+  "requires": true,
+  "dependencies": {
+    "@flatpak-node-generator-tests/registry-package": {
+      "version": "1.0.0",
+      "resolved": "http://localhost:4873/@flatpak-node-generator-tests%2fregistry-package/-/registry-package-1.0.0.tgz",
+      "integrity": "sha512-dyHOPsVMVjCUtyL7jeqs+ISkpRnXV88lkObwNJvYl33f/nWiKj/luzfoE4wgYOcmRuYwLNgAV/Y2SD19aHWDng=="
+    }
+  }
+}

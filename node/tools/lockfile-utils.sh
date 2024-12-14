@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
+shopt -s nullglob
 
 die() {
   echo "$@" >&2
@@ -62,7 +63,7 @@ package_path="$(dirname "$0")/../tests/data/packages/$package_arg"
 tmpdir=$(mktemp -d)
 trap 'rm -rf -- "$tmpdir"' EXIT
 
-cp "$package_path/package.json" "$tmpdir"
+cp "$package_path/package.json" "$package_path/".*rc "$tmpdir"
 
 # Special-case handling for our test of a local package.
 [[ -d "$package_path/subdir" ]] && cp -r "$package_path/subdir" "$tmpdir"
