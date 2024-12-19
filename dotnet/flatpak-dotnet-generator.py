@@ -29,10 +29,11 @@ def main():
     parser.add_argument('--destdir',
                         help='The directory the generated sources file will save sources to',
                         default='nuget-sources')
+    parser.add_argument('--dotnet-args', '-a', nargs=argparse.REMAINDER, 
+                        help='Additional arguments to pass to the dotnet command')
     args = parser.parse_args()
 
     sources = []
-
     with tempfile.TemporaryDirectory(dir=Path()) as tmp:
         def restore_project(project, runtime):
             subprocess.run([
@@ -42,7 +43,7 @@ def main():
                 '--command=sh', f'--runtime=org.freedesktop.Sdk//{args.freedesktop}', '--share=network',
                 '--filesystem=host', f'org.freedesktop.Sdk.Extension.dotnet{args.dotnet}//{args.freedesktop}', '-c',
                 f'PATH="${{PATH}}:/usr/lib/sdk/dotnet{args.dotnet}/bin" LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/sdk/dotnet{args.dotnet}/lib" exec dotnet restore "$@"',
-                '--', '--packages', tmp, project] + (['-r', runtime] if runtime else []))
+                '--', '--packages', tmp, project] + (['-r', runtime] if runtime else []) + (args.dotnet_args or []))
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = []
