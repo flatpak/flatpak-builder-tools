@@ -134,6 +134,9 @@ class NpmLockfileProvider(LockfileProvider):
                         'Git sources in lockfile v2 format are not supported yet'
                         f' (package {install_path} in {lockfile})'
                     )
+            elif info.get('optional'):
+                # Optional dependencies can be skipped
+                continue
             else:
                 raise NotImplementedError(
                     f"Don't know how to handle package {install_path} in {lockfile}"
