@@ -11,7 +11,7 @@ required, however, you can disable it explicitly via `--no-xdg-layout`.
 ## Requirements
 
 - flatpak-builder 1.1.2 or newer
-- Python 3.7+.
+- Python 3.8+.
 - [pipx](https://pypa.github.io/pipx/) (recommended) or
   [pip](https://pip.pypa.io/en/stable/) (both of these are usually available in
   your distro repositories, the latter is often included with Python installs).
@@ -101,8 +101,12 @@ flatpak-node-generator.py takes the package manager (npm or yarn), and a path to
 that package manager. It will then write an output sources file (default is generated-sources.json)
 containing all the sources set up like needed for the given package manager.
 
-If you're on npm and you don't want to include devel dependencies, pass --no-devel, and pass
---production to `npm install` itself when you call.
+If you're on npm and you don't want to include devel dependencies, pass `--no-devel`, and pass
+`--production` to `npm install` itself when you call.
+
+If you're using npm, you must run this script when the `node_modules` directory is **NOT** present.
+If you generate the `generated-sources.json` in CI, you can do this by passing `--package-lock-only`
+to `npm install`.
 
 ### Caching
 

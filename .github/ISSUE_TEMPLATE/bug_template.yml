@@ -10,7 +10,7 @@ body:
       description: >-
         What version of flatpak-builder are you using?
         If unsure, run `flatpak-builder --version` in the terminal.
-      placeholder: 1.2.0
+      placeholder: 1.4.1
     validations:
       required: true
 
@@ -43,6 +43,7 @@ body:
         - pip/flatpak-pip-generator
         - poetry/flatpak-poetry-generator.py
         - rubygems/flatpak_rubygems_generator.rb
+        - spm/flatpak-spm-generator.swift
         - yarn/flatpak-yarn-generator.py
     validations:
       required: true
