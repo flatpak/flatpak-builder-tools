@@ -1,7 +1,9 @@
 from pathlib import Path
-from typing import List, NamedTuple, Optional
+from typing import DefaultDict, List, NamedTuple, Optional, Tuple
 
+import collections
 import hashlib
+import itertools
 import json
 import os
 import re
@@ -56,6 +58,9 @@ class SpecialSourceProvider:
         add_integrities: bool = True,
     ) -> None:
         electron_cache_dir = self.electron_cache_dir
+        links_to_create: DefaultDict[
+            str, List[Tuple[ElectronBinaryManager.Binary, str]]
+        ] = collections.defaultdict(lambda: [])
 
         for binary in manager.find_binaries(binary_name):
             assert binary.arch is not None
@@ -69,23 +74,9 @@ class SpecialSourceProvider:
             if self.xdg_layout:
                 sanitized_url = ''.join(c for c in binary.url if c not in '/:')
 
+                links_to_create[sanitized_url].append((binary, binary.filename))
                 # And for @electron/get >= 1.12.4 its sha256 hash of url dirname
-                url = urllib.parse.urlparse(binary.url)
-                url_dir = urllib.parse.urlunparse(
-                    url._replace(path=os.path.dirname(url.path))
-                )
-                url_hash = hashlib.sha256(url_dir.encode()).hexdigest()
-
-                self.gen.add_shell_source(
-                    [
-                        f'mkdir -p "{sanitized_url}"',
-                        f'ln -s "../{binary.filename}" "{sanitized_url}/{binary.filename}"',
-                        f'mkdir -p "{url_hash}"',
-                        f'ln -s "../{binary.filename}" "{url_hash}/{binary.filename}"',
-                    ],
-                    destination=electron_cache_dir,
-                    only_arches=[binary.arch.flatpak],
-                )
+                links_to_create[binary.url_hash].append((binary, binary.filename))
 
         if add_integrities:
             integrity_file = manager.integrity_file
@@ -94,6 +85,27 @@ class SpecialSourceProvider:
                 integrity_file.integrity,
                 electron_cache_dir / integrity_file.filename,
             )
+            links_to_create[integrity_file.url_hash].append(
+                (integrity_file, ElectronBinaryManager.INTEGRITY_BASE_FILENAME)
+            )
+
+        for dir, all_binaries in links_to_create.items():
+            for arch, binaries_it in itertools.groupby(
+                sorted(all_binaries, key=lambda b: str(b[0].arch)),
+                key=lambda b: b[0].arch,
+            ):
+                binaries = list(binaries_it)
+                self.gen.add_shell_source(
+                    [
+                        f'mkdir -p "{dir}"',
+                        *(
+                            f'ln -s "../{binary.filename}" "{dir}/{dest}"'
+                            for (binary, dest) in binaries
+                        ),
+                    ],
+                    destination=electron_cache_dir,
+                    only_arches=[arch.flatpak] if arch is not None else None,
+                )
 
     async def _handle_electron(self, package: Package) -> None:
         manager = await ElectronBinaryManager.for_version(package.version)
@@ -344,7 +356,7 @@ class SpecialSourceProvider:
                 if revision < 1140:
                     dl_file = 'firefox-linux.zip'
                 else:
-                    dl_file = 'firefox-ubuntu-18.04.zip'
+                    dl_file = 'firefox-ubuntu-22.04.zip'
             elif name == 'webkit':
                 url_tp = 'https://playwright.azureedge.net/builds/webkit/%d/%s'
                 if revision < 1317:

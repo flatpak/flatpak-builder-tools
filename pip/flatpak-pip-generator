@@ -83,7 +83,7 @@ def get_tar_package_url_pypi(name: str, version: str) -> str:
     url = 'https://pypi.org/pypi/{}/{}/json'.format(name, version)
     with urllib.request.urlopen(url) as response:
         body = json.loads(response.read().decode('utf-8'))
-        for ext in ['bz2', 'gz', 'xz', 'zip']:
+        for ext in ['bz2', 'gz', 'xz', 'zip', 'none-any.whl']:
             for source in body['urls']:
                 if source['url'].endswith(ext):
                     return source['url']
@@ -251,6 +251,8 @@ modules = []
 vcs_modules = []
 sources = {}
 
+unresolved_dependencies_errors = []
+
 tempdir_prefix = 'pip-generator-{}'.format(output_package)
 with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     pip_download = flatpak_cmd + [
@@ -288,14 +290,18 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         if not filename.endswith(('bz2', 'any.whl', 'gz', 'xz', 'zip')):
             version = get_file_version(filename)
             name = get_package_name(filename)
-            url = get_tar_package_url_pypi(name, version)
+            try:
+                url = get_tar_package_url_pypi(name, version)
+                print('Downloading {}'.format(url))
+                download_tar_pypi(url, tempdir)
+            except Exception as err:
+                # Can happen if only an arch dependent wheel is available like for wasmtime-27.0.2
+                unresolved_dependencies_errors.append(err)
             print('Deleting', filename)
             try:
                 os.remove(os.path.join(tempdir, filename))
             except FileNotFoundError:
                 pass
-            print('Downloading {}'.format(url))
-            download_tar_pypi(url, tempdir)
 
     files = {get_package_name(f): [] for f in os.listdir(tempdir)}
 
@@ -328,6 +334,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     for filename in os.listdir(tempdir):
         name = get_package_name(filename)
         sha256 = get_file_hash(os.path.join(tempdir, filename))
+        is_pypi = False
 
         if name in vcs_packages:
             uri = vcs_packages[name]['uri']
@@ -344,6 +351,8 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             ])
             is_vcs = True
         else:
+            name = name.casefold()
+            is_pypi = True
             url = get_pypi_url(name, filename)
             source = OrderedDict([
                 ('type', 'file'),
@@ -356,7 +365,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 if url.endswith(".whl"):
                     source['x-checker-data']['packagetype'] = 'bdist_wheel'
             is_vcs = False
-        sources[name] = {'source': source, 'vcs': is_vcs}
+        sources[name] = {'source': source, 'vcs': is_vcs, 'pypi': is_pypi}
 
 # Python3 packages that come as part of org.freedesktop.Sdk.
 system_packages = ['cython', 'easy_install', 'mako', 'markdown', 'meson', 'pip', 'pygments', 'setuptools', 'six', 'wheel']
@@ -414,10 +423,21 @@ for package in packages:
     is_vcs = True if package.vcs else False
     package_sources = []
     for dependency in dependencies:
-        if dependency in sources:
+        casefolded = dependency.casefold()
+        if casefolded in sources and sources[casefolded].get("pypi") is True:
+            source = sources[casefolded]
+        elif dependency in sources and sources[dependency].get("pypi") is False:
             source = sources[dependency]
-        elif dependency.replace('_', '-') in sources:
-            source = sources[dependency.replace('_', '-')]
+        elif (
+            casefolded.replace("_", "-") in sources
+            and sources[casefolded.replace("_", "-")].get("pypi") is True
+        ):
+            source = sources[casefolded.replace("_", "-")]
+        elif (
+            dependency.replace("_", "-") in sources
+            and sources[dependency.replace("_", "-")].get("pypi") is False
+        ):
+            source = sources[dependency.replace("_", "-")]
         else:
             continue
 
@@ -492,3 +512,22 @@ with open(output_filename, 'w') as output:
     else:
         output.write(json.dumps(pypi_module, indent=4))
     print('Output saved to {}'.format(output_filename))
+
+if len(unresolved_dependencies_errors) != 0:
+    print("Unresolved dependencies. Handle them manually")
+    for e in unresolved_dependencies_errors:
+        print(f"- ERROR: {e}")
+
+    workaround = """Example how to handle wheels which only support specific architectures:
+    - type: file
+      url: https://files.pythonhosted.org/packages/79/ae/7e5b85136806f9dadf4878bf73cf223fe5c2636818ba3ab1c585d0403164/numpy-1.26.4-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+      sha256: 7ab55401287bfec946ced39700c053796e7cc0e3acbef09993a9ad2adba6ca6e
+      only-arches:
+      - aarch64
+    - type: file
+      url: https://files.pythonhosted.org/packages/3a/d0/edc009c27b406c4f9cbc79274d6e46d634d139075492ad055e3d68445925/numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+      sha256: 666dbfb6ec68962c033a450943ded891bed2d54e6755e35e5835d63f4f6931d5
+      only-arches:
+      - x86_64
+    """
+    raise Exception(f"Not all dependencies can be determined. Handle them manually.\n{workaround}")

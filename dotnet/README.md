@@ -32,4 +32,17 @@ If you want to change the directory name, run `flatpak-dotnet-generator.py` with
 - `--runtime` or `-r` The target [runtime](https://learn.microsoft.com/en-us/dotnet/core/rid-catalog#linux-rids) to restore packages for.
 - `--dotnet` or `-d` The target version of dotnet to use. (Defaults to latest LTS version)
 - `--freedesktop` or `-f` The target version of the freedesktop sdk to use. (Defaults to latest version)
-- `--destdir` The directory the generated sources file will save sources to `nuget-sources` by default. 
+- `--destdir` The directory the generated sources file will save sources to `nuget-sources` by default.
+- `--dotnet-args` or `-a` Pass additional arguments to the `dotnet` command.
+
+## Example
+
+To pass multiple arguments to the `dotnet` command, use the `--dotnet-args` option:
+
+```bash
+python3 flatpak-dotnet-generator.py my-output-sources.json my.input.Desktop.csproj --runtime linux-x64 --dotnet-args --no-cache --verbosity detailed
+```
+
+In this example:
+- `--no-cache` and `--verbosity detailed` are additional arguments passed to the `dotnet` command.
+- You can add as many arguments as needed after `--dotnet-args`.

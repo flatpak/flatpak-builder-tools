@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import itertools
+import shlex
 
 import pytest
 
@@ -168,16 +169,25 @@ async def test_special_electron(
     provider_factory_spec: ProviderFactorySpec,
     node_version: int,
 ) -> None:
+    VERSION = '26.3.0'
+    SCRIPT = f"""
+    import {{download}} from '@electron/get'
+    await download('{VERSION}')
+    """
+
     with ManifestGenerator() as gen:
         await provider_factory_spec.generate_modules('electron', gen, node_version)
 
     flatpak_builder.build(
         sources=itertools.chain(gen.ordered_sources()),
-        commands=[provider_factory_spec.install_command],
+        commands=[
+            provider_factory_spec.install_command,
+            f"""node --input-type=module -e {shlex.quote(SCRIPT)}""",
+        ],
         use_node=node_version,
     )
 
     electron_version = (
         flatpak_builder.module_dir / 'node_modules' / 'electron' / 'dist' / 'version'
     )
-    assert electron_version.read_text() == '18.3.4'
+    assert electron_version.read_text() == '26.3.0'

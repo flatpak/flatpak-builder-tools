@@ -5,8 +5,8 @@ description = ""
 authors = ["Ryan Gonzalez <ryan.gonzalez@collabora.com>", "Filippe LeMarchand <gasinvein@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.7"
-aiohttp = "^3.8.1"
+python = "^3.8"
+aiohttp = "^3.9.0"
 
 [tool.poetry.dev-dependencies]
 blue = {git = "https://github.com/grantjenks/blue"}
@@ -24,7 +24,7 @@ flatpak-node-generator = "flatpak_node_generator.main:main"
 
 [tool.blue]
 line-length = 88
-target-version = ["py37"]
+target-version = ["py38"]
 
 [tool.isort]
 from_first = true
@@ -33,7 +33,7 @@ profile = "black"
 src_paths = ["flatpak_node_generator", "tests"]
 
 [tool.mypy]
-python_version = "3.7"
+python_version = "3.8"
 exclude = "^(.*/)?((([^/]+)-quick-start)|(\\.venv)|npm-cache|yarn-mirror)/.*$"
 strict = true
 

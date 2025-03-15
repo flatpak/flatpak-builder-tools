@@ -111,6 +111,7 @@ class NpmLockfileProvider(LockfileProvider):
             name = info.get('name')
 
             source: PackageSource
+
             if 'resolved' in info:
                 resolved_url = urllib.parse.urlparse(info['resolved'])
                 if resolved_url.scheme == 'file':
