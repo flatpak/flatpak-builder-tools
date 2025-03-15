@@ -38,7 +38,7 @@ async def test_git(
         sources=itertools.chain(gen.ordered_sources()),
         commands=[
             provider_factory_spec.install_command,
-            """node -e 'require("to-camel-case");require("to-capital-case");require("to-no-case");require("to-space-case");'""",
+            """node -e 'require("array-range");require("is-empty-object");require("is-number");require("person-lib");require("to-camel-case");require("to-capital-case");require("to-no-case");require("to-space-case");'""",
         ],
         use_node=node_version,
     )

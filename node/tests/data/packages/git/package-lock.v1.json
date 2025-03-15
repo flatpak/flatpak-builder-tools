@@ -4,6 +4,10 @@
   "lockfileVersion": 1,
   "requires": true,
   "dependencies": {
+    "array-range": {
+      "version": "git+ssh://git@github.com/mattdesl/array-range.git#d8b6fbdfc29caf846be02229325dfb4967f1dcd6",
+      "from": "array-range@github:mattdesl/array-range#master"
+    },
     "is-empty-object": {
       "version": "git+ssh://git@github.com/gummesson/is-empty-object.git#7b50c8eb4e14135631f7c94e01c0c8a36e5d75f8",
       "from": "is-empty-object@github:gummesson/is-empty-object#7b50c8eb4e14135631f7c94e01c0c8a36e5d75f8"

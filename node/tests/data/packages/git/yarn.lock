@@ -2,6 +2,10 @@
 # yarn lockfile v1
 
 
+"array-range@github:mattdesl/array-range#master":
+  version "1.0.1"
+  resolved "https://codeload.github.com/mattdesl/array-range/tar.gz/d8b6fbdfc29caf846be02229325dfb4967f1dcd6"
+
 "is-empty-object@github:gummesson/is-empty-object#7b50c8eb4e14135631f7c94e01c0c8a36e5d75f8":
   version "1.1.1"
   resolved "https://codeload.github.com/gummesson/is-empty-object/tar.gz/7b50c8eb4e14135631f7c94e01c0c8a36e5d75f8"

@@ -199,7 +199,7 @@ class NpmModuleProvider(ModuleProvider):
         self.all_lockfiles: Set[Path] = set()
         # Mapping of lockfiles to a dict of the Git source target paths and GitSource objects.
         self.git_sources: DefaultDict[
-            Path, Dict[Path, GitSource]
+            Path, Dict[Path, (str, GitSource)]
         ] = collections.defaultdict(lambda: {})
         # FIXME better pass the same provider object we created in main
         self.rcfile_provider = NpmRCFileProvider()
@@ -360,7 +360,7 @@ class NpmModuleProvider(ModuleProvider):
             # Get a unique name to use for the Git repository folder.
             name = f'{package.name}-{source.commit}'
             path = self.gen.data_root / 'git-packages' / name
-            self.git_sources[package.lockfile][path] = source
+            self.git_sources[package.lockfile][path] = (package.name, source)
             self.gen.add_git_source(source.url, source.commit, path)
 
         elif isinstance(source, LocalSource):
@@ -422,8 +422,8 @@ class NpmModuleProvider(ModuleProvider):
                             if type == "object"
                             then
                                 to_entries | map(
-                                    if (.value | type == "string") and $data[.value]
-                                    then .value = "git+file://\($buildroot)/\($data[.value])"
+                                    if (.key | type == "string") and $data[.key]
+                                    then .value = "git+file://\($buildroot)/\($data[.key])"
                                     else .
                                     end
                                 ) | from_entries
@@ -436,46 +436,10 @@ class NpmModuleProvider(ModuleProvider):
                 prefix = self.relative_lockfile_dir(lockfile)
                 data: Dict[str, str] = {}
 
-                for path, source in sources.items():
-                    GIT_URL_PREFIX = 'git+'
-
+                for path, name_source in sources.items():
+                    name, source = name_source
                     new_version = f'{path}#{source.commit}'
-                    targets = []
-                    source_url = urllib.parse.urlparse(source.from_ or source.original)
-
-                    # https://github.com/npm/hosted-git-info
-                    hosted_git = [
-                        ('@github.com', 'github'),
-                        ('@bitbucket.org', 'bitbucket'),
-                        ('@gitlab.com', 'gitlab'),
-                        ('@gist.github.com', 'gist'),
-                        ('@git.sr.ht', 'sourcehut'),
-                    ]
-                    for domain, shortcut in hosted_git:
-                        if domain in source_url.netloc.lower():
-                            targets.append(
-                                f"{shortcut}:{source_url.path[1:].replace('.git', '')}"
-                                f'#{source_url.fragment}'
-                            )
-                            break
-
-                    if (
-                        source_url.scheme.startswith(GIT_URL_PREFIX + 'ssh')
-                        and ':' not in source_url.netloc
-                    ):
-                        path_match = re.compile(r'^/([^/]+)(.*)').match(source_url.path)
-                        if path_match:
-                            parent, child = path_match.groups()
-                            source_url = source_url._replace(
-                                netloc=f'{source_url.netloc}:{parent}', path=child
-                            )
-                    elif source_url.scheme.startswith(GIT_URL_PREFIX):
-                        targets.append(source_url.geturl()[len(GIT_URL_PREFIX) :])
-
-                    targets.append(source_url.geturl())
-                    for t in targets:
-                        data[t] = new_version
-                        data[t.replace('#' + source.commit, '')] = new_version
+                    data[name] = new_version
 
                 filename = 'package.json'
                 target = Path('$FLATPAK_BUILDER_BUILDDIR') / prefix / filename
