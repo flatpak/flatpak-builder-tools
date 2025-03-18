@@ -20,10 +20,10 @@ required, however, you can disable it explicitly via `--no-xdg-layout`.
 
 The easiest way to use this tool is to install it via
 [pipx](https://pypa.github.io/pipx/), the officially recommended way of
-installing Python packages, by running the following from this directory:
+installing Python packages, by running the following:
 
 ```
-$ pipx install .
+$ pipx install git+https://github.com/flatpak/flatpak-builder-tools.git#subdirectory=node
 ```
 
 ## Complete examples
