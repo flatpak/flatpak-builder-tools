@@ -2,6 +2,7 @@
   "name": "@flatpak-node-generator-tests/git",
   "version": "1.0.0",
   "dependencies": {
+    "@flatpak-node-generator-tests/subdir": "file:subdir",
     "array-range": "github:mattdesl/array-range#master",
     "is-empty-object": "github:gummesson/is-empty-object#7b50c8eb4e14135631f7c94e01c0c8a36e5d75f8",
     "is-number": "github:jonschlinkert/is-number",

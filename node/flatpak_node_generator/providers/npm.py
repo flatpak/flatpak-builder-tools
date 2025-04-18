@@ -8,6 +8,7 @@ from typing import (
     NamedTuple,
     Optional,
     Set,
+    Tuple,
     Type,
 )
 
@@ -79,11 +80,17 @@ class NpmLockfileProvider(LockfileProvider):
             elif version_url.scheme == 'file':
                 source = LocalSource(path=version_url.path)
             else:
-                integrity = Integrity.parse(info['integrity'])
+                integrity = None
+                if 'integrity' in info:
+                    integrity = Integrity.parse(info['integrity'])
+
                 if 'resolved' in info:
-                    source = ResolvedSource(
-                        resolved=info['resolved'], integrity=integrity
-                    )
+                    if info['resolved'].startswith('git+'):
+                        source = self.parse_git_source(info['resolved'])
+                    else:
+                        source = ResolvedSource(
+                            resolved=info['resolved'], integrity=integrity
+                        )
                 elif version_url.scheme in {'http', 'https'}:
                     source = PackageURLSource(resolved=version, integrity=integrity)
                 else:
@@ -127,9 +134,8 @@ class NpmLockfileProvider(LockfileProvider):
                 elif resolved_url.scheme.startswith('git+'):
                     source = self.parse_git_source(info['resolved'])
             else:
-                raise NotImplementedError(
-                    f"Don't know how to handle package {install_path} in {lockfile}"
-                )
+                source = LocalSource(path=install_path)
+                name = install_path
 
             # NOTE We can't reliably determine the package name from the lockfile v2 syntax,
             # but we need it for registry queries and special source processing;
@@ -200,7 +206,7 @@ class NpmModuleProvider(ModuleProvider):
         self.all_lockfiles: Set[Path] = set()
         # Mapping of lockfiles to a dict of the Git source target paths and GitSource objects.
         self.git_sources: DefaultDict[
-            Path, Dict[Path, (str, GitSource)]
+            Path, Dict[Path, Tuple[str, GitSource]]
         ] = collections.defaultdict(lambda: {})
         # FIXME better pass the same provider object we created in main
         self.rcfile_provider = NpmRCFileProvider()
@@ -364,6 +370,46 @@ class NpmModuleProvider(ModuleProvider):
             self.git_sources[package.lockfile][path] = (package.name, source)
             self.gen.add_git_source(source.url, source.commit, path)
 
+            url = urllib.parse.urlparse(source.url)
+            if url.netloc == 'git@github.com' or url.netloc == 'github.com':
+                url = url._replace(
+                    netloc='codeload.github.com', path=re.sub('.git$', '', url.path)
+                )
+                tarball_url = url._replace(
+                    path=re.sub('$', f'/tar.gz/{source.commit}', url.path)
+                )
+                index_url = tarball_url.geturl()
+            elif url.netloc == 'git@gitlab.com' or url.netloc == 'gitlab.com':
+                url = url._replace(
+                    netloc='gitlab.com', path=re.sub('.git$', '', url.path)
+                )
+                tarball_url = url._replace(
+                    path=re.sub(
+                        '$',
+                        f'/-/archive/{source.commit}/{package.name}-{source.commit}.tar.gz',
+                        url.path,
+                    )
+                )
+                index_url = url._replace(
+                    path=re.sub(
+                        '$', f'/repository/archive.tar.gz?ref={source.commit}', url.path
+                    )
+                ).geturl()
+            metadata = await RemoteUrlMetadata.get(
+                tarball_url.geturl(), cachable=True, integrity_algorithm='sha512'
+            )
+
+            self.gen.add_url_source(
+                url=tarball_url.geturl(),
+                integrity=metadata.integrity,
+                destination=self.get_cacache_content_path(metadata.integrity),
+            )
+
+            self.add_index_entry(
+                url=index_url,
+                metadata=metadata,
+            )
+
         elif isinstance(source, LocalSource):
             pass
 
@@ -417,61 +463,91 @@ class NpmModuleProvider(ModuleProvider):
         )
 
         if self.git_sources:
-            # Generate jq script to patch the package.json file
-            script = r"""
-                        walk(
-                            if type == "object"
-                            then
-                                to_entries | map(
-                                    if (.key | type == "string") and $data[.key]
-                                    then .value = "git+file://\($buildroot)/\($data[.key])"
-                                    else .
-                                    end
-                                ) | from_entries
-                            else .
-                            end
-                        )
-                    """
+            # Generate jq scripts to patch the package*.json files.
+            scripts = {
+                'package.json': r"""
+                    walk(
+                        if type == "object"
+                        then
+                            to_entries | map(
+                                if (.key | type == "string") and $data[.key]
+                                then .value = "git+file://\($buildroot)/\($data[.key])"
+                                else .
+                                end
+                            ) | from_entries
+                        else .
+                        end
+                    )
+                """,
+                'package-lock.json': r"""
+                    walk(
+                        if type == "object" and (.version | type == "string") and $data[.version]
+                        then
+                            .resolved = "git+file:\($buildroot)/\($data[.version])"
+                        else .
+                        end
+                    )
+                """,
+            }
 
             for lockfile, sources in self.git_sources.items():
                 prefix = self.relative_lockfile_dir(lockfile)
-                data: Dict[str, str] = {}
+                data: Dict[str, Dict[str, str]] = {
+                    'package.json': {},
+                    'package-lock.json': {},
+                }
 
-                for path, name_source in sources.items():
-                    name, source = name_source
-                    new_version = f'{path}#{source.commit}'
-                    data[name] = new_version
+                with open(lockfile) as fp:
+                    lockfile_v1 = json.load(fp)['lockfileVersion'] == 1
 
-                filename = 'package.json'
-                target = Path('$FLATPAK_BUILDER_BUILDDIR') / prefix / filename
-                script = textwrap.dedent(script.lstrip('\n')).strip().replace('\n', '')
-                json_data = json.dumps(data)
-                patch_commands[lockfile].append(
-                    'jq'
-                    ' --arg buildroot "$FLATPAK_BUILDER_BUILDDIR"'
-                    f' --argjson data {shlex.quote(json_data)}'
-                    f' {shlex.quote(script)} {target}'
-                    f' > {target}.new'
+                if lockfile_v1:
+                    for path, name_source in sources.items():
+                        GIT_URL_PREFIX = 'git+'
+                        name, source = name_source
+                        new_version = f'{path}#{source.commit}'
+                        data['package.json'][name] = new_version
+                        data['package-lock.json'][source.original] = new_version
+
+                        if source.original.startswith(GIT_URL_PREFIX):
+                            data['package-lock.json'][
+                                source.original[len(GIT_URL_PREFIX) :]
+                            ] = new_version
+
+                    for filename, script in scripts.items():
+                        target = Path('$FLATPAK_BUILDER_BUILDDIR') / prefix / filename
+                        script = (
+                            textwrap.dedent(script.lstrip('\n'))
+                            .strip()
+                            .replace('\n', '')
+                        )
+                        json_data = json.dumps(data[filename])
+                        patch_commands[lockfile].append(
+                            'jq'
+                            ' --arg buildroot "$FLATPAK_BUILDER_BUILDDIR"'
+                            f' --argjson data {shlex.quote(json_data)}'
+                            f' {shlex.quote(script)} {target}'
+                            f' > {target}.new'
+                        )
+                        patch_commands[lockfile].append(f'mv {target}{{.new,}}')
+
+        if len(patch_commands) > 0:
+            patch_all_commands: List[str] = []
+            for lockfile in self.all_lockfiles:
+                patch_dest = (
+                    self.gen.data_root / 'patch' / self.relative_lockfile_dir(lockfile)
                 )
-                patch_commands[lockfile].append(f'mv {target}{{.new,}}')
+                # Don't use with_extension to avoid problems if the package has a . in its name.
+                patch_dest = patch_dest.with_name(patch_dest.name + '.sh')
 
-        patch_all_commands: List[str] = []
-        for lockfile in self.all_lockfiles:
-            patch_dest = (
-                self.gen.data_root / 'patch' / self.relative_lockfile_dir(lockfile)
-            )
-            # Don't use with_extension to avoid problems if the package has a . in its name.
-            patch_dest = patch_dest.with_name(patch_dest.name + '.sh')
+                self.gen.add_script_source(patch_commands[lockfile], patch_dest)
+                patch_all_commands.append(f'$FLATPAK_BUILDER_BUILDDIR/{patch_dest}')
 
-            self.gen.add_script_source(patch_commands[lockfile], patch_dest)
-            patch_all_commands.append(f'$FLATPAK_BUILDER_BUILDDIR/{patch_dest}')
+            patch_all_dest = self.gen.data_root / 'patch-all.sh'
+            self.gen.add_script_source(patch_all_commands, patch_all_dest)
 
-        patch_all_dest = self.gen.data_root / 'patch-all.sh'
-        self.gen.add_script_source(patch_all_commands, patch_all_dest)
-
-        if not self.no_autopatch:
-            # FLATPAK_BUILDER_BUILDDIR isn't defined yet for script sources.
-            self.gen.add_command(f'FLATPAK_BUILDER_BUILDDIR=$PWD {patch_all_dest}')
+            if not self.no_autopatch:
+                # FLATPAK_BUILDER_BUILDDIR isn't defined yet for script sources.
+                self.gen.add_command(f'FLATPAK_BUILDER_BUILDDIR=$PWD {patch_all_dest}')
 
         if self.index_entries:
             for path, entry in self.index_entries.items():

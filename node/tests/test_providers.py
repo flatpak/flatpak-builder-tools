@@ -31,15 +31,25 @@ async def test_git(
     flatpak_builder: FlatpakBuilder,
     provider_factory_spec: ProviderFactorySpec,
     node_version: int,
+    shared_datadir: Path,
 ) -> None:
     with ManifestGenerator() as gen:
         await provider_factory_spec.generate_modules('git', gen, node_version)
 
     flatpak_builder.build(
-        sources=itertools.chain(gen.ordered_sources()),
+        sources=itertools.chain(
+            gen.ordered_sources(),
+            [
+                {
+                    'type': 'dir',
+                    'path': str(shared_datadir / 'packages' / 'git' / 'subdir'),
+                    'dest': 'subdir',
+                }
+            ],
+        ),
         commands=[
             provider_factory_spec.install_command,
-            """node -e 'require("array-range");require("is-empty-object");require("is-number");require("person-lib");require("to-camel-case");require("to-capital-case");require("to-no-case");require("to-space-case");'""",
+            """node -e 'require("array-range");require("is-empty-object");require("is-number");require("person-lib");require("to-camel-case");require("to-capital-case");require("to-no-case");require("to-space-case");require("@flatpak-node-generator-tests/subdir").sayHello()'""",
         ],
         use_node=node_version,
     )
