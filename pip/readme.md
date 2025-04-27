@@ -53,3 +53,10 @@ You can use that in your manifest like
 * `--ignore-installed=`: Comma-separated list of package names for which pip should ignore already installed packages. Useful when the package is installed in the SDK but not in the runtime.
 * `--output=`: Sets an output file.
 * `--yaml`: Outputs a YAML file.
+
+## Development
+
+1. Install uv https://docs.astral.sh/uv/getting-started/installation/
+2. `uv sync -v --all-groups --frozen`
+3. Format and lint: `uv run ruff format && uv run ruff check --fix --exit-non-zero-on-fix`
+4. Type check: `uv run mypy .`
