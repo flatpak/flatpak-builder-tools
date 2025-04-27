@@ -65,7 +65,10 @@ parser.add_argument(
 parser.add_argument("--output", "-o", help="Specify output file name")
 parser.add_argument(
     "--runtime",
-    help="Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility",
+    help=(
+        "Specify a flatpak to run pip inside of a sandbox, "
+        "ensures python version compatibility"
+    ),
 )
 parser.add_argument(
     "--yaml", action="store_true", help="Use YAML as output format instead of JSON"
@@ -78,7 +81,10 @@ parser.add_argument(
 parser.add_argument(
     "--ignore-pkg",
     nargs="*",
-    help="Ignore a package when generating the manifest. Can only be used with a requirements file",
+    help=(
+        "Ignore a package when generating the manifest. "
+        "Can only be used with a requirements file"
+    ),
 )
 opts = parser.parse_args()
 
@@ -182,7 +188,8 @@ def parse_continuation_lines(fin):
                 line = line[:-1] + next(fin).rstrip("\n")
             except StopIteration:
                 sys.exit(
-                    'Requirements have a wrong number of line continuation characters "\\"'
+                    "Requirements have a wrong number of line "
+                    'continuation characters "\\"'
                 )
         yield line
 
@@ -249,7 +256,8 @@ for i in packages:
         print("PyQt packages are not supported by flapak-pip-generator")
         print("However, there is a BaseApp for PyQt available, that you should use")
         print(
-            "Visit https://github.com/flathub/com.riverbankcomputing.PyQt.BaseApp for more information"
+            "Visit https://github.com/flathub/com.riverbankcomputing.PyQt.BaseApp "
+            "for more information"
         )
         sys.exit(0)
 
@@ -347,7 +355,8 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 print(f"Downloading {url}")
                 download_tar_pypi(url, tempdir)
             except Exception as err:
-                # Can happen if only an arch dependent wheel is available like for wasmtime-27.0.2
+                # Can happen if only an arch dependent wheel is
+                # available like for wasmtime-27.0.2
                 unresolved_dependencies_errors.append(err)
             print("Deleting", filename)
             try:
@@ -434,7 +443,8 @@ fprint("Generating dependencies")
 for package in packages:
     if package.name is None:
         print(
-            f"Warning: skipping invalid requirement specification {package.line} because it is missing a name",
+            f"Warning: skipping invalid requirement specification {package.line} "
+            "because it is missing a name",
             file=sys.stderr,
         )
         print(
@@ -597,7 +607,7 @@ if len(unresolved_dependencies_errors) != 0:
     for e in unresolved_dependencies_errors:
         print(f"- ERROR: {e}")
 
-    workaround = """Example how to handle wheels which only support specific architectures:
+    workaround = """Example on how to handle arch dependent wheels:
     - type: file
       url: https://files.pythonhosted.org/packages/79/ae/7e5b85136806f9dadf4878bf73cf223fe5c2636818ba3ab1c585d0403164/numpy-1.26.4-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
       sha256: 7ab55401287bfec946ced39700c053796e7cc0e3acbef09993a9ad2adba6ca6e
