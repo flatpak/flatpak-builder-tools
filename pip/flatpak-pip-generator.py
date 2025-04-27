@@ -17,7 +17,9 @@ from collections import OrderedDict
 try:
     import requirements
 except ImportError:
-    exit('Requirements modules is not installed. Run "pip install requirements-parser"')
+    sys.exit(
+        'Requirements module is not installed. Run "pip install requirements-parser"'
+    )
 
 parser = argparse.ArgumentParser()
 parser.add_argument("packages", nargs="*")
@@ -81,7 +83,7 @@ parser.add_argument(
 opts = parser.parse_args()
 
 if opts.requirements_file and opts.pyproject_file:
-    exit("Can't use both requirements and pyproject files at the same time")
+    sys.exit("Can't use both requirements and pyproject files at the same time")
 
 if opts.pyproject_file:
     try:
@@ -90,13 +92,13 @@ if opts.pyproject_file:
         try:
             from tomli import load as toml_load
         except ModuleNotFoundError:
-            exit('tomli modules is not installed. Run "pip install tomli"')
+            sys.exit('tomli modules is not installed. Run "pip install tomli"')
 
 if opts.yaml:
     try:
         import yaml
     except ImportError:
-        exit('PyYAML modules is not installed. Run "pip install PyYAML"')
+        sys.exit('PyYAML modules is not installed. Run "pip install PyYAML"')
 
 
 def get_pypi_url(name: str, filename: str) -> str:
@@ -179,7 +181,7 @@ def parse_continuation_lines(fin):
             try:
                 line = line[:-1] + next(fin).rstrip("\n")
             except StopIteration:
-                exit(
+                sys.exit(
                     'Requirements have a wrong number of line continuation characters "\\"'
                 )
         yield line
@@ -238,9 +240,9 @@ elif opts.packages:
         req_file.write("\n".join(opts.packages))
         requirements_file_output = req_file.name
 elif not len(sys.argv) > 1:
-    exit("Please specifiy either packages or requirements file argument")
+    sys.exit("Please specifiy either packages or requirements file argument")
 else:
-    exit("This option can only be used with requirements file")
+    sys.exit("This option can only be used with requirements file")
 
 for i in packages:
     if i["name"].lower().startswith("pyqt"):
