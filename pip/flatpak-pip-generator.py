@@ -268,10 +268,7 @@ with open(requirements_file_output) as req_file:
     use_hash = "--hash=" in req_file.read()
 
 python_version = "2" if opts.python2 else "3"
-if opts.python2:
-    pip_executable = "pip2"
-else:
-    pip_executable = "pip3"
+pip_executable = "pip2" if opts.python2 else "pip3"
 
 if opts.runtime:
     flatpak_cmd = [
@@ -533,10 +530,7 @@ for package in packages:
 
         package_sources.append(source["source"])
 
-    if package.vcs:
-        name_for_pip = "."
-    else:
-        name_for_pip = pkg
+    name_for_pip = "." if package.vcs else pkg
 
     module_name = f"python{python_version}-{package.name}"
 
