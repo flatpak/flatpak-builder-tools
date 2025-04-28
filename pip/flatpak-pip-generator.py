@@ -507,7 +507,7 @@ for package in packages:
         except subprocess.CalledProcessError:
             print(f"Failed to download {package.name}")
 
-    is_vcs = True if package.vcs else False
+    is_vcs = bool(package.vcs)
     package_sources = []
     for dependency in dependencies:
         casefolded = dependency.casefold()
