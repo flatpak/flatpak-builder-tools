@@ -314,7 +314,8 @@ unresolved_dependencies_errors = []
 
 tempdir_prefix = f"pip-generator-{output_package}"
 with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
-    pip_download = flatpak_cmd + [
+    pip_download = [
+        *flatpak_cmd,
         "download",
         "--exists-action=i",
         "--dest",
@@ -482,7 +483,8 @@ for package in packages:
     with tempfile.TemporaryDirectory(
         prefix=f"{tempdir_prefix}-{package.name}"
     ) as tempdir:
-        pip_download = flatpak_cmd + [
+        pip_download = [
+            *flatpak_cmd,
             "download",
             "--exists-action=i",
             "--dest",
@@ -490,7 +492,7 @@ for package in packages:
         ]
         try:
             print(f"Generating dependencies for {package.name}")
-            subprocess.run(pip_download + [pkg], check=True, stdout=subprocess.DEVNULL)
+            subprocess.run([*pip_download, pkg], check=True, stdout=subprocess.DEVNULL)
             for filename in sorted(os.listdir(tempdir)):
                 dep_name = get_package_name(filename)
                 if (
