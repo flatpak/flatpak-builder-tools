@@ -280,11 +280,10 @@ if opts.runtime:
         "run",
         opts.runtime,
     ]
-    if opts.requirements_file:
-        if os.path.exists(requirements_file_output):
-            prefix = os.path.realpath(requirements_file_output)
-            flag = f"--filesystem={prefix}"
-            flatpak_cmd.insert(1, flag)
+    if opts.requirements_file and os.path.exists(requirements_file_output):
+        prefix = os.path.realpath(requirements_file_output)
+        flag = f"--filesystem={prefix}"
+        flatpak_cmd.insert(1, flag)
 else:
     flatpak_cmd = [pip_executable]
 
