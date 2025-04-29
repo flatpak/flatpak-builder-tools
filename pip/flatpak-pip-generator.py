@@ -13,6 +13,7 @@ import sys
 import tempfile
 import urllib.request
 from collections import OrderedDict
+from contextlib import suppress
 
 try:
     import requirements
@@ -340,10 +341,8 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             print("Ignore the error by passing --ignore-errors")
             raise
 
-        try:
+        with suppress(FileNotFoundError):
             os.remove(requirements_file_output)
-        except FileNotFoundError:
-            pass
 
     fprint("Downloading arch independent packages")
     for filename in os.listdir(tempdir):
@@ -359,10 +358,8 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                 # available like for wasmtime-27.0.2
                 unresolved_dependencies_errors.append(err)
             print("Deleting", filename)
-            try:
+            with suppress(FileNotFoundError):
                 os.remove(os.path.join(tempdir, filename))
-            except FileNotFoundError:
-                pass
 
     files = {get_package_name(f): [] for f in os.listdir(tempdir)}
 
@@ -380,10 +377,8 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             if zip_source:
                 for f in files[name]:
                     if not f.endswith(".zip"):
-                        try:
+                        with suppress(FileNotFoundError):
                             os.remove(os.path.join(tempdir, f))
-                        except FileNotFoundError:
-                            pass
 
     vcs_packages = {
         x.name: {"vcs": x.vcs, "revision": x.revision, "uri": x.uri}
