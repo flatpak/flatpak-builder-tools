@@ -583,7 +583,7 @@ with open(output_filename, "w") as output:
 
         class OrderedDumper(yaml.Dumper):
             def increase_indent(self, flow=False, indentless=False):
-                return super(OrderedDumper, self).increase_indent(flow, False)
+                return super().increase_indent(flow, False)
 
         def dict_representer(dumper, data):
             return dumper.represent_dict(data.items())
