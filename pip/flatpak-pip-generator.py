@@ -368,8 +368,8 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         files[name].append(filename)
 
     # Delete redundant sources, for vcs sources
-    for name in files:
-        if len(files[name]) > 1:
+    for name, files_list in files.items():
+        if len(files_list) > 1:
             zip_source = False
             for f in files[name]:
                 if f.endswith(".zip"):
