@@ -184,8 +184,8 @@ def download_tar_pypi(url: str, tempdir: str) -> None:
 
 
 def parse_continuation_lines(fin):
-    for line in fin:
-        line = line.rstrip("\n")
+    for raw_line in fin:
+        line = raw_line.rstrip("\n")
         while line.endswith("\\"):
             try:
                 line = line[:-1] + next(fin).rstrip("\n")
