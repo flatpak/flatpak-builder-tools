@@ -13,7 +13,9 @@ import sys
 import tempfile
 import urllib.request
 from collections import OrderedDict
+from collections.abc import Iterator
 from contextlib import suppress
+from typing import Any, TextIO
 
 try:
     import requirements
@@ -97,7 +99,7 @@ if opts.pyproject_file:
         from tomllib import load as toml_load
     except ModuleNotFoundError:
         try:
-            from tomli import load as toml_load
+            from tomli import load as toml_load  # type: ignore
         except ModuleNotFoundError:
             sys.exit('tomli modules is not installed. Run "pip install tomli"')
 
@@ -116,7 +118,7 @@ def get_pypi_url(name: str, filename: str) -> str:
         for release in body["releases"].values():
             for source in release:
                 if source["filename"] == filename:
-                    return source["url"]
+                    return str(source["url"])
         raise Exception(f"Failed to extract url from {url}")
 
 
@@ -127,7 +129,7 @@ def get_tar_package_url_pypi(name: str, version: str) -> str:
         for ext in ["bz2", "gz", "xz", "zip", "none-any.whl"]:
             for source in body["urls"]:
                 if source["url"].endswith(ext):
-                    return source["url"]
+                    return str(source["url"])
         err = f"Failed to get {name}-{version} source from {url}"
         raise Exception(err)
 
@@ -184,7 +186,7 @@ def download_tar_pypi(url: str, tempdir: str) -> None:
             shutil.copyfileobj(response, tar_file)
 
 
-def parse_continuation_lines(fin):
+def parse_continuation_lines(fin: TextIO) -> Iterator[str]:
     for raw_line in fin:
         line = raw_line.rstrip("\n")
         while line.endswith("\\"):
@@ -209,8 +211,8 @@ packages = []
 if opts.requirements_file:
     requirements_file_input = os.path.expanduser(opts.requirements_file)
     try:
-        with open(requirements_file_input) as req_file:
-            reqs = parse_continuation_lines(req_file)
+        with open(requirements_file_input) as in_req_file:
+            reqs = parse_continuation_lines(in_req_file)
             reqs_as_str = "\n".join([r.split("--hash")[0] for r in reqs])
             reqs_list_raw = reqs_as_str.splitlines()
             py_version_regex = re.compile(
@@ -224,9 +226,9 @@ if opts.requirements_file:
             packages = list(requirements.parse(reqs_new))
             with tempfile.NamedTemporaryFile(
                 "w", delete=False, prefix="requirements."
-            ) as req_file:
-                req_file.write(reqs_new)
-                requirements_file_output = req_file.name
+            ) as temp_req_file:
+                temp_req_file.write(reqs_new)
+                requirements_file_output = temp_req_file.name
     except FileNotFoundError as err:
         print(err)
         sys.exit(1)
@@ -265,8 +267,8 @@ for i in packages:
         )
         sys.exit(0)
 
-with open(requirements_file_output) as req_file:
-    use_hash = "--hash=" in req_file.read()
+with open(requirements_file_output) as in_req_file:
+    use_hash = "--hash=" in in_req_file.read()
 
 python_version = "2" if opts.python2 else "3"
 pip_executable = "pip2" if opts.python2 else "pip3"
@@ -307,8 +309,8 @@ if opts.yaml:
 else:
     output_filename = os.path.join(output_path, output_package) + ".json"
 
-modules = []
-vcs_modules = []
+modules: list[dict[str, str | list[str] | list[dict[str, Any]]]] = []
+vcs_modules: list[dict[str, str | list[str] | list[dict[str, Any]]]] = []
 sources = {}
 
 unresolved_dependencies_errors = []
@@ -361,7 +363,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             with suppress(FileNotFoundError):
                 os.remove(os.path.join(tempdir, filename))
 
-    files = {get_package_name(f): [] for f in os.listdir(tempdir)}
+    files: dict[str, list[str]] = {get_package_name(f): [] for f in os.listdir(tempdir)}
 
     for filename in os.listdir(tempdir):
         name = get_package_name(filename)
@@ -371,52 +373,59 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
     for name, files_list in files.items():
         if len(files_list) > 1:
             zip_source = False
-            for f in files[name]:
-                if f.endswith(".zip"):
+            for fname in files[name]:
+                if fname.endswith(".zip"):
                     zip_source = True
             if zip_source:
-                for f in files[name]:
-                    if not f.endswith(".zip"):
+                for fname in files[name]:
+                    if not fname.endswith(".zip"):
                         with suppress(FileNotFoundError):
-                            os.remove(os.path.join(tempdir, f))
+                            os.remove(os.path.join(tempdir, fname))
 
-    vcs_packages = {
-        x.name: {"vcs": x.vcs, "revision": x.revision, "uri": x.uri}
+    vcs_packages: dict[str, dict[str, str | None]] = {
+        str(x.name): {"vcs": x.vcs, "revision": x.revision, "uri": x.uri}
         for x in packages
-        if x.vcs
+        if x.vcs and x.name
     }
 
     fprint("Obtaining hashes and urls")
     for filename in os.listdir(tempdir):
+        source: OrderedDict[str, str | dict[str, str]] = OrderedDict()
         name = get_package_name(filename)
         sha256 = get_file_hash(os.path.join(tempdir, filename))
         is_pypi = False
 
         if name in vcs_packages:
             uri = vcs_packages[name]["uri"]
+            if not uri:
+                raise ValueError(f"Missing URI for VCS package: {name}")
             revision = vcs_packages[name]["revision"]
             vcs = vcs_packages[name]["vcs"]
+            if not vcs:
+                raise ValueError(
+                    f"Unable to determine VCS type for VCS package: {name}"
+                )
             url = "https://" + uri.split("://", 1)[1]
             s = "commit"
             if vcs == "svn":
                 s = "revision"
-            source = OrderedDict(
-                [
-                    ("type", vcs),
-                    ("url", url),
-                    (s, revision),
-                ]
-            )
+            source["type"] = vcs
+            source["url"] = url
+            if revision:
+                source[s] = revision
             is_vcs = True
         else:
             name = name.casefold()
             is_pypi = True
             url = get_pypi_url(name, filename)
-            source = OrderedDict([("type", "file"), ("url", url), ("sha256", sha256)])
+            source["type"] = "file"
+            source["url"] = url
+            source["sha256"] = sha256
             if opts.checker_data:
-                source["x-checker-data"] = {"type": "pypi", "name": name}
+                checker_data = {"type": "pypi", "name": name}
                 if url.endswith(".whl"):
-                    source["x-checker-data"]["packagetype"] = "bdist_wheel"
+                    checker_data["packagetype"] = "bdist_wheel"
+                source["x-checker-data"] = checker_data
             is_vcs = False
         sources[name] = {"source": source, "vcs": is_vcs, "pypi": is_pypi}
 
@@ -579,10 +588,14 @@ with open(output_filename, "w") as output:
     if opts.yaml:
 
         class OrderedDumper(yaml.Dumper):
-            def increase_indent(self, flow=False, indentless=False):
-                return super().increase_indent(flow, False)
+            def increase_indent(
+                self, flow: bool = False, indentless: bool = False
+            ) -> None:
+                return super().increase_indent(flow, indentless)
 
-        def dict_representer(dumper, data):
+        def dict_representer(
+            dumper: yaml.Dumper, data: OrderedDict[str, Any]
+        ) -> yaml.nodes.MappingNode:
             return dumper.represent_dict(data.items())
 
         OrderedDumper.add_representer(OrderedDict, dict_representer)
