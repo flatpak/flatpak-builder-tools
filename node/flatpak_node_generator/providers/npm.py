@@ -501,14 +501,14 @@ class NpmModuleProvider(ModuleProvider):
             patch_dest = patch_dest.with_name(patch_dest.name + '.sh')
 
             self.gen.add_script_source(patch_commands[lockfile], patch_dest)
-            patch_all_commands.append(f'$FLATPAK_BUILDER_BUILDDIR/{patch_dest}')
+            patch_all_commands.append(f'"$FLATPAK_BUILDER_BUILDDIR"/{patch_dest}')
 
         patch_all_dest = self.gen.data_root / 'patch-all.sh'
         self.gen.add_script_source(patch_all_commands, patch_all_dest)
 
         if not self.no_autopatch:
             # FLATPAK_BUILDER_BUILDDIR isn't defined yet for script sources.
-            self.gen.add_command(f'FLATPAK_BUILDER_BUILDDIR=$PWD {patch_all_dest}')
+            self.gen.add_command(f'FLATPAK_BUILDER_BUILDDIR="$PWD" {patch_all_dest}')
 
         if self.index_entries:
             for path, entry in self.index_entries.items():
