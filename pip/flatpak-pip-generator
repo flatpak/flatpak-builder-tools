@@ -199,7 +199,12 @@ elif opts.pyproject_file:
     pyproject_file = os.path.expanduser(opts.pyproject_file)
     with open(pyproject_file, "rb") as f:
         pyproject_data = toml_load(f)
-    dependencies = pyproject_data.get("project", {}).get("dependencies", [])
+    is_poetry = pyproject_data.get('tool', {}).get('poetry') is not None
+    if is_poetry:
+        dependencies = pyproject_data.get('tool', {}).get('poetry', {}).get('dependencies', {})
+        dependencies.pop('python', None)
+    else:
+        dependencies = pyproject_data.get("project", {}).get("dependencies", [])
     packages = list(requirements.parse('\n'.join(dependencies)))
     with tempfile.NamedTemporaryFile('w', delete=False, prefix='requirements.') as req_file:
         req_file.write('\n'.join(dependencies))
