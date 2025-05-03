@@ -429,7 +429,7 @@ def main():
 
     if args.output is not None:
         outfile = args.output
-    if args.yaml and YAML_AVAIL:
+    elif args.yaml and YAML_AVAIL:
         outfile = 'generated-sources.yml'
     else:
         outfile = 'generated-sources.json'
