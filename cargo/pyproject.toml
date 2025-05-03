@@ -5,7 +5,7 @@ package-mode = false
 python = ">=3.8"
 aiohttp = "^3.9.5"
 toml = "^0.10.2"
-
+PyYAML = "^6.0.2"
 
 [build-system]
 requires = ["poetry-core"]
