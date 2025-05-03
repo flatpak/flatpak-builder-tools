@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 
 __license__ = "MIT"
-import json
-from urllib.parse import urlparse, ParseResult, parse_qs
-import os
+import argparse
+import asyncio
 import contextlib
 import copy
-import glob
-import subprocess
-import argparse
-import logging
 import hashlib
-import asyncio
+import json
+import logging
+import os
+import subprocess
 from typing import (
+    TYPE_CHECKING,
     Any,
     Dict,
     List,
@@ -20,8 +19,8 @@ from typing import (
     Optional,
     Tuple,
     TypedDict,
-    TYPE_CHECKING,
 )
+from urllib.parse import ParseResult, parse_qs, urlparse
 
 import aiohttp
 import toml
@@ -162,7 +161,7 @@ def update_workspace_keys(pkg, workspace):
             update_workspace_keys(item, workspace.get("dependencies", None))
             continue
 
-        if not workspace or not key in workspace:
+        if not workspace or key not in workspace:
             continue
 
         workspace_item = workspace[key]
