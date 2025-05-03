@@ -7,9 +7,44 @@ version = "0.0.1"
 description = "Script to generate flatpak-builder manifest from Cargo lockfiles"
 license = {text = "MIT"}
 readme = "README.md"
-requires-python = "<4.0,>=3.8"
+requires-python = "<4.0,>=3.9"
 dependencies = [
     "aiohttp<4.0.0,>=3.9.5",
     "toml<1.0.0,>=0.10.2",
     "PyYAML<7.0.0,>=6.0.2",
 ]
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.6.7"
+mypy = "^1.11.2"
+types-toml = "^0.10.8"
+types-pyyaml = "^6.0.12"
+
+[tool.ruff]
+line-length = 88
+include = ["*.py"]
+target-version = "py39"
+
+[tool.ruff.lint]
+preview = true
+extend-select = [
+  "B",
+  "ERA",
+  "I",
+  "PLE",
+  "PLW",
+  "W",
+]
+
+[tool.ruff.format]
+line-ending = "lf"
+quote-style = "double"
+
+[tool.mypy]
+disallow_untyped_defs = true
+disallow_any_unimported = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_unused_ignores = true
+show_error_codes = true
+warn_return_any = true
