@@ -14,6 +14,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
+    Iterator,
     List,
     NamedTuple,
     Optional,
@@ -44,7 +45,7 @@ COMMIT_LEN = 7
 
 
 @contextlib.contextmanager
-def workdir(path: str):
+def workdir(path: str) -> Iterator[None]:
     oldpath = os.getcwd()
     os.chdir(path)
     try:
@@ -145,7 +146,7 @@ def fetch_git_repo(git_url: str, commit: str) -> str:
     return clone_dir
 
 
-def update_workspace_keys(pkg, workspace):
+def update_workspace_keys(pkg: dict[str, Any], workspace: dict[str, Any]) -> None:
     for key, item in pkg.items():
         # There cannot be a 'workspace' key if the item is not a dict.
         if not isinstance(item, dict):
@@ -209,7 +210,9 @@ async def get_git_repo_packages(git_url: str, commit: str) -> _GitPackagesType:
     git_repo_dir = fetch_git_repo(git_url, commit)
     packages: _GitPackagesType = {}
 
-    def get_cargo_toml_packages(root_dir: str, workspace: Optional[_TomlType] = None):
+    def get_cargo_toml_packages(
+        root_dir: str, workspace: Optional[_TomlType] = None
+    ) -> None:
         assert not os.path.isabs(root_dir) and os.path.isdir(root_dir)
 
         with workdir(root_dir):
@@ -446,7 +449,7 @@ async def generate_sources(
     return sources
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("cargo_lock", help="Path to the Cargo.lock file")
     parser.add_argument(
