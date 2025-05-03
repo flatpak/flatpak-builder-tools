@@ -110,7 +110,7 @@ _TomlType = Dict[str, Any]
 
 
 def load_toml(tomlfile: str = "Cargo.lock") -> _TomlType:
-    with open(tomlfile, "r") as f:
+    with open(tomlfile, "r", encoding="utf-8") as f:
         toml_data = toml.load(f)
     return toml_data
 
@@ -481,10 +481,10 @@ def main():
     )
 
     if args.yaml and YAML_AVAIL:
-        with open(outfile, "w") as out:
+        with open(outfile, "w", encoding="utf-8") as out:
             yaml.dump(generated_sources, out, sort_keys=False)
     else:
-        with open(outfile, "w") as out:
+        with open(outfile, "w", encoding="utf-8") as out:
             json.dump(generated_sources, out, indent=4, sort_keys=False)
 
 
