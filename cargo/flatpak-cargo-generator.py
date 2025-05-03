@@ -399,16 +399,6 @@ async def generate_sources(
     cargo_lock: _TomlType,
     git_tarballs: bool = False,
 ) -> List[_FlatpakSourceType]:
-    # {
-    #     "git-repo-url": {
-    #         "lock": asyncio.Lock(),
-    #         "commits": {
-    #             "commit-hash": {
-    #                 "package-name": "./relative/package/path"
-    #             }
-    #         }
-    #     }
-    # }
     git_repos: _GitReposType = {}
     sources: List[_FlatpakSourceType] = []
     package_sources = []
