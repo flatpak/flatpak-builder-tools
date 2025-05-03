@@ -9,6 +9,7 @@ Poetry users can run `poetry install` and skip this.
 Otherwise install Python 3.8+ with these modules:
 - toml
 - aiohttp
+- (Optional) PyYAML>=6.0.2 for YAML output instead of JSON
 
 Generated manifests are supported by flatpak-builder 1.2.x or newer.
 
