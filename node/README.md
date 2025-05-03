@@ -26,6 +26,9 @@ installing Python packages, by running the following:
 $ pipx install git+https://github.com/flatpak/flatpak-builder-tools.git#subdirectory=node
 ```
 
+If you encounter a `JSONDecodeError` from pipx while installing it, try
+deleting the local pipx virtuanlenv in `~/.local/share/pipx` on Linux.
+
 ## Complete examples
 
 There are two examples provided for how to use flatpak-node-generator:
