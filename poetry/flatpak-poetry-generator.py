@@ -63,16 +63,12 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
     for section, packages in parsed_lockfile.items():
         if section == "package":
             for package in packages:
-                if "category" not in package or (
-                    (
-                        package.get("category") == "dev"
-                        and include_devel
-                        and not package.get("optional")
-                    )
-                    or (
-                        package.get("category") == "main"
-                        and not package.get("optional")
-                    )
+                category = package.get("category")
+                optional = package.get("optional", False)
+                if (
+                    not category
+                    or (category == "dev" and include_devel and not optional)
+                    or (category == "main" and not optional)
                 ):
                     hashes = []
                     # Check for old metadata format (poetry version < 1.0.0b2)
@@ -122,16 +118,12 @@ def get_dep_names(parsed_lockfile: dict, include_devel: bool = True) -> list:
     for section, packages in parsed_lockfile.items():
         if section == "package":
             for package in packages:
-                if "category" not in package or (
-                    (
-                        package.get("category") == "dev"
-                        and include_devel
-                        and not package.get("optional")
-                    )
-                    or (
-                        package.get("category") == "main"
-                        and not package.get("optional")
-                    )
+                category = package.get("category")
+                optional = package.get("optional", False)
+                if (
+                    not category
+                    or (category == "dev" and include_devel and not optional)
+                    or (category == "main" and not optional)
                 ):
                     dep_names.append(package["name"])
     return dep_names
