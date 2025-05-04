@@ -24,28 +24,44 @@ def get_pypi_source(name: str, version: str, hashes: list) -> tuple:
     Returns (tuple): The url and sha256 hash.
 
     """
+
+    matched = None
     url = "https://pypi.org/pypi/{}/json".format(name)
     print("Extracting download url and hash for {}, version {}".format(name, version))
     with urllib.request.urlopen(url) as response:
         body = json.loads(response.read().decode("utf-8"))
-        for release, source_list in body["releases"].items():
-            if release == version:
-                for source in source_list:
-                    if (
-                        source["packagetype"] == "bdist_wheel"
-                        and "py3" in source["python_version"]
-                        and source["digests"]["sha256"] in hashes
-                    ):
-                        return source["url"], source["digests"]["sha256"]
-                for source in source_list:
-                    if (
-                        source["packagetype"] == "sdist"
-                        and "source" in source["python_version"]
-                        and source["digests"]["sha256"] in hashes
-                    ):
-                        return source["url"], source["digests"]["sha256"]
-        else:
-            raise Exception("Failed to extract url and hash from {}".format(url))
+        releases = body.get("releases", {})
+
+        if version not in releases:
+            raise ValueError(f"Version {version} not found for package {name}")
+
+        source_list = releases[version]
+        for source in source_list:
+            sha256 = source.get("digests", {}).get("sha256")
+            if sha256 not in hashes:
+                continue
+            if (
+                source.get("packagetype") == "bdist_wheel"
+                and "py3" in source.get("python_version", "")
+            ):
+                matched = (source["url"], sha256)
+                break
+            if (
+                not matched and
+                source.get("packagetype") == "sdist"
+                and "source" in source.get("python_version", "")
+            ):
+                matched = (source["url"], sha256)
+
+        if not matched:
+            print(
+                f"\nW: Failed to find a suitable package to include for "
+                f"{name} version {version} from {url}\nThis package is "
+                "likely missing an 'any' wheel and 'sdist' on PyPi. Please "
+                "edit the generated manifest to include it manually.\n"
+            )
+
+    return matched
 
 
 def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> list:
@@ -99,11 +115,13 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
                     if package_source and package_source["type"] == "directory":
                         print(f'Skipping download url and hash extraction for {package["name"]}, source type is directory')
                         continue
-                    url, hash = get_pypi_source(
+                    pypi_source_ret = get_pypi_source(
                         package["name"], package["version"], hashes
                     )
-                    source = {"type": "file", "url": url, "sha256": hash}
-                    sources.append(source)
+                    if pypi_source_ret:
+                        url, hash = pypi_source_ret
+                        source = {"type": "file", "url": url, "sha256": hash}
+                        sources.append(source)
     return sources
 
 
