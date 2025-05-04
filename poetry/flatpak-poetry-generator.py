@@ -42,6 +42,7 @@ def get_pypi_source(name: str, version: str, hashes: list) -> tuple:
                 continue
             if (
                 source.get("packagetype") == "bdist_wheel"
+                and source.get("filename", "").endswith("-any.whl")
                 and "py3" in source.get("python_version", "")
             ):
                 matched = (source["url"], sha256)
