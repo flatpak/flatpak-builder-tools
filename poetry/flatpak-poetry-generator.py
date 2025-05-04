@@ -171,7 +171,7 @@ def main():
 
     print('Scanning "%s" ' % lockfile, file=sys.stderr)
 
-    with open(lockfile, "r") as f:
+    with open(lockfile, "r", encoding="utf-8") as f:
         parsed_lockfile = toml.load(f)
         dep_names = get_dep_names(parsed_lockfile, include_devel=include_devel)
         pip_command = [
@@ -195,7 +195,7 @@ def main():
     print(" ... %d new entries" % len(sources), file=sys.stderr)
 
     print('Writing to "%s"' % outfile)
-    with open(outfile, "w") as f:
+    with open(outfile, "w", encoding="utf-8") as f:
         f.write(json.dumps(main_module, indent=4))
 
 
