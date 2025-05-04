@@ -64,6 +64,7 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
         if section == "package":
             for package in packages:
                 category = package.get("category")
+                groups = package.get("groups", [])
                 optional = package.get("optional", False)
                 if (
                     not category
@@ -88,6 +89,8 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
                                         hashes.append(match.group(2))
                     # metadata format 2.0
                     else:
+                        if groups == ["dev"] and not include_devel:
+                            continue
                         for file in package["files"]:
                             match = hash_re.search(file["hash"])
                             if match:
@@ -119,7 +122,10 @@ def get_dep_names(parsed_lockfile: dict, include_devel: bool = True) -> list:
         if section == "package":
             for package in packages:
                 category = package.get("category")
+                groups = package.get("groups", [])
                 optional = package.get("optional", False)
+                if groups == ["dev"] and not include_devel:
+                    continue
                 if (
                     not category
                     or (category == "dev" and include_devel and not optional)
