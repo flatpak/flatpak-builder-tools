@@ -9,11 +9,14 @@ import sys
 import urllib.parse
 import urllib.request
 from collections import OrderedDict
+from typing import Any
 
 import toml
 
 
-def get_pypi_source(name: str, version: str, hashes: list) -> tuple:
+def get_pypi_source(
+    name: str, version: str, hashes: list[str]
+) -> tuple[str, str] | None:
     """Get the source information for a dependency.
 
     Args:
@@ -65,7 +68,9 @@ def get_pypi_source(name: str, version: str, hashes: list) -> tuple:
     return matched
 
 
-def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> list:
+def get_module_sources(
+    parsed_lockfile: dict[str, Any], include_devel: bool = True
+) -> list[dict[str, str]]:
     """Gets the list of sources from a toml parsed lockfile.
 
     Args:
@@ -128,7 +133,9 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
     return sources
 
 
-def get_dep_names(parsed_lockfile: dict, include_devel: bool = True) -> list:
+def get_dep_names(
+    parsed_lockfile: dict[str, Any], include_devel: bool = True
+) -> list[str]:
     """Gets the list of dependency names.
 
     Args:
@@ -156,7 +163,7 @@ def get_dep_names(parsed_lockfile: dict, include_devel: bool = True) -> list:
     return dep_names
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Flatpak Poetry generator")
     parser.add_argument("lockfile", type=str)
     parser.add_argument(
@@ -182,7 +189,7 @@ def main():
             "--prefix=${FLATPAK_DEST}",
             " ".join(dep_names),
         ]
-        main_module = OrderedDict(
+        main_module: dict[str, Any] = OrderedDict(
             [
                 ("name", "poetry-deps"),
                 ("buildsystem", "simple"),
