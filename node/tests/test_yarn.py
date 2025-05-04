@@ -1,9 +1,11 @@
 from pathlib import Path
 
-from conftest import ProviderFactorySpec
 from flatpak_node_generator.integrity import Integrity
 from flatpak_node_generator.package import GitSource, Package, ResolvedSource
-from flatpak_node_generator.providers.yarn import YarnLockfileProvider
+from flatpak_node_generator.providers.yarn import (
+    YarnConfigProvider,
+    YarnLockfileProvider,
+)
 
 TEST_LOCKFILE = """
 # random comment
@@ -31,6 +33,17 @@ bling@~2.2.0:
 "@scope/zing@git+https://somewhere.place/scope/zing":
   version "2.0.1"
   resolved "git+https://somewhere.place/scope/zing#9c6b057a2b9d96a4067a749ee3b3b0158d390cf1"
+"""
+
+
+TEST_YARNRC = """
+yarnrc "a b c"
+override "from yarnrc"
+"""
+
+TEST_NPMRC = """
+npmrc = "d e f"
+override = "from npmrc"
 """
 
 
@@ -88,3 +101,20 @@ def test_lockfile_parsing(tmp_path: Path) -> None:
             ),
         ),
     ]
+
+
+def test_config_loading(tmp_path: Path) -> None:
+    config_provider = YarnConfigProvider()
+
+    yarnrc = tmp_path / '.yarnrc'
+    yarnrc.write_text(TEST_YARNRC)
+
+    npmrc = tmp_path / '.npmrc'
+    npmrc.write_text(TEST_NPMRC)
+
+    config = config_provider.load_config(tmp_path / 'lockfile')
+    assert config.data == {
+        'yarnrc': 'a b c',
+        'npmrc': 'd e f',
+        'override': 'from yarnrc',
+    }

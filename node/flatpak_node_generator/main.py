@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterator, List, Set
+from typing import Dict, Iterator, List, Set
 
 import argparse
 import asyncio
@@ -12,7 +12,7 @@ from .manifest import ManifestGenerator
 from .node_headers import NodeHeaders
 from .package import Package
 from .progress import GeneratorProgress
-from .providers import ProviderFactory
+from .providers import Config, ProviderFactory
 from .providers.npm import NpmLockfileProvider, NpmModuleProvider, NpmProviderFactory
 from .providers.special import SpecialSourceProvider
 from .providers.yarn import YarnProviderFactory
@@ -189,20 +189,20 @@ async def _async_main() -> None:
 
     print('Reading packages from lockfiles...')
     packages: Set[Package] = set()
-    rcfile_node_headers: Set[NodeHeaders] = set()
+    config_node_headers: Set[NodeHeaders] = set()
+
+    lockfile_provider = provider_factory.create_lockfile_provider()
+    config_provider = provider_factory.create_config_provider()
+
+    lockfile_configs: Dict[Path, Config] = {}
 
     for lockfile in lockfiles:
-        lockfile_provider = provider_factory.create_lockfile_provider()
-        rcfile_providers = provider_factory.create_rcfile_providers()
-
         packages.update(lockfile_provider.process_lockfile(lockfile))
+        lockfile_configs[lockfile] = config = config_provider.load_config(lockfile)
 
-        for rcfile_provider in rcfile_providers:
-            rcfile = lockfile.parent / rcfile_provider.RCFILE_NAME
-            if rcfile.is_file():
-                nh = rcfile_provider.get_node_headers(rcfile)
-                if nh is not None:
-                    rcfile_node_headers.add(nh)
+        nh = config.get_node_headers()
+        if nh is not None:
+            config_node_headers.add(nh)
 
     print(f'{len(packages)} packages read.')
 
@@ -220,14 +220,18 @@ async def _async_main() -> None:
         )
         special = SpecialSourceProvider(gen, options)
 
-        with provider_factory.create_module_provider(gen, special) as module_provider:
+        with provider_factory.create_module_provider(
+            gen,
+            special,
+            lockfile_configs,
+        ) as module_provider:
             with GeneratorProgress(
                 packages,
                 module_provider,
                 args.max_parallel,
             ) as progress:
                 await progress.run()
-        for headers in rcfile_node_headers:
+        for headers in config_node_headers:
             print(f'Generating headers {headers.runtime} @ {headers.target}')
             await special.generate_node_headers(headers)
 
