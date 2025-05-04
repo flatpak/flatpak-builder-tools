@@ -48,8 +48,8 @@ def get_pypi_source(name: str, version: str, hashes: list) -> tuple:
                 matched = (source["url"], sha256)
                 break
             if (
-                not matched and
-                source.get("packagetype") == "sdist"
+                not matched
+                and source.get("packagetype") == "sdist"
                 and "source" in source.get("python_version", "")
             ):
                 matched = (source["url"], sha256)
@@ -114,7 +114,9 @@ def get_module_sources(parsed_lockfile: dict, include_devel: bool = True) -> lis
                                 hashes.append(match.group(2))
                     package_source = package.get("source")
                     if package_source and package_source["type"] == "directory":
-                        print(f'Skipping download url and hash extraction for {package["name"]}, source type is directory')
+                        print(
+                            f'Skipping download url and hash extraction for {package["name"]}, source type is directory'
+                        )
                         continue
                     pypi_source_ret = get_pypi_source(
                         package["name"], package["version"], hashes
