@@ -20,4 +20,9 @@ Tool to automatically generate `flatpak-builder` manifest json from a poetry.loc
 - `--production` does not include development dependencies
 - `-o outputfile` to output to a different filename
 
+## Development
 
+1. Install Poetry v2 https://python-poetry.org/docs/#installation
+2. `poetry install --with dev`
+3. Format and lint: `poetry run ruff format && poetry run ruff check --fix --exit-non-zero-on-fix`
+4. Type check: `poetry run mypy .`
