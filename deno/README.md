@@ -1,7 +1,15 @@
 # Flatpak Deno Generator
 
+run from jsr
+
 ```
 deno -RN -W=. jsr:@flatpak/flatpak-deno-generator deno.lock
+```
+
+or locally from this repo
+
+```
+deno -RN -W=. main.ts deno.lock
 ```
 
 This will create a `deno-sources.json` that can be used in flatpak build files:
