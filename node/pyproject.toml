@@ -46,7 +46,7 @@ strict = true
 check-format = "blue --check flatpak_node_generator tests"
 check-isort = "isort --check flatpak_node_generator tests"
 check-mypy = "mypy ."
-check-test = "pytest -n auto"
+check-test = "pytest -vvvs -n auto"
 check = ["check-format", "check-isort", "check-mypy", "check-test"]
 
 apply-format = "blue flatpak_node_generator"
