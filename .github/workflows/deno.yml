@@ -31,13 +31,13 @@ jobs:
         uses: denoland/setup-deno@v2
 
       - name: Verify formatting
-        if: runner.os == 'Linux'
         run: deno fmt --check
 
       - name: Run linter
-        if: runner.os == 'Linux'
         run: deno lint
 
       - name: Run type check
-        if: runner.os == 'Linux'
         run: deno check .
+
+      - name: Run tests
+        run: deno test -A

@@ -15,7 +15,7 @@ interface Pkg {
   cpu?: "x86_64" | "aarch64";
 }
 
-async function jsrPkgToFlatpakData(pkg: Pkg) {
+export async function jsrPkgToFlatpakData(pkg: Pkg) {
   const flatpkData = [];
   const metaUrl = `https://jsr.io/${pkg.module}/meta.json`;
   const metaText = await fetch(
@@ -96,7 +96,7 @@ async function jsrPkgToFlatpakData(pkg: Pkg) {
   return flatpkData;
 }
 
-async function npmPkgToFlatpakData(pkg: Pkg) {
+export async function npmPkgToFlatpakData(pkg: Pkg) {
   //url: https://registry.npmjs.org/@napi-rs/cli/-/cli-2.18.4.tgz
   //npmPkgs;
   const metaUrl = `https://registry.npmjs.org/${pkg.module}`;
@@ -133,14 +133,8 @@ async function npmPkgToFlatpakData(pkg: Pkg) {
   return [metaData, pkgData];
 }
 
-if (import.meta.main) {
-  const arg = Deno.args[0];
-  if (!arg) {
-    console.error("No argument provided");
-    Deno.exit(1);
-  }
-
-  const lock = JSON.parse(Deno.readTextFileSync(arg));
+export async function main(lockPath: string, outputPath = "deno-sources.json") {
+  const lock = JSON.parse(Deno.readTextFileSync(lockPath));
   if (lock.version !== "5") {
     throw new Error(`Unsupported deno lock version: ${lock.version}`);
   }
@@ -199,7 +193,16 @@ if (import.meta.main) {
   ].flat();
   // console.log(flatpakData);
   Deno.writeTextFileSync(
-    "deno-sources.json",
+    outputPath,
     JSON.stringify(flatpakData, null, 2),
   );
+}
+
+if (import.meta.main) {
+  const arg = Deno.args[0];
+  if (!arg) {
+    console.error("No argument provided");
+    Deno.exit(1);
+  }
+  await main(arg);
 }
