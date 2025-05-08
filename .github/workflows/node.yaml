@@ -2,9 +2,11 @@ name: CI
 
 on:
   push:
+    branches: master
     paths:
       - node/**
   pull_request:
+    branches: master
     paths:
       - node/**
 
