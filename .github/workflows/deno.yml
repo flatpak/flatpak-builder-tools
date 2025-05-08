@@ -1,0 +1,46 @@
+name: Deno
+
+on:
+  push:
+    paths:
+      - deno/**
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+defaults:
+  run:
+    working-directory: deno
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+
+      - name: Verify formatting
+        if: runner.os == 'Linux'
+        run: deno fmt --check
+
+      - name: Run linter
+        if: runner.os == 'Linux'
+        run: deno lint
+
+      - name: Run type check
+        if: runner.os == 'Linux'
+        run: deno check .
