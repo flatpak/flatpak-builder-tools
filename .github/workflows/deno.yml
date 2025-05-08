@@ -21,10 +21,7 @@ permissions:
 
 jobs:
   deno:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Setup repo
