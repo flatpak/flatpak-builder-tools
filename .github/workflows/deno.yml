@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  deno:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
