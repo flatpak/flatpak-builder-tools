@@ -38,5 +38,9 @@ sources:
   --allow-all --include ./src/gui.slint --include ./src/client.html ./src/gui.ts
 ```
 
+## Notes
+
+Currently this only supports lockfile V5 (available since deno version 2.3)
+
 ## Example
 - checkout https://github.com/flathub/io.github.sigmasd.VirtAudio/
