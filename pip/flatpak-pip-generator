@@ -92,6 +92,24 @@ def get_pypi_url(name: str, filename: str) -> str:
                     return source['url']
         raise Exception('Failed to extract url from {}'.format(url))
 
+def get_pypi_changelog(name: str) -> str:
+    url = 'https://pypi.org/pypi/{}/json'.format(name)
+    with urllib.request.urlopen(url) as response:
+        body = json.loads(response.read().decode('utf-8'))
+        urls = {k.casefold(): v for k, v in body['info']['project_urls'].items()}
+        # Keys as recognized by pypi: 
+        # https://github.com/pypi/warehouse/blob/main/warehouse/templates/packaging/detail.html#L24
+        search_keys = {"changelog", "change log", "changes", "release notes", "news", "what's new", "history"}
+        keys = search_keys.intersection(urls.keys())
+        if len(keys) == 1:
+            return urls[keys.pop()]
+        elif len(keys) > 1:
+            print(f"Warning: Got multiple potential keys for the changelog, picking one at random from {keys}.")
+            return urls[keys.pop()]
+        else:
+            print(f"No changelog url found for '{name}'.")
+
+
 
 def get_tar_package_url_pypi(name: str, version: str) -> str:
     url = 'https://pypi.org/pypi/{}/{}/json'.format(name, version)
@@ -378,6 +396,7 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             name = name.casefold()
             is_pypi = True
             url = get_pypi_url(name, filename)
+            changelog = get_pypi_changelog(name)
             source = OrderedDict([
                 ('type', 'file'),
                 ('url', url),
@@ -385,7 +404,10 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             if opts.checker_data:
                 source['x-checker-data'] = {
                     'type': 'pypi',
-                    'name': name}
+                    'name': name,
+                }
+                if changelog:
+                    source['x-checker-data']['changelog-url-template'] = changelog
                 if url.endswith(".whl"):
                     source['x-checker-data']['packagetype'] = 'bdist_wheel'
             is_vcs = False
