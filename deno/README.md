@@ -42,5 +42,9 @@ sources:
 
 Currently this only supports lockfile V5 (available since deno version 2.3)
 
+## License
+
+MIT
+
 ## Example
 - checkout https://github.com/flathub/io.github.sigmasd.VirtAudio/

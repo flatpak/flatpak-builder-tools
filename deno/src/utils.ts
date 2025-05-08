@@ -1,3 +1,4 @@
+// LICENSE = MIT
 // NOTE: This was used to put jsr deps inside deno_dir as well, but unfortntly
 // even when hashed correctly and put in the correct place, it seems deno requrie
 // some metadata checks that we can't get declerativly aka without modifying the files

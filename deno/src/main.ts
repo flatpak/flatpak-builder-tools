@@ -1,3 +1,4 @@
+// LICENSE = MIT
 import {
   base64ToHex,
   sha256,
