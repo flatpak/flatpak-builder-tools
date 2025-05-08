@@ -1,4 +1,4 @@
-name: Deno
+name: CI
 
 on:
   push:
