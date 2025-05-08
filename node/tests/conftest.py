@@ -97,9 +97,17 @@ class FlatpakBuilder:
 
         sdk_extensions = []
         build_options = {}
+        NODE_RUNTIME_VERSION_MAP = {
+            '14': '22.08',
+            '16': '22.08',
+            '18': '22.08',
+            '20': '24.08',
+            '22': '24.08',
+        }
 
         if use_node:
-            sdk_extensions.append(f'org.freedesktop.Sdk.Extension.node{use_node}')
+            use_node_str = str(use_node)
+            sdk_extensions.append(f'org.freedesktop.Sdk.Extension.node{use_node_str}')
             build_options['env'] = {
                 'XDG_CACHE_HOME': str(
                     self.runtime_module_dir / 'flatpak-node' / 'cache'
@@ -112,10 +120,14 @@ class FlatpakBuilder:
             for i, command in enumerate(commands):
                 commands[i] = f'. /usr/lib/sdk/node{use_node}/enable.sh && {command}'
 
+            runtime_version = NODE_RUNTIME_VERSION_MAP.get(use_node_str, '24.08')
+        else:
+            runtime_version = '22.08'
+
         manifest = {
             'id': 'com.test.Test',
             'runtime': 'org.freedesktop.Platform',
-            'runtime-version': '22.08',
+            'runtime-version': runtime_version,
             'sdk': 'org.freedesktop.Sdk',
             'sdk-extensions': sdk_extensions,
             'modules': [
@@ -309,7 +321,7 @@ def provider_factory_spec(request: Any, shared_datadir: Path) -> ProviderFactory
     return ProviderFactorySpec(datadir=shared_datadir, type=type)
 
 
-@pytest.fixture(params=[14, 16, 18])
+@pytest.fixture(params=[14, 16, 18, 20, 22])
 def node_version(request: Any) -> int:
     version = request.param
     assert isinstance(version, int)
