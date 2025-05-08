@@ -1,14 +1,18 @@
-[tool.poetry]
+[project]
 name = "flatpak_node_generator"
 version = "0.1.0"
-description = ""
-authors = ["Ryan Gonzalez <ryan.gonzalez@collabora.com>", "Filippe LeMarchand <gasinvein@gmail.com>"]
+description = "Script to generate Flatpak manifests from NPM and Yarn lockfiles"
+readme = "README.md"
+authors = [
+  {name = "Ryan Gonzalez", email = "ryan.gonzalez@collabora.com"},
+  {name = "Filippe LeMarchand", email = "gasinvein@gmail.com"},
+]
+requires-python = "<4.0,>=3.8"
+dependencies = [
+    "aiohttp<4.0.0,>=3.9.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.8"
-aiohttp = "^3.9.0"
-
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 blue = {git = "https://github.com/grantjenks/blue"}
 isort = "^5.10.1"
 mypy = "^0.950"
