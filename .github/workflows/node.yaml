@@ -46,6 +46,6 @@ jobs:
           flatpak --user install -y flathub \
             org.freedesktop.{Platform,Sdk{,.Extension.node{14,16,18}}}//22.08
       - name: Install dependencies
-        run: poetry install
+        run: poetry install --with=dev
       - name: Run checks
         run: poetry run poe check
