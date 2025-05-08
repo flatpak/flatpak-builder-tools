@@ -1,0 +1,6 @@
+{
+  "name": "@flatpak/flatpak-deno-generator",
+  "version": "1.2.2",
+  "exports": "./src/main.ts",
+  "license": "MIT"
+}
