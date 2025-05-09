@@ -3,7 +3,7 @@
 Run from jsr
 
 ```
-deno -RN -W=. jsr:@flatpak/flatpak-deno-generator deno.lock
+deno -RN -W=. jsr:@flatpak-contrib/flatpak-deno-generator deno.lock
 ```
 
 or locally from this repo

@@ -235,7 +235,7 @@ if (import.meta.main) {
     console.error(
       `Examples:
      - deno run -RN -W=. main.ts deno.lock
-     - deno run -RN -W=. jsr:@flatpak/flatpak-deno-generator deno.lock --output sources.json`,
+     - deno run -RN -W=. jsr:@flatpak-contrib/flatpak-deno-generator deno.lock --output sources.json`,
     );
     Deno.exit(1);
   }
