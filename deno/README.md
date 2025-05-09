@@ -66,7 +66,7 @@ MIT
 
 ## Technical Info
 
-Theoritcly it would've been better to put all the dependencies in DENO_DIR but
+Theoretically it would've been better to put all the dependencies in `DENO_DIR` but
 currently thats not possible because jsr and https dependencies have some
 special metadata checks made by deno, more info here
 https://github.com/denoland/deno/issues/29212
