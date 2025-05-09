@@ -228,7 +228,7 @@ export async function main(
 if (import.meta.main) {
   const arg = Deno.args[0];
   if (!arg) {
-    console.error("No argument provided");
+    console.error("Usage: deno run -RN -W=. <this_script> <path-to-lock-file>");
     Deno.exit(1);
   }
   await main(arg);
