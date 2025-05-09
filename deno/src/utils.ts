@@ -1,38 +1,7 @@
 // LICENSE = MIT
-// NOTE: This was used to put jsr deps inside deno_dir as well, but unfortntly
-// even when hashed correctly and put in the correct place, it seems deno requrie
-// some metadata checks that we can't get declerativly aka without modifying the files
-// thats why we workaround this by using vendor
 
 import { encodeHex } from "jsr:@std/encoding@1/hex";
 import { decodeBase64 } from "jsr:@std/encoding@1/base64";
-
-/**
- * Converts a URL into a hashed filename suitable for the Deno cache.
- * Handles characters not allowed in filenames and uses SHA-256 hashing
- * for the path and query string.
- *
- * @param urlString The URL string to convert.
- * @returns A promise that resolves with the hashed filename path string.
- * @throws {Error} If the URL is invalid, the scheme is not supported for caching, or hashing fails.
- */
-export function _urlToDenoCacheFilename(urlString: string): Promise<string> {
-  let url: URL;
-  try {
-    url = new URL(urlString);
-  } catch (e) {
-    throw new Error(`Invalid URL ("${urlString}"): ${e}`);
-  }
-
-  // Construct the string to be hashed (path + query)
-  // Fragment is intentionally omitted, matching the Rust code's comment.
-  let restStr = url.pathname;
-  if (url.search) {
-    restStr += url.search;
-  }
-
-  return sha256(restStr);
-}
 
 export async function sha256(text: string): Promise<string> {
   const encoder = new TextEncoder();
