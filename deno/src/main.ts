@@ -35,12 +35,12 @@ export interface FlatpakData {
     | "tar-zst"
     | "zip"
     | "7z";
-  // additional dynamic props like checksum
-  [x: string]: string | string[] | undefined;
+  sha256?: string;
+  sha512?: string;
 }
 
 export async function jsrPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
-  const flatpkData = [];
+  const flatpkData: FlatpakData[] = [];
   const metaUrl = `https://jsr.io/${pkg.module}/meta.json`;
   const metaText = await fetch(
     metaUrl,
