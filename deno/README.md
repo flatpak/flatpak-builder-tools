@@ -63,3 +63,10 @@ MIT
 ## Example
 
 - checkout https://github.com/flathub/io.github.sigmasd.VirtAudio/
+
+## Technical Info
+
+Theoritcly it would've been better to put all the dependencies on DENO_DIR but
+currently thats not possible because jsr and https dependencies have some
+special metadata checks made by deno, more info here
+https://github.com/denoland/deno/issues/29212
