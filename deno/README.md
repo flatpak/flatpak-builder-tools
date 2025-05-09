@@ -12,8 +12,9 @@ or locally from this repo
 deno -RN -W=. main.ts deno.lock --output sources.json
 ```
 
-This will create a `deno-sources.json` that can be used in flatpak build files.
-The sources files provides these 2 directories:
+This will create a `deno-sources.json` (or the name specified with --output)
+that can be used in flatpak build files. The sources files provides these 2
+directories:
 
 - it creates and populates `./deno_dir` with npm dependencies
 - it creates and populates `./vendor` with jsr + http dependencies
