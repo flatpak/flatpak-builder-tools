@@ -10,6 +10,10 @@ dotnet:
 - changed-files:
   - any-glob-to-any-file: dotnet/**
 
+deno:
+- changed-files:
+  - any-glob-to-any-file: deno/**
+  
 dub:
 - changed-files:
   - any-glob-to-any-file: dub/**
