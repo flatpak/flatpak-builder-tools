@@ -1,2 +1,5 @@
+# Fallback
+* @flatpak/flatpak-builder-tools
+
 /spm/ @david-swift
 /gradle/ @hadess
