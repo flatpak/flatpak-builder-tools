@@ -29,6 +29,17 @@ Deno.test("main function: generates deno-sources.json from lockfile", async () =
               "sha512-1r9Z1tcHTul3e8DqRLVQjaxAg/P6nxsVXni4eWh05rq6ArlTc95xJMu38xpv8uKXuX4nHCqB6f+GO6zkRgLr1w==",
             engines: { node: ">=0.10.0" },
           },
+          // peer dep
+          "update-browserslist-db@1.1.3_browserslist@4.24.4": {
+            "integrity":
+              "sha512-UxhIZQ+QInVdunkDAaiazvvT/+fXL5Osr0JZlJulepYu6Jd7qJtDZjlur0emRlT71EN3ScPoE7gvsuIKKNavKw==",
+            "dependencies": [
+              "browserslist",
+              "escalade",
+              "picocolors",
+            ],
+            "bin": true,
+          },
         },
         remote: {
           "https://deno.land/std@0.203.0/uuid/v1.ts":

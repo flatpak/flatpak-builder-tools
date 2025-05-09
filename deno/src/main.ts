@@ -178,8 +178,13 @@ export async function main(
       [_key, val]: any,
     ) => (val.os === undefined || val.os?.at(0) === "linux"))
     // deno-lint-ignore no-explicit-any
-    .map(([key, val]: any) => {
-      const r = splitOnce(key, "@", "right");
+    .map(([key, val]: [string, any]) => {
+      let r = splitOnce(key, "@", "right");
+      // hande peer deps
+      if (/_.+$/.test(r[0])) {
+        const actualModule = splitOnce(r[0], "_", "right")[0];
+        r = splitOnce(actualModule, "@", "right");
+      }
       const name = r[0].includes("/") ? r[0].split("/")[1] : r[0];
       const cpu = val.cpu?.at(0);
       return {
