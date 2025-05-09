@@ -25,13 +25,15 @@ Deno.test("main function: generates deno-sources.json from lockfile", async () =
         },
         npm: {
           "left-pad@1.3.0": {
-            integrity: "sha512-1r9Z1tcHTul3e8DqRLVQjaxAg/P6nxsVXni4eWh05rq6ArlTc95xJMu38xpv8uKXuX4nHCqB6f+GO6zkRgLr1w==",
-            engines: { node: ">=0.10.0" }
-          }
+            integrity:
+              "sha512-1r9Z1tcHTul3e8DqRLVQjaxAg/P6nxsVXni4eWh05rq6ArlTc95xJMu38xpv8uKXuX4nHCqB6f+GO6zkRgLr1w==",
+            engines: { node: ">=0.10.0" },
+          },
         },
         remote: {
-          "https://deno.land/std@0.203.0/uuid/v1.ts": "b6e2e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1"
-        }
+          "https://deno.land/std@0.203.0/uuid/v1.ts":
+            "b6e2e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1e2c1",
+        },
       },
       null,
       2,

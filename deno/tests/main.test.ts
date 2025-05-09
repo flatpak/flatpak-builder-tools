@@ -144,24 +144,24 @@ Deno.test("npmPkgToFlatpakData returns correct flatpak data", async () => {
 
   // archive
   assertEquals(
-    (data[1] as Record<string, unknown>).url,
+    data[1].url,
     "https://registry.npmjs.org/@napi-rs/cli/-/cli-2.18.4.tgz",
   );
   assertEquals(
-    (data[1] as Record<string, unknown>)["archive-type"],
+    data[1]["archive-type"],
     "tar-gzip",
   );
   assertEquals(
-    (data[1] as Record<string, unknown>).dest,
+    data[1].dest,
     "deno_dir/npm/registry.npmjs.org/@napi-rs/cli/2.18.4",
   );
   assertEquals(
-    ((data[1] as Record<string, unknown>)["only-arches"] as string[])[0],
+    (data[1]["only-arches"] as string[])[0],
     "x86_64",
   );
   // sha512 should be present and hex
   assertMatch(
-    String((data[1] as Record<string, unknown>).sha512),
+    String(data[1].sha512),
     /^[a-f0-9]+$/,
   );
 });

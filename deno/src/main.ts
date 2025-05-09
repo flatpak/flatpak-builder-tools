@@ -8,14 +8,38 @@ import {
   urlSegments,
 } from "./utils.ts";
 
-interface Pkg {
+export interface Pkg {
   module: string;
   version: string;
   name: string;
   cpu?: "x86_64" | "aarch64";
 }
 
-export async function jsrPkgToFlatpakData(pkg: Pkg) {
+export interface FlatpakData {
+  type: string;
+  url: string;
+  dest: string;
+  "dest-filename"?: string;
+  "only-arches"?: ("x86_64" | "aarch64")[];
+  "archive-type"?:
+    | "tar-gzip"
+    | "rpm"
+    | "tar"
+    | "tar-gzip"
+    | "tar-compress"
+    | "tar-bzip2"
+    | "tar-lzip"
+    | "tar-lzma"
+    | "tar-lzop"
+    | "tar-xz"
+    | "tar-zst"
+    | "zip"
+    | "7z";
+  // additional dynamic props like checksum
+  [x: string]: string | string[] | undefined;
+}
+
+export async function jsrPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
   const flatpkData = [];
   const metaUrl = `https://jsr.io/${pkg.module}/meta.json`;
   const metaText = await fetch(
@@ -96,7 +120,7 @@ export async function jsrPkgToFlatpakData(pkg: Pkg) {
   return flatpkData;
 }
 
-export async function npmPkgToFlatpakData(pkg: Pkg) {
+export async function npmPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
   //url: https://registry.npmjs.org/@napi-rs/cli/-/cli-2.18.4.tgz
   //npmPkgs;
   const metaUrl = `https://registry.npmjs.org/${pkg.module}`;
@@ -117,7 +141,7 @@ export async function npmPkgToFlatpakData(pkg: Pkg) {
     meta.versions[pkg.version].dist.integrity,
     "-",
   );
-  const pkgData: Record<string, unknown> = {
+  const pkgData: FlatpakData = {
     type: "archive",
     "archive-type": "tar-gzip",
     url:
@@ -133,7 +157,10 @@ export async function npmPkgToFlatpakData(pkg: Pkg) {
   return [metaData, pkgData];
 }
 
-export async function main(lockPath: string, outputPath = "deno-sources.json") {
+export async function main(
+  lockPath: string,
+  outputPath: string = "deno-sources.json",
+) {
   const lock = JSON.parse(Deno.readTextFileSync(lockPath));
   if (lock.version !== "5") {
     throw new Error(`Unsupported deno lock version: ${lock.version}`);
