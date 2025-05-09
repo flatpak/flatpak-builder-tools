@@ -226,10 +226,21 @@ export async function main(
 }
 
 if (import.meta.main) {
-  const arg = Deno.args[0];
-  if (!arg) {
-    console.error("Usage: deno run -RN -W=. <this_script> <path-to-lock-file>");
+  const args = Deno.args;
+  const lockPath = args[0];
+  if (!lockPath) {
+    console.error(
+      "Usage: deno run -RN -W=. <this_script> <path-to-lock-file> [--output <output-file>]",
+    );
+    console.error(
+      `Examples:
+     - deno run -RN -W=. main.ts deno.lock
+     - deno run -RN -W=. jsr:@flatpak/flatpak-deno-generator deno.lock --output sources.json`,
+    );
     Deno.exit(1);
   }
-  await main(arg);
+  const outputFile = args.includes("--output")
+    ? args[args.indexOf("--output") + 1]
+    : "deno-sources.json";
+  await main(lockPath, outputFile);
 }

@@ -9,7 +9,7 @@ deno -RN -W=. jsr:@flatpak/flatpak-deno-generator deno.lock
 or locally from this repo
 
 ```
-deno -RN -W=. main.ts deno.lock
+deno -RN -W=. main.ts deno.lock --output sources.json
 ```
 
 This will create a `deno-sources.json` that can be used in flatpak build files.
