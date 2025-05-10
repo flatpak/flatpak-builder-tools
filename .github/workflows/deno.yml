@@ -36,6 +36,9 @@ jobs:
       - name: Run linter
         run: deno lint
 
+      - name: Run doc linter
+        run: deno doc --lint src/main.ts
+
       - name: Run type check
         run: deno check .
 

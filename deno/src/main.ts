@@ -8,19 +8,38 @@ import {
   urlSegments,
 } from "./utils.ts";
 
+/**
+ * Represents a JSR or NPM package.
+ */
 export interface Pkg {
+  /** The module identifier (e.g., scope/name for JSR, or package name for NPM). */
   module: string;
+  /** The specific version of the package. */
   version: string;
+  /** The short name of the package. */
   name: string;
+  /** Optional CPU architecture for which this package is intended. */
   cpu?: "x86_64" | "aarch64";
 }
 
+/**
+ * Represents a source entry in a Flatpak manifest.
+ */
 export interface FlatpakData {
+  /** The type of the source, e.g., "file", "archive". */
   type: string;
+  /** The URL from which to download the source. */
   url: string;
+  /** The destination directory within the build environment where the source will be placed. */
   dest: string;
+  /** Optional name for the downloaded file. If not provided, the name is derived from the URL. */
   "dest-filename"?: string;
+  /** Optional array of CPU architectures for which this source is relevant. */
   "only-arches"?: ("x86_64" | "aarch64")[];
+  /**
+   * Optional type of the archive, if the source is an archive.
+   * This helps Flatpak to correctly extract the contents.
+   */
   "archive-type"?:
     | "tar-gzip"
     | "rpm"
@@ -35,10 +54,19 @@ export interface FlatpakData {
     | "tar-zst"
     | "zip"
     | "7z";
+  /** Optional SHA256 checksum for verifying the integrity of the downloaded source. */
   sha256?: string;
+  /** Optional SHA512 checksum for verifying the integrity of the downloaded source. */
   sha512?: string;
 }
 
+/**
+ * Converts JSR package information into an array of FlatpakData objects.
+ * It fetches metadata for the package and its specific version, then processes
+ * the module graph to create download entries for each file.
+ * @param pkg The JSR package information.
+ * @returns A promise that resolves to an array of FlatpakData objects.
+ */
 export async function jsrPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
   const flatpkData: FlatpakData[] = [];
   const metaUrl = `https://jsr.io/${pkg.module}/meta.json`;
@@ -120,6 +148,13 @@ export async function jsrPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
   return flatpkData;
 }
 
+/**
+ * Converts NPM package information into an array of FlatpakData objects.
+ * It fetches metadata for the package and creates entries for the package's
+ * registry metadata and the package tarball itself.
+ * @param pkg The NPM package information.
+ * @returns A promise that resolves to an array of FlatpakData objects.
+ */
 export async function npmPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
   //url: https://registry.npmjs.org/@napi-rs/cli/-/cli-2.18.4.tgz
   //npmPkgs;
@@ -157,6 +192,13 @@ export async function npmPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
   return [metaData, pkgData];
 }
 
+/**
+ * Main function to generate Flatpak sources from a Deno lock file.
+ * It reads the lock file, processes JSR, NPM, and remote HTTP dependencies,
+ * and writes the resulting FlatpakData array to an output JSON file.
+ * @param lockPath Path to the Deno lock file.
+ * @param outputPath Path to the output JSON file for Flatpak sources. Defaults to "deno-sources.json".
+ */
 export async function main(
   lockPath: string,
   outputPath: string = "deno-sources.json",
