@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 
 
-def main():
+def main() -> None:
     # Bump this to latest freedesktop runtime version.
     freedesktop_default = "24.08"
     # Bump this to an LTS dotnet version.
@@ -56,7 +56,7 @@ def main():
     sources = []
     with tempfile.TemporaryDirectory(dir=Path()) as tmp:
 
-        def restore_project(project, runtime):
+        def restore_project(project: str, runtime: str | None) -> None:
             subprocess.run(
                 [
                     "flatpak",
@@ -76,7 +76,8 @@ def main():
                     project,
                 ]
                 + (["-r", runtime] if runtime else [])
-                + (args.dotnet_args or []), check=False
+                + (args.dotnet_args or []),
+                check=False,
             )
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
