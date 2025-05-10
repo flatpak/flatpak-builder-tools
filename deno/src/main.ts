@@ -221,17 +221,12 @@ export async function main(
     ) => (val.os === undefined || val.os?.at(0) === "linux"))
     // deno-lint-ignore no-explicit-any
     .map(([key, val]: [string, any]) => {
-      let r = splitOnce(key, "@", "right");
-      // hande peer deps
-      if (/_.+$/.test(r[0])) {
-        const actualModule = splitOnce(r[0], "_", "right")[0];
-        r = splitOnce(actualModule, "@", "right");
-      }
-      const name = r[0].includes("/") ? r[0].split("/")[1] : r[0];
+      const r = key.match(/(^@?.+?)@([^_]+?)(?=_|$)/)!;
+      const name = r[1].includes("/") ? r[1].split("/")[1] : r[1];
       const cpu = val.cpu?.at(0);
       return {
-        module: r[0],
-        version: r[1],
+        module: r[1],
+        version: r[2],
         name,
         cpu: cpu === "x64" ? "x86_64" : cpu === "arm64" ? "aarch64" : cpu,
       };

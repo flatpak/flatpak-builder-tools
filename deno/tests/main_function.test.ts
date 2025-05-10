@@ -40,6 +40,18 @@ Deno.test("main function: generates deno-sources.json from lockfile", async () =
             ],
             "bin": true,
           },
+          // peer deps can have multiple peers
+          "@sveltejs/vite-plugin-svelte-inspector@4.0.1_@sveltejs+vite-plugin-svelte@5.0.3__svelte@5.25.3___acorn@8.14.1__vite@6.2.3_svelte@5.25.3__acorn@8.14.1_vite@6.2.3":
+            {
+              "integrity":
+                "sha512-J/Nmb2Q2y7mck2hyCX4ckVHcR5tu2J+MtBEQqpDrrgELZ2uvraQcK/ioCV61AqkdXFgriksOKIceDcQmqnGhVw==",
+              "dependencies": [
+                "@sveltejs/vite-plugin-svelte",
+                "debug",
+                "svelte",
+                "vite",
+              ],
+            },
         },
         remote: {
           "https://deno.land/std@0.203.0/uuid/v1.ts":
