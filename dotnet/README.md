@@ -46,3 +46,10 @@ python3 flatpak-dotnet-generator.py my-output-sources.json my.input.Desktop.cspr
 In this example:
 - `--no-cache` and `--verbosity detailed` are additional arguments passed to the `dotnet` command.
 - You can add as many arguments as needed after `--dotnet-args`.
+
+## Development
+
+1. Install Poetry v2 https://python-poetry.org/docs/#installation
+2. `poetry install --with dev`
+3. Format and lint: `poetry run ruff format && poetry run ruff check --fix --exit-non-zero-on-fix`
+4. Type check: `poetry run mypy .`
