@@ -4,3 +4,5 @@
 /spm/ @david-swift
 /gradle/ @hadess
 /deno/ @sigmasd
+/.github/workflows/deno.yml @sigmasd
+/.github/workflows/publish-jsr.yml @sigmasd
