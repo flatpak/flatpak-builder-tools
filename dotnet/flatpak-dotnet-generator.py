@@ -2,15 +2,14 @@
 
 __license__ = "MIT"
 
-from pathlib import Path
-
 import argparse
 import base64
 import binascii
+import concurrent.futures
 import json
 import subprocess
 import tempfile
-import concurrent.futures
+from pathlib import Path
 
 
 def main():
@@ -77,7 +76,7 @@ def main():
                     project,
                 ]
                 + (["-r", runtime] if runtime else [])
-                + (args.dotnet_args or [])
+                + (args.dotnet_args or []), check=False
             )
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -113,7 +112,7 @@ def main():
                 }
             )
 
-    with open(args.output, "w") as fp:
+    with open(args.output, "w", encoding="utf-8") as fp:
         json.dump(sorted(sources, key=lambda n: n.get("dest-filename")), fp, indent=4)
 
 
