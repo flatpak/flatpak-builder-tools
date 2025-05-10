@@ -1,0 +1,251 @@
+// LICENSE = MIT
+import {
+  base64ToHex,
+  sha256,
+  shortHash,
+  shouldHash,
+  splitOnce,
+  urlSegments,
+} from "./utils.ts";
+
+export interface Pkg {
+  module: string;
+  version: string;
+  name: string;
+  cpu?: "x86_64" | "aarch64";
+}
+
+export interface FlatpakData {
+  type: string;
+  url: string;
+  dest: string;
+  "dest-filename"?: string;
+  "only-arches"?: ("x86_64" | "aarch64")[];
+  "archive-type"?:
+    | "tar-gzip"
+    | "rpm"
+    | "tar"
+    | "tar-gzip"
+    | "tar-compress"
+    | "tar-bzip2"
+    | "tar-lzip"
+    | "tar-lzma"
+    | "tar-lzop"
+    | "tar-xz"
+    | "tar-zst"
+    | "zip"
+    | "7z";
+  sha256?: string;
+  sha512?: string;
+}
+
+export async function jsrPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
+  const flatpkData: FlatpakData[] = [];
+  const metaUrl = `https://jsr.io/${pkg.module}/meta.json`;
+  const metaText = await fetch(
+    metaUrl,
+  ).then((r) => r.text());
+
+  flatpkData.push({
+    type: "file",
+    url: metaUrl,
+    sha256: await sha256(metaText),
+    dest: `vendor/jsr.io/${pkg.module}`,
+    "dest-filename": "meta.json",
+  });
+
+  const metaVerUrl = `https://jsr.io/${pkg.module}/${pkg.version}_meta.json`;
+  const metaVerText = await fetch(
+    metaVerUrl,
+  ).then((r) => r.text());
+
+  flatpkData.push({
+    type: "file",
+    url: metaVerUrl,
+    sha256: await sha256(metaVerText),
+    dest: `vendor/jsr.io/${pkg.module}`,
+    "dest-filename": `${pkg.version}_meta.json`,
+  });
+
+  const metaVer = JSON.parse(metaVerText);
+
+  for (
+    const fileUrl of Object.keys(metaVer.moduleGraph2 || metaVer.moduleGraph1)
+  ) {
+    const fileMeta = metaVer.manifest[fileUrl];
+    // this mean the url exists in the module graph but not in the manifest -> this url is not needed
+    if (!fileMeta) continue;
+    const [checksumType, checksumValue] = splitOnce(fileMeta.checksum, "-");
+
+    const url = `https://jsr.io/${pkg.module}/${pkg.version}${fileUrl}`;
+    let [fileDir, fileName] = splitOnce(fileUrl, "/", "right");
+    const dest = `vendor/jsr.io/${pkg.module}/${pkg.version}${fileDir}`;
+
+    if (shouldHash(fileName)) {
+      fileName = await shortHash(fileName);
+    }
+
+    flatpkData.push({
+      type: "file",
+      url,
+      [checksumType]: checksumValue,
+      dest,
+      "dest-filename": fileName,
+    });
+  }
+
+  // If a moule imports deno.json (import ... from "deno.json" with {type:"json"}), it won't appear in the module graph
+  // Worarkound: if there is a deno.json file in the manifest just add it
+  // Note this can be made better, by looking in the moduleGraph if deno.json is specified in the dependencies
+  for (const [fileUrl, fileMeta] of Object.entries(metaVer.manifest)) {
+    if (fileUrl.includes("deno.json")) {
+      const [checksumType, checksumValue] = splitOnce(
+        // deno-lint-ignore no-explicit-any
+        (fileMeta as any).checksum,
+        "-",
+      );
+      const url = `https://jsr.io/${pkg.module}/${pkg.version}${fileUrl}`;
+      const [fileDir, fileName] = splitOnce(fileUrl, "/", "right");
+      const dest = `vendor/jsr.io/${pkg.module}/${pkg.version}${fileDir}`;
+      flatpkData.push({
+        type: "file",
+        url,
+        [checksumType]: checksumValue,
+        dest,
+        "dest-filename": fileName,
+      });
+    }
+  }
+
+  return flatpkData;
+}
+
+export async function npmPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
+  //url: https://registry.npmjs.org/@napi-rs/cli/-/cli-2.18.4.tgz
+  //npmPkgs;
+  const metaUrl = `https://registry.npmjs.org/${pkg.module}`;
+  const metaText = await fetch(metaUrl).then(
+    (r) => r.text(),
+  );
+  const meta = JSON.parse(metaText);
+
+  const metaData = {
+    type: "file",
+    url: metaUrl,
+    sha256: await sha256(metaText),
+    dest: `deno_dir/npm/registry.npmjs.org/${pkg.module}`,
+    "dest-filename": "registry.json",
+  };
+
+  const [checksumType, checksumValue] = splitOnce(
+    meta.versions[pkg.version].dist.integrity,
+    "-",
+  );
+  const pkgData: FlatpakData = {
+    type: "archive",
+    "archive-type": "tar-gzip",
+    url:
+      `https://registry.npmjs.org/${pkg.module}/-/${pkg.name}-${pkg.version}.tgz`,
+    [checksumType]: base64ToHex(checksumValue),
+    dest: `deno_dir/npm/registry.npmjs.org/${pkg.module}/${pkg.version}`,
+  };
+
+  if (pkg.cpu) {
+    pkgData["only-arches"] = [pkg.cpu];
+  }
+
+  return [metaData, pkgData];
+}
+
+export async function main(
+  lockPath: string,
+  outputPath: string = "deno-sources.json",
+) {
+  const lock = JSON.parse(Deno.readTextFileSync(lockPath));
+  if (lock.version !== "5") {
+    throw new Error(`Unsupported deno lock version: ${lock.version}`);
+  }
+
+  const jsrPkgs: Pkg[] = !lock.jsr ? [] : Object.keys(lock.jsr).map((pkg) => {
+    const r = splitOnce(pkg, "@", "right");
+    const name = r[0].split("/")[1];
+    return { module: r[0], version: r[1], name };
+  });
+  jsrPkgs;
+  const npmPkgs: Pkg[] = !lock.npm ? [] : Object.entries(lock.npm)
+    .filter((
+      // deno-lint-ignore no-explicit-any
+      [_key, val]: any,
+    ) => (val.os === undefined || val.os?.at(0) === "linux"))
+    // deno-lint-ignore no-explicit-any
+    .map(([key, val]: [string, any]) => {
+      let r = splitOnce(key, "@", "right");
+      // hande peer deps
+      if (/_.+$/.test(r[0])) {
+        const actualModule = splitOnce(r[0], "_", "right")[0];
+        r = splitOnce(actualModule, "@", "right");
+      }
+      const name = r[0].includes("/") ? r[0].split("/")[1] : r[0];
+      const cpu = val.cpu?.at(0);
+      return {
+        module: r[0],
+        version: r[1],
+        name,
+        cpu: cpu === "x64" ? "x86_64" : cpu === "arm64" ? "aarch64" : cpu,
+      };
+    });
+  //url: https://registry.npmjs.org/@napi-rs/cli/-/cli-2.18.4.tgz
+  npmPkgs;
+  const httpPkgsData = !lock.remote
+    ? []
+    : Object.entries(lock.remote).map(async ([urlStr, checksum]) => {
+      const url = new URL(urlStr);
+      const segments = await Promise.all(
+        urlSegments(url)
+          .map(async (part) => shouldHash(part) ? await shortHash(part) : part),
+      );
+      const filename = segments.pop();
+      return {
+        type: "file",
+        url: urlStr,
+        sha256: checksum,
+        dest: `vendor/${url.hostname}/${segments.join("/")}`,
+        "dest-filename": filename,
+      };
+    });
+
+  const flatpakData = [
+    await Promise.all(
+      jsrPkgs.map((pkg) => jsrPkgToFlatpakData(pkg)),
+    ).then((r) => r.flat()),
+    await Promise.all(npmPkgs.map((pkg) => npmPkgToFlatpakData(pkg))).then(
+      (r) => r.flat(),
+    ),
+    await Promise.all(httpPkgsData),
+  ].flat();
+  // console.log(flatpakData);
+  Deno.writeTextFileSync(
+    outputPath,
+    JSON.stringify(flatpakData, null, 2),
+  );
+}
+
+if (import.meta.main) {
+  const args = Deno.args;
+  const lockPath = args[0];
+  if (!lockPath) {
+    console.error(
+      "Usage: deno run -RN -W=. <this_script> <path-to-lock-file> [--output <output-file>]",
+    );
+    console.error(
+      `Examples:
+     - deno run -RN -W=. main.ts deno.lock
+     - deno run -RN -W=. jsr:@flatpak-contrib/flatpak-deno-generator deno.lock --output sources.json`,
+    );
+    Deno.exit(1);
+  }
+  const outputFile = args.includes("--output")
+    ? args[args.indexOf("--output") + 1]
+    : "deno-sources.json";
+  await main(lockPath, outputFile);
+}
