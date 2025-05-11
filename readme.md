@@ -16,3 +16,8 @@ A simple script to help convert JSON manifests to YAML is also in this repo.
 After cloning the repository you can run `./flatpak-json2yaml.py /path/to/example.json --output=example.yml`.
 
 This depends on [PyYAML](https://pypi.org/project/PyYAML/) which may need to be installed.
+
+## Flutter
+
+Please look at the [flatpak-flutter](https://github.com/TheAppgineer/flatpak-flutter)
+project, developed by [Jan Koudijs](https://github.com/JanKoudijs).
