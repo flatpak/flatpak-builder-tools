@@ -49,11 +49,15 @@ Deno.test("shortHash returns hashed filename for forbidden/long names", async ()
   const result = await shortHash("ThisIsUppercase.txt");
   assertMatch(result, /^#thisisuppercase_[a-f0-9]{5}\.txt$/);
   const result2 = await shortHash("file?name.txt");
-  assertMatch(result2, /^#file_[a-f0-9]{5}$/);
+  assertMatch(result2, /^#file_[a-f0-9]{5}.txt$/);
   const result3 = await shortHash("a".repeat(40));
   assertMatch(result3, /^#aaaaaaaaaaaaaaaaaaaa_[a-f0-9]{5}$/);
   const result4 = await shortHash("file<name.ts");
   assertMatch(result4, /^#file_name_[a-f0-9]{5}.ts$/);
+  const result5 = await shortHash(
+    "unstable_get_network_address.ts",
+  );
+  assertEquals(result5, "#unstable_get_network_b61b7.ts");
 });
 
 Deno.test("shortHash returns hashed filename for empty string", async () => {

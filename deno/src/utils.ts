@@ -90,9 +90,8 @@ export async function shortHash(fileName: string): Promise<string> {
     count++;
   }
 
-  const parts = splitOnce(sub, ".", "right");
-  sub = parts[0];
-  let ext = parts.at(1);
+  sub = splitOnce(sub, ".", "right")[0];
+  let ext = splitOnce(fileName, ".", "right").at(1);
   ext = ext ? `.${ext}` : "";
 
   if (sub.length === 0) {
