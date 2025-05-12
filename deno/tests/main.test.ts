@@ -1,6 +1,6 @@
 // LICENSE = MIT
 // deno-lint-ignore-file require-await
-import { assertEquals, assertMatch } from "jsr:@std/assert@0.221.0";
+import { assert, assertEquals, assertMatch } from "jsr:@std/assert@0.221.0";
 import { jsrPkgToFlatpakData, npmPkgToFlatpakData } from "../src/main.ts";
 
 Deno.test("jsrPkgToFlatpakData returns correct flatpak data", async () => {
@@ -90,7 +90,7 @@ Deno.test("jsrPkgToFlatpakData returns correct flatpak data", async () => {
 
 Deno.test("npmPkgToFlatpakData returns correct flatpak data", async () => {
   // Mock fetch for npm meta
-  const metaJson = JSON.stringify({
+  const metaJson = {
     versions: {
       "2.18.4": {
         dist: {
@@ -99,7 +99,7 @@ Deno.test("npmPkgToFlatpakData returns correct flatpak data", async () => {
         },
       },
     },
-  });
+  };
 
   const origFetch = globalThis.fetch;
   Object.defineProperty(globalThis, "fetch", {
@@ -113,7 +113,7 @@ Deno.test("npmPkgToFlatpakData returns correct flatpak data", async () => {
         : (input as Request).url;
       if (url === "https://registry.npmjs.org/@napi-rs/cli") {
         return {
-          text: async () => metaJson,
+          json: async () => metaJson,
         } as Response;
       }
       throw new Error("Unexpected fetch url: " + url);
@@ -139,7 +139,9 @@ Deno.test("npmPkgToFlatpakData returns correct flatpak data", async () => {
   assertEquals(data.length, 2);
 
   // registry.json
-  assertEquals(data[0].url, "https://registry.npmjs.org/@napi-rs/cli");
+  const registryContents = data.at(0)?.contents;
+  assert(registryContents !== undefined);
+  assert("2.18.4" in JSON.parse(registryContents).versions);
   assertEquals(data[0]["dest-filename"], "registry.json");
 
   // archive

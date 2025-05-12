@@ -29,7 +29,12 @@ export interface FlatpakData {
   /** The type of the source, e.g., "file", "archive". */
   type: string;
   /** The URL from which to download the source. */
-  url: string;
+  url?: string;
+  /**
+   * Optional inline contents for the source.
+   * Used when the source is provided directly rather than downloaded from a URL.
+   */
+  contents?: string;
   /** The destination directory within the build environment where the source will be placed. */
   dest: string;
   /** Optional name for the downloaded file. If not provided, the name is derived from the URL. */
@@ -159,15 +164,20 @@ export async function npmPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
   //url: https://registry.npmjs.org/@napi-rs/cli/-/cli-2.18.4.tgz
   //npmPkgs;
   const metaUrl = `https://registry.npmjs.org/${pkg.module}`;
-  const metaText = await fetch(metaUrl).then(
-    (r) => r.text(),
+  const meta = await fetch(metaUrl).then(
+    (r) => r.json(),
   );
-  const meta = JSON.parse(metaText);
 
+  // "registry.json" file is a stateful file, its always updated so it will never have the same hash for ever
+  // the workaround is to snapshot it by inlining its content as a string, though we do some optimization here to reduce its size
+  // by only taking the necessary fields
   const metaData = {
-    type: "file",
-    url: metaUrl,
-    sha256: await sha256(metaText),
+    type: "inline",
+    contents: JSON.stringify({
+      name: meta.name,
+      "dist-tags": {},
+      versions: { [pkg.version]: meta.versions[pkg.version] },
+    }),
     dest: `deno_dir/npm/registry.npmjs.org/${pkg.module}`,
     "dest-filename": "registry.json",
   };
