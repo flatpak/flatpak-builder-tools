@@ -28,6 +28,7 @@ The output file should be added to the manifest like
     "name": "quickstart",
     "buildsystem": "simple",
     "build-commands": [
+        "install -Dm644 cargo/config .cargo/config.toml",
         "cargo --offline fetch --manifest-path Cargo.toml --verbose",
         "cargo --offline build --release --verbose",
         "install -Dm755 ./target/release/quickstart -t /app/bin/"
