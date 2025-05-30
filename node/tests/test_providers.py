@@ -8,6 +8,18 @@ import pytest
 from conftest import FlatpakBuilder, ProviderFactorySpec
 from flatpak_node_generator.manifest import ManifestGenerator
 
+TEST_SCRIPT = """
+require("array-range");
+require("is-empty-object");
+require("is-number");
+require("person-lib");
+require("to-camel-case");
+require("to-capital-case");
+require("to-no-case");
+require("to-space-case");
+require("@flatpak-node-generator-tests/subdir").sayHello();
+"""
+
 
 async def test_minimal_git(
     flatpak_builder: FlatpakBuilder,
@@ -49,7 +61,7 @@ async def test_git(
         ),
         commands=[
             provider_factory_spec.install_command,
-            """node -e 'require("array-range");require("is-empty-object");require("is-number");require("person-lib");require("to-camel-case");require("to-capital-case");require("to-no-case");require("to-space-case");require("@flatpak-node-generator-tests/subdir").sayHello()'""",
+            f"""node -e '{TEST_SCRIPT}'""",
         ],
         use_node=node_version,
     )

@@ -8,7 +8,6 @@ from typing import (
     NamedTuple,
     Optional,
     Set,
-    Tuple,
     Type,
 )
 
@@ -27,6 +26,7 @@ from ..manifest import ManifestGenerator
 from ..package import (
     GitSource,
     LocalSource,
+    NamedGitSource,
     Package,
     PackageSource,
     PackageURLSource,
@@ -85,12 +85,11 @@ class NpmLockfileProvider(LockfileProvider):
                     integrity = Integrity.parse(info['integrity'])
 
                 if 'resolved' in info:
-                    if info['resolved'].startswith('git+'):
-                        source = self.parse_git_source(info['resolved'])
+                    resolved = info['resolved']
+                    if resolved.startswith('git+'):
+                        source = self.parse_git_source(resolved)
                     else:
-                        source = ResolvedSource(
-                            resolved=info['resolved'], integrity=integrity
-                        )
+                        source = ResolvedSource(resolved=resolved, integrity=integrity)
                 elif version_url.scheme in {'http', 'https'}:
                     source = PackageURLSource(resolved=version, integrity=integrity)
                 else:
@@ -204,9 +203,10 @@ class NpmModuleProvider(ModuleProvider):
         ] = {}
         self.index_entries: Dict[Path, str] = {}
         self.all_lockfiles: Set[Path] = set()
-        # Mapping of lockfiles to a dict of the Git source target paths and GitSource objects.
+        # Mapping of lockfiles to a dict of the Git source target paths and
+        # NamedGitSource objects (package name + GitSource)
         self.git_sources: DefaultDict[
-            Path, Dict[Path, Tuple[str, GitSource]]
+            Path, Dict[Path, NamedGitSource]
         ] = collections.defaultdict(lambda: {})
         # FIXME better pass the same provider object we created in main
         self.rcfile_provider = NpmRCFileProvider()
@@ -367,34 +367,36 @@ class NpmModuleProvider(ModuleProvider):
             # Get a unique name to use for the Git repository folder.
             name = f'{package.name}-{source.commit}'
             path = self.gen.data_root / 'git-packages' / name
-            self.git_sources[package.lockfile][path] = (package.name, source)
+            self.git_sources[package.lockfile][path] = NamedGitSource(
+                package.name, source
+            )
             self.gen.add_git_source(source.url, source.commit, path)
 
+            git_suffix = re.compile(r'\.git$')
             url = urllib.parse.urlparse(source.url)
-            if url.netloc == 'git@github.com' or url.netloc == 'github.com':
+
+            if url.hostname == 'github.com':
                 url = url._replace(
-                    netloc='codeload.github.com', path=re.sub('.git$', '', url.path)
+                    netloc='codeload.github.com', path=git_suffix.sub('', url.path)
                 )
-                tarball_url = url._replace(
-                    path=re.sub('$', f'/tar.gz/{source.commit}', url.path)
-                )
+                tarball_url = url._replace(path=url.path + f'/tar.gz/{source.commit}')
                 index_url = tarball_url.geturl()
-            elif url.netloc == 'git@gitlab.com' or url.netloc == 'gitlab.com':
+            elif url.hostname == 'gitlab.com':
                 url = url._replace(
-                    netloc='gitlab.com', path=re.sub('.git$', '', url.path)
+                    netloc='gitlab.com', path=git_suffix.sub('', url.path)
                 )
                 tarball_url = url._replace(
-                    path=re.sub(
-                        '$',
-                        f'/-/archive/{source.commit}/{package.name}-{source.commit}.tar.gz',
-                        url.path,
-                    )
+                    path=url.path
+                    + f'/-/archive/{source.commit}/{package.name}-{source.commit}.tar.gz'
                 )
                 index_url = url._replace(
-                    path=re.sub(
-                        '$', f'/repository/archive.tar.gz?ref={source.commit}', url.path
-                    )
+                    path=url.path + f'/repository/archive.tar.gz?ref={source.commit}'
                 ).geturl()
+            else:
+                raise NotImplementedError(
+                    f"Don't know how to handle git source with url {url.geturl()}"
+                )
+
             metadata = await RemoteUrlMetadata.get(
                 tarball_url.geturl(), cachable=True, integrity_algorithm='sha512'
             )
@@ -501,16 +503,23 @@ class NpmModuleProvider(ModuleProvider):
                     lockfile_v1 = json.load(fp)['lockfileVersion'] == 1
 
                 if lockfile_v1:
-                    for path, name_source in sources.items():
+                    for path, named_git_source in sources.items():
                         GIT_URL_PREFIX = 'git+'
-                        name, source = name_source
-                        new_version = f'{path}#{source.commit}'
-                        data['package.json'][name] = new_version
-                        data['package-lock.json'][source.original] = new_version
+                        new_version = f'{path}#{named_git_source.git_source.commit}'
+                        data['package.json'][
+                            named_git_source.package_name
+                        ] = new_version
+                        data['package-lock.json'][
+                            named_git_source.git_source.original
+                        ] = new_version
 
-                        if source.original.startswith(GIT_URL_PREFIX):
+                        if named_git_source.git_source.original.startswith(
+                            GIT_URL_PREFIX
+                        ):
                             data['package-lock.json'][
-                                source.original[len(GIT_URL_PREFIX) :]
+                                named_git_source.git_source.original[
+                                    len(GIT_URL_PREFIX) :
+                                ]
                             ] = new_version
 
                     for filename, script in scripts.items():
@@ -547,7 +556,9 @@ class NpmModuleProvider(ModuleProvider):
 
             if not self.no_autopatch:
                 # FLATPAK_BUILDER_BUILDDIR isn't defined yet for script sources.
-                self.gen.add_command(f'FLATPAK_BUILDER_BUILDDIR="$PWD" {patch_all_dest}')
+                self.gen.add_command(
+                    f'FLATPAK_BUILDER_BUILDDIR="$PWD" {patch_all_dest}'
+                )
 
         if self.index_entries:
             for path, entry in self.index_entries.items():

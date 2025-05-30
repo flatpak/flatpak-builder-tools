@@ -124,6 +124,12 @@ class GitSource(PackageSource):
 
 
 @dataclass(frozen=True, eq=True)
+class NamedGitSource:
+    package_name: str
+    git_source: GitSource
+
+
+@dataclass(frozen=True, eq=True)
 class LocalSource(PackageSource):
     path: str
 
