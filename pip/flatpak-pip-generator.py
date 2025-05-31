@@ -605,7 +605,7 @@ with open(output_filename, "w") as output:
         )
         yaml.dump(pypi_module, output, Dumper=OrderedDumper)
     else:
-        output.write(json.dumps(pypi_module, indent=4))
+        output.write(json.dumps(pypi_module, indent=4) + "\n")
     print(f"Output saved to {output_filename}")
 
 if len(unresolved_dependencies_errors) != 0:
