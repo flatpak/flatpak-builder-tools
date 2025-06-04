@@ -240,7 +240,7 @@ async def _async_main() -> None:
                     'nodedir=$(dirname "$(dirname "$(which node)")")',
                     f'mkdir -p "{node_gyp_dir}/$version"',
                     f'ln -s "$nodedir/include" "{node_gyp_dir}/$version/include"',
-                    f'echo 9 > "{node_gyp_dir}/$version/installVersion"',
+                    f'echo 11 > "{node_gyp_dir}/$version/installVersion"',
                 ],
                 destination=gen.data_root / script_name,
             )
