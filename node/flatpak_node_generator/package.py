@@ -134,8 +134,14 @@ class LocalSource(PackageSource):
     path: str
 
 
+@dataclass(frozen=True, eq=True)
+class Lockfile:
+    path: Path
+    version: int
+
+
 class Package(NamedTuple):
     name: str
     version: str
     source: PackageSource
-    lockfile: Path
+    lockfile: Lockfile

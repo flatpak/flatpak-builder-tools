@@ -26,6 +26,7 @@ from ..manifest import ManifestGenerator
 from ..package import (
     GitSource,
     LocalSource,
+    Lockfile,
     NamedGitSource,
     Package,
     PackageSource,
@@ -54,7 +55,7 @@ class NpmLockfileProvider(LockfileProvider):
         self.no_devel = options.no_devel
 
     def _process_packages_v1(
-        self, lockfile: Path, entry: Dict[str, Dict[Any, Any]]
+        self, lockfile: Lockfile, entry: Dict[str, Dict[Any, Any]]
     ) -> Iterator[Package]:
         for name, info in entry.get('dependencies', {}).items():
             if info.get('dev') and self.no_devel:
@@ -95,13 +96,18 @@ class NpmLockfileProvider(LockfileProvider):
                 else:
                     source = RegistrySource(integrity=integrity)
 
-            yield Package(name=name, version=version, source=source, lockfile=lockfile)
+            yield Package(
+                name=name,
+                version=version,
+                source=source,
+                lockfile=lockfile,
+            )
 
             if 'dependencies' in info:
                 yield from self._process_packages_v1(lockfile, info)
 
     def _process_packages_v2(
-        self, lockfile: Path, entry: Dict[str, Dict[Any, Any]]
+        self, lockfile: Lockfile, entry: Dict[str, Dict[Any, Any]]
     ) -> Iterator[Package]:
         for install_path, info in entry.get('packages', {}).items():
             if (info.get('dev') or info.get('devOptional')) and self.no_devel:
@@ -151,20 +157,20 @@ class NpmLockfileProvider(LockfileProvider):
                 source=source,
             )
 
-    def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
-        with open(lockfile) as fp:
+    def process_lockfile(self, lockfile_path: Path) -> Iterator[Package]:
+        with open(lockfile_path) as fp:
             data = json.load(fp)
+
+        lockfile = Lockfile(lockfile_path, data['lockfileVersion'])
 
         # TODO Once lockfile v2 syntax support is complete, use _process_packages_v2
         # for both v2 and v2 lockfiles
-        if data['lockfileVersion'] in {1, 2}:
+        if lockfile.version in {1, 2}:
             yield from self._process_packages_v1(lockfile, data)
-        elif data['lockfileVersion'] in {3}:
+        elif lockfile.version in {3}:
             yield from self._process_packages_v2(lockfile, data)
         else:
-            raise NotImplementedError(
-                f'Unknown lockfile version {data["lockfileVersion"]}'
-            )
+            raise NotImplementedError(f'Unknown lockfile version {lockfile.version}')
 
 
 class NpmRCFileProvider(RCFileProvider):
@@ -202,11 +208,11 @@ class NpmModuleProvider(ModuleProvider):
             str, asyncio.Future[NpmModuleProvider.RegistryPackageIndex]
         ] = {}
         self.index_entries: Dict[Path, str] = {}
-        self.all_lockfiles: Set[Path] = set()
+        self.all_lockfiles: Set[Lockfile] = set()
         # Mapping of lockfiles to a dict of the Git source target paths and
         # NamedGitSource objects (package name + GitSource)
         self.git_sources: DefaultDict[
-            Path, Dict[Path, NamedGitSource]
+            Lockfile, Dict[Path, NamedGitSource]
         ] = collections.defaultdict(lambda: {})
         # FIXME better pass the same provider object we created in main
         self.rcfile_provider = NpmRCFileProvider()
@@ -433,7 +439,7 @@ class NpmModuleProvider(ModuleProvider):
 
     def get_package_registry(self, package: Package) -> str:
         assert isinstance(package.source, RegistrySource)
-        rc = self.get_lockfile_rc(package.lockfile)
+        rc = self.get_lockfile_rc(package.lockfile.path)
         if rc and '/' in package.name:
             scope, _ = package.name.split('/', maxsplit=1)
             if f'{scope}:registry' in rc:
@@ -493,16 +499,13 @@ class NpmModuleProvider(ModuleProvider):
             }
 
             for lockfile, sources in self.git_sources.items():
-                prefix = self.relative_lockfile_dir(lockfile)
+                prefix = self.relative_lockfile_dir(lockfile.path)
                 data: Dict[str, Dict[str, str]] = {
                     'package.json': {},
                     'package-lock.json': {},
                 }
 
-                with open(lockfile) as fp:
-                    lockfile_v1 = json.load(fp)['lockfileVersion'] == 1
-
-                if lockfile_v1:
+                if lockfile.version == 1:
                     for path, named_git_source in sources.items():
                         GIT_URL_PREFIX = 'git+'
                         new_version = f'{path}#{named_git_source.git_source.commit}'
@@ -530,25 +533,27 @@ class NpmModuleProvider(ModuleProvider):
                             .replace('\n', '')
                         )
                         json_data = json.dumps(data[filename])
-                        patch_commands[lockfile].append(
+                        patch_commands[lockfile.path].append(
                             'jq'
                             ' --arg buildroot "$FLATPAK_BUILDER_BUILDDIR"'
                             f' --argjson data {shlex.quote(json_data)}'
                             f' {shlex.quote(script)} {target}'
                             f' > {target}.new'
                         )
-                        patch_commands[lockfile].append(f'mv {target}{{.new,}}')
+                        patch_commands[lockfile.path].append(f'mv {target}{{.new,}}')
 
         if len(patch_commands) > 0:
             patch_all_commands: List[str] = []
             for lockfile in self.all_lockfiles:
                 patch_dest = (
-                    self.gen.data_root / 'patch' / self.relative_lockfile_dir(lockfile)
+                    self.gen.data_root
+                    / 'patch'
+                    / self.relative_lockfile_dir(lockfile.path)
                 )
                 # Don't use with_extension to avoid problems if the package has a . in its name.
                 patch_dest = patch_dest.with_name(patch_dest.name + '.sh')
 
-                self.gen.add_script_source(patch_commands[lockfile], patch_dest)
+                self.gen.add_script_source(patch_commands[lockfile.path], patch_dest)
                 patch_all_commands.append(f'"$FLATPAK_BUILDER_BUILDDIR"/{patch_dest}')
 
             patch_all_dest = self.gen.data_root / 'patch-all.sh'

@@ -50,7 +50,7 @@ class LockfileProvider:
             from_=from_,
         )
 
-    def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
+    def process_lockfile(self, lockfile_path: Path) -> Iterator[Package]:
         raise NotImplementedError()
 
 
