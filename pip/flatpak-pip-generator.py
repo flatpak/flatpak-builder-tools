@@ -291,23 +291,30 @@ else:
     flatpak_cmd = [pip_executable]
 
 output_path = ""
+output_package = ""
 
 if opts.output:
-    output_path = os.path.dirname(opts.output)
-    output_package = os.path.basename(opts.output)
-elif opts.requirements_file:
-    output_package = "python{}-{}".format(
-        python_version,
-        os.path.basename(opts.requirements_file).replace(".txt", ""),
-    )
-elif len(packages) == 1:
-    output_package = f"python{python_version}-{packages[0].name}"
-else:
-    output_package = f"python{python_version}-modules"
-if opts.yaml:
-    output_filename = os.path.join(output_path, output_package) + ".yaml"
-else:
-    output_filename = os.path.join(output_path, output_package) + ".json"
+    if os.path.isdir(opts.output):
+        output_path = opts.output
+    else:
+        output_path = os.path.dirname(opts.output)
+        output_package = os.path.basename(opts.output)
+
+if not output_package:
+    if opts.requirements_file:
+        output_package = "python{}-{}".format(
+            python_version,
+            os.path.basename(opts.requirements_file).replace(".txt", ""),
+        )
+    elif len(packages) == 1:
+        output_package = f"python{python_version}-{packages[0].name}"
+    else:
+        output_package = f"python{python_version}-modules"
+
+output_filename = os.path.join(output_path, output_package)
+suffix = ".yaml" if opts.yaml else ".json"
+if not output_filename.endswith(suffix):
+    output_filename += suffix
 
 modules: list[dict[str, str | list[str] | list[dict[str, Any]]]] = []
 vcs_modules: list[dict[str, str | list[str] | list[dict[str, Any]]]] = []
