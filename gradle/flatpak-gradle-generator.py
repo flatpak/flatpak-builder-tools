@@ -8,6 +8,7 @@ import json
 import hashlib
 import logging
 import re
+import os
 
 arches = {
         'linux-x86_64': 'x86_64',
@@ -63,6 +64,9 @@ def flatpak_arch_to_gradle_arch(arch):
     return rev_arches[arch]
 
 def main():
+    logging.basicConfig(
+        level=os.environ.get('LOGLEVEL', 'WARNING').upper()
+    )
     parser = argparse.ArgumentParser()
     parser.add_argument('input', help='The gradle log file')
     parser.add_argument('output', help='The output JSON sources file')
