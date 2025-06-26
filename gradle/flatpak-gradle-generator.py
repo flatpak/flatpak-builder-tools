@@ -17,23 +17,22 @@ arches = {
         'linux-aarch_32': 'arm'
 }
 
-async def get_remote_sha256(url):
+async def get_remote_sha256(http_session, url):
     logging.info(f"started sha256({url})")
     sha256 = hashlib.sha256()
-    async with aiohttp.ClientSession(raise_for_status=True) as http_session:
-        async with http_session.get(url) as response:
-            while True:
-                data = await response.content.read(4096)
-                if not data:
-                    break
-                sha256.update(data)
+    async with http_session.get(url) as response:
+        while True:
+            data = await response.content.read(4096)
+            if not data:
+                break
+            sha256.update(data)
     logging.info(f"done sha256({url})")
     return sha256.hexdigest()
 
-async def parse_url(url, destdir, arch=None):
+async def parse_url(http_session, url, destdir, arch=None):
     ret = [{ 'type': 'file',
             'url': url,
-            'sha256': await get_remote_sha256(url),
+            'sha256': await get_remote_sha256(http_session, url),
             'dest': destdir, }]
     if arch:
         ret[0]['only-arches'] = [arch]
@@ -50,10 +49,12 @@ def arch_for_url(url, urls_arch):
 async def parse_urls(urls, urls_arch, destdir):
     sources = []
     sha_coros = []
+    http_session = aiohttp.ClientSession()
     for url in urls:
         arch = arch_for_url(url, urls_arch)
-        sha_coros.append(parse_url(str(url), destdir, arch))
+        sha_coros.append(parse_url(http_session, str(url), destdir, arch))
     sources.extend(sum(await asyncio.gather(*sha_coros), []))
+    await http_session.close()
     return sources
 
 def gradle_arch_to_flatpak_arch(arch):
