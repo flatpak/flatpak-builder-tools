@@ -6,6 +6,12 @@ let arguments = CommandLine.arguments
 let path = arguments.count > 1 ? arguments[1] : "."
 // The path to the directory containing the Flatpak manifest.
 let pathToManifest = arguments.count > 2 ? arguments[2] : "."
+/// An optional suffix.
+var suffix = arguments.count > 3 ? arguments[3] : ""
+
+if !suffix.isEmpty {
+    suffix = "-" + suffix
+}
 
 // Build the Swift package to get a complete list of dependencies under "{path}/.build/workspace-state.json".
 let task = Process()
@@ -60,17 +66,17 @@ content.append("""
 
     {
          "type": "file",
-         "path": "setup-offline.sh"
+         "path": "setup-offline\(suffix).sh"
     }
 """)
 content.append("\n]")
 
 // Save the files.
-let pathToSetup = "\(pathToManifest)/setup-offline.sh"
+let pathToSetup = "\(pathToManifest)/setup-offline\(suffix).sh"
 
 let contentData = content.data(using: .utf8)
 let shellContentData = shellContent.data(using: .utf8)
-try contentData?.write(to: .init(fileURLWithPath: "\(pathToManifest)/generated-sources.json"))
+try contentData?.write(to: .init(fileURLWithPath: "\(pathToManifest)/generated-sources\(suffix).json"))
 try shellContentData?.write(to: .init(fileURLWithPath: pathToSetup))
 
 let executable = Process()
