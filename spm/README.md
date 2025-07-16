@@ -38,3 +38,11 @@ The tool creates a `generated-sources.json` and a `setup-offline.sh` file in the
 
 See the quickstart project for a complete example.
 
+### Suffix
+
+Optionally, add a third argument with a suffix for the file names. This can be helpful if multiple Swift packages are present.
+```
+swift flatpak-spm-generator.swift ./quickstart ./quickstart quickstart
+```
+
+The tool then creates a `generated-sources-<suffix>.json` and a `setup-offline-<suffix>.sh` file in the directory of the Flatpak manifest.
