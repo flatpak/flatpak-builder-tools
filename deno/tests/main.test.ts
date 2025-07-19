@@ -5,9 +5,11 @@ import { jsrPkgToFlatpakData, npmPkgToFlatpakData } from "../src/main.ts";
 
 Deno.test("jsrPkgToFlatpakData returns correct flatpak data", async () => {
   // Mock fetch for meta.json and versioned meta
-  const metaJson = JSON.stringify({
-    dummy: true,
-  });
+  const metaJson = {
+    scope: "@std",
+    name: "encoding",
+    latest: "1.0.10",
+  };
   const metaVerJson = JSON.stringify({
     moduleGraph2: {
       "/mod.ts": {},
@@ -43,7 +45,7 @@ Deno.test("jsrPkgToFlatpakData returns correct flatpak data", async () => {
       }
       if (url.endsWith("meta.json")) {
         return {
-          text: async () => metaJson,
+          json: async () => metaJson,
         } as Response;
       }
       throw new Error("Unexpected fetch url: " + url);
@@ -67,9 +69,14 @@ Deno.test("jsrPkgToFlatpakData returns correct flatpak data", async () => {
   // Should have meta.json, versioned meta, /mod.ts, deno.json, and duplicate deno.json
   assertEquals(data.length, 5);
 
-  // meta.json
-  assertEquals(data[0].url, "https://jsr.io/@std/encoding/meta.json");
+  // meta.json should be inline type with specific contents
+  assertEquals(data[0].type, "inline");
   assertEquals(data[0]["dest-filename"], "meta.json");
+  const inlineContents = JSON.parse(data[0].contents as string);
+  assertEquals(inlineContents.scope, "@std");
+  assertEquals(inlineContents.name, "encoding");
+  assertEquals(inlineContents.latest, "1.0.10");
+  assertEquals(inlineContents.versions, {});
   assertEquals(data[1].url, "https://jsr.io/@std/encoding/1.0.10_meta.json");
   assertEquals(data[1]["dest-filename"], "1.0.10_meta.json");
 
