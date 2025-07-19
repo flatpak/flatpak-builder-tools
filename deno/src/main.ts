@@ -75,14 +75,19 @@ export interface FlatpakData {
 export async function jsrPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
   const flatpkData: FlatpakData[] = [];
   const metaUrl = `https://jsr.io/${pkg.module}/meta.json`;
-  const metaText = await fetch(
+  const metaJson = await fetch(
     metaUrl,
-  ).then((r) => r.text());
+  ).then((r) => r.json());
 
+  // "meta.json" file is a stateful file, thats why we inline what we need
   flatpkData.push({
-    type: "file",
-    url: metaUrl,
-    sha256: await sha256(metaText),
+    type: "inline",
+    contents: JSON.stringify({
+      scope: metaJson.scope,
+      name: metaJson.name,
+      latest: metaJson.latest,
+      versions: {},
+    }),
     dest: `vendor/jsr.io/${pkg.module}`,
     "dest-filename": "meta.json",
   });
