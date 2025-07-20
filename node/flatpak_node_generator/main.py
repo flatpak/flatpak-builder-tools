@@ -247,18 +247,23 @@ async def _async_main() -> None:
             gen.add_command(f'bash {gen.data_root / script_name}')
 
     if args.split:
+        sources = list(gen.ordered_sources())
+        await Requests.instance.upgrade_to_sha256(sources)
+        gen.set_upgraded_sources(sources)
         i = 0
         for i, part in enumerate(gen.split_sources()):
             output = Path(args.output)
             output = output.with_suffix(f'.{i}{output.suffix}')
             with open(output, 'w') as fp:
                 json.dump(part, fp, indent=ManifestGenerator.JSON_INDENT)
-
+        delattr(gen, '_upgraded_sources')
         print(f'Wrote {gen.source_count} to {i + 1} file(s).')
     else:
+        sources = list(gen.ordered_sources())
+        await Requests.instance.upgrade_to_sha256(sources)
         with open(args.output, 'w') as fp:
             json.dump(
-                list(gen.ordered_sources()),
+                sources,
                 fp,
                 indent=ManifestGenerator.JSON_INDENT,
             )

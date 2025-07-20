@@ -49,7 +49,12 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
     def source_count(self) -> int:
         return len(self._sources)
 
+    def set_upgraded_sources(self, sources: List[Dict[Any, Any]]) -> None:
+        self._upgraded_sources = sources
+
     def ordered_sources(self) -> Iterator[Dict[Any, Any]]:
+        if hasattr(self, '_upgraded_sources'):
+            return iter(self._upgraded_sources)
         return map(dict, sorted(self._sources))
 
     def split_sources(self) -> Iterator[List[Dict[Any, Any]]]:
