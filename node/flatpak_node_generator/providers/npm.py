@@ -154,7 +154,7 @@ class NpmLockfileProvider(LockfileProvider):
             )
 
     def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
-        with open(lockfile) as fp:
+        with open(lockfile, encoding='utf-8') as fp:
             data = json.load(fp)
 
         # TODO Once lockfile v2 syntax support is complete, use _process_packages_v2

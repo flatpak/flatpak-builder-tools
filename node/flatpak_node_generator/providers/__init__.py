@@ -48,7 +48,7 @@ class RCFileProvider:
     RCFILE_NAME: str
 
     def parse_rcfile(self, rcfile: Path) -> Dict[str, str]:
-        with open(rcfile, 'r') as r:
+        with open(rcfile, 'r', encoding='utf-8') as r:
             rcfile_text = r.read()
         parser_re = re.compile(
             r'^(?!#|;)(\S+)(?:\s+|\s*=\s*)(?:"(.+)"|(\S+))$', re.MULTILINE
