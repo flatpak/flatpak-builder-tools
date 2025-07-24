@@ -20,6 +20,9 @@ class SemVer:
         def __init__(self, parts: Tuple[Union[str, int], ...]) -> None:
             self._parts = parts
 
+        def __hash__(self) -> int:
+            return hash(self._parts)
+
         @staticmethod
         def parse(rel: str) -> Optional['SemVer.Prerelease']:
             if not rel:
