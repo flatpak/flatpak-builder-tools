@@ -1,4 +1,3 @@
-import abc
 import functools
 import re
 from dataclasses import dataclass
@@ -85,7 +84,7 @@ class SemVer:
         return SemVer(major, minor, patch, prerelease)
 
 
-class PackageSource(abc.ABC):
+class PackageSource:
     pass
 
 
