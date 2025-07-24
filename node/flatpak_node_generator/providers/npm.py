@@ -388,7 +388,7 @@ class NpmModuleProvider(ModuleProvider):
     def relative_lockfile_dir(self, lockfile: Path) -> Path:
         return lockfile.parent.relative_to(self.lockfile_root)
 
-    @functools.lru_cache(typed=True)
+    @functools.lru_cache(typed=True)  # noqa: B019 ?
     def get_lockfile_rc(self, lockfile: Path) -> Dict[str, str]:
         rc = {}
         rcfile_path = lockfile.parent / self.rcfile_provider.RCFILE_NAME
