@@ -85,7 +85,6 @@ class Requests:
     async def upgrade_to_sha256(self, sources: list[dict[str, Any]]) -> None:
         for source in sources:
             if 'sha1' in source and 'url' in source:
-                sha1_digest = source['sha1']
                 url = source['url']
                 try:
                     data = await self.read_all(url, cachable=True)
