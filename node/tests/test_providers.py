@@ -7,15 +7,24 @@ from conftest import FlatpakBuilder, ProviderFactorySpec
 
 from flatpak_node_generator.manifest import ManifestGenerator
 
+TEST_SCRIPT = """
+require("array-range");
+require("is-empty-object");
+require("is-number");
+require("person-lib");
+require("to-camel-case");
+require("to-capital-case");
+require("to-no-case");
+require("to-space-case");
+require("@flatpak-node-generator-tests/subdir").sayHello();
+"""
+
 
 async def test_minimal_git(
     flatpak_builder: FlatpakBuilder,
     provider_factory_spec: ProviderFactorySpec,
     node_version: int,
 ) -> None:
-    if node_version >= 18:
-        pytest.xfail(reason='Git sources not yet supported for lockfile v2 syntax')
-
     with ManifestGenerator() as gen:
         await provider_factory_spec.generate_modules('minimal-git', gen, node_version)
 
@@ -24,6 +33,34 @@ async def test_minimal_git(
         commands=[
             provider_factory_spec.install_command,
             """node -e 'require("nop")'""",
+        ],
+        use_node=node_version,
+    )
+
+
+async def test_git(
+    flatpak_builder: FlatpakBuilder,
+    provider_factory_spec: ProviderFactorySpec,
+    node_version: int,
+    shared_datadir: Path,
+) -> None:
+    with ManifestGenerator() as gen:
+        await provider_factory_spec.generate_modules('git', gen, node_version)
+
+    flatpak_builder.build(
+        sources=itertools.chain(
+            gen.ordered_sources(),
+            [
+                {
+                    'type': 'dir',
+                    'path': str(shared_datadir / 'packages' / 'git' / 'subdir'),
+                    'dest': 'subdir',
+                }
+            ],
+        ),
+        commands=[
+            provider_factory_spec.install_command,
+            f"""node -e '{TEST_SCRIPT}'""",
         ],
         use_node=node_version,
     )

@@ -8,7 +8,14 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Type
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
-from ..package import GitSource, LocalSource, Package, PackageSource, ResolvedSource
+from ..package import (
+    GitSource,
+    LocalSource,
+    Lockfile,
+    Package,
+    PackageSource,
+    ResolvedSource,
+)
 from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
 from .npm import NpmRCFileProvider
 from .special import SpecialSourceProvider
@@ -78,7 +85,7 @@ class YarnLockfileProvider(LockfileProvider):
             return string
 
     def process_package(
-        self, lockfile: Path, name_line: str, entry: Dict[str, Any]
+        self, lockfile: Lockfile, name_line: str, entry: Dict[str, Any]
     ) -> Package:
         assert name_line and entry
 
@@ -99,12 +106,16 @@ class YarnLockfileProvider(LockfileProvider):
                 source = ResolvedSource(resolved=entry['resolved'], integrity=integrity)
 
         return Package(
-            name=name, version=entry['version'], source=source, lockfile=lockfile
+            name=name,
+            version=entry['version'],
+            source=source,
+            lockfile=lockfile,
         )
 
-    def process_lockfile(self, lockfile: Path) -> Iterator[Package]:
-        for name_line, package in self.parse_lockfile(lockfile).items():
-            yield self.process_package(lockfile, name_line, package)
+    def process_lockfile(self, lockfile_path: Path) -> Iterator[Package]:
+        for name_line, package in self.parse_lockfile(lockfile_path).items():
+            # only lockfile v1 supported
+            yield self.process_package(Lockfile(lockfile_path, 1), name_line, package)
 
 
 class YarnRCFileProvider(RCFileProvider):
@@ -161,7 +172,9 @@ class YarnModuleProvider(ModuleProvider):
             )
 
         elif isinstance(source, LocalSource):
-            assert (package.lockfile.parent / source.path / 'package.json').is_file()
+            assert (
+                package.lockfile.path.parent / source.path / 'package.json'
+            ).is_file()
 
         else:
             raise NotImplementedError(

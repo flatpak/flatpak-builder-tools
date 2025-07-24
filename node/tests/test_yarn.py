@@ -1,7 +1,12 @@
 from pathlib import Path
 
 from flatpak_node_generator.integrity import Integrity
-from flatpak_node_generator.package import GitSource, Package, ResolvedSource
+from flatpak_node_generator.package import (
+    GitSource,
+    Lockfile,
+    Package,
+    ResolvedSource,
+)
 from flatpak_node_generator.providers.yarn import YarnLockfileProvider
 
 TEST_LOCKFILE = """
@@ -36,10 +41,10 @@ bling@~2.2.0:
 def test_lockfile_parsing(tmp_path: Path) -> None:
     lockfile_provider = YarnLockfileProvider()
 
-    yarn_lock = tmp_path / 'yarn.lock'
-    yarn_lock.write_text(TEST_LOCKFILE)
+    yarn_lock = Lockfile(tmp_path / 'yarn.lock', 1)
+    yarn_lock.path.write_text(TEST_LOCKFILE)
 
-    packages = list(lockfile_provider.process_lockfile(yarn_lock))
+    packages = list(lockfile_provider.process_lockfile(yarn_lock.path))
 
     assert packages == [
         Package(
