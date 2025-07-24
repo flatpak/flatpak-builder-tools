@@ -245,8 +245,11 @@ class NpmModuleProvider(ModuleProvider):
         self,
         url: str,
         metadata: RemoteUrlMetadata,
-        request_headers: Dict[str, str] = {},
+        request_headers: Optional[Dict[str, str]] = None,
     ) -> None:
+        if request_headers is None:
+            request_headers = {}
+
         key = f'make-fetch-happen:request-cache:{url}'
 
         index_json = json.dumps(

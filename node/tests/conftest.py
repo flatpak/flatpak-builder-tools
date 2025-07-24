@@ -87,9 +87,12 @@ class FlatpakBuilder:
         self,
         *,
         sources: Iterable[Dict[Any, Any]],
-        commands: List[str] = [],
+        commands: Optional[List[str]] = None,
         use_node: Optional[Union[int, bool]] = None,
     ) -> None:
+        if commands is None:
+            commands = []
+
         if use_node == True:
             use_node = _DEFAULT_NODE
 
