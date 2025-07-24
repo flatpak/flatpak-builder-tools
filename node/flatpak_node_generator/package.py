@@ -126,12 +126,24 @@ class GitSource(PackageSource):
 
 
 @dataclass(frozen=True, eq=True)
+class NamedGitSource:
+    package_name: str
+    git_source: GitSource
+
+
+@dataclass(frozen=True, eq=True)
 class LocalSource(PackageSource):
     path: str
+
+
+@dataclass(frozen=True, eq=True)
+class Lockfile:
+    path: Path
+    version: int
 
 
 class Package(NamedTuple):
     name: str
     version: str
     source: PackageSource
-    lockfile: Path
+    lockfile: Lockfile
