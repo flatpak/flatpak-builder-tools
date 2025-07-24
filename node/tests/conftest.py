@@ -93,7 +93,7 @@ class FlatpakBuilder:
         if commands is None:
             commands = []
 
-        if use_node == True:
+        if use_node is True:
             use_node = _DEFAULT_NODE
 
         sdk_extensions = []
