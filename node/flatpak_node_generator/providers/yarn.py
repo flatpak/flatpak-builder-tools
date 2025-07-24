@@ -1,11 +1,10 @@
-from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Type
-
 import os
 import re
 import shlex
 import types
 import urllib.parse
+from pathlib import Path
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator

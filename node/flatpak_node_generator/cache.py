@@ -1,10 +1,9 @@
-from pathlib import Path
-from typing import IO, Iterator, Optional, Type
-
 import os
 import re
 import tempfile
 import types
+from pathlib import Path
+from typing import IO, Iterator, Optional, Type
 
 
 class Cache:

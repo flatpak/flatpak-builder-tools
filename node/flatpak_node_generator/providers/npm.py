@@ -1,3 +1,12 @@
+import asyncio
+import collections
+import functools
+import json
+import re
+import shlex
+import textwrap
+import types
+import urllib.parse
 from pathlib import Path
 from typing import (
     Any,
@@ -10,16 +19,6 @@ from typing import (
     Set,
     Type,
 )
-
-import asyncio
-import collections
-import functools
-import json
-import re
-import shlex
-import textwrap
-import types
-import urllib.parse
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
@@ -207,9 +206,9 @@ class NpmModuleProvider(ModuleProvider):
         self.index_entries: Dict[Path, str] = {}
         self.all_lockfiles: Set[Path] = set()
         # Mapping of lockfiles to a dict of the Git source target paths and GitSource objects.
-        self.git_sources: DefaultDict[
-            Path, Dict[Path, GitSource]
-        ] = collections.defaultdict(lambda: {})
+        self.git_sources: DefaultDict[Path, Dict[Path, GitSource]] = (
+            collections.defaultdict(lambda: {})
+        )
         # FIXME better pass the same provider object we created in main
         self.rcfile_provider = NpmRCFileProvider()
 
@@ -468,9 +467,9 @@ class NpmModuleProvider(ModuleProvider):
                     data['package-lock.json'][source.original] = new_version
 
                     if source.from_.startswith(GIT_URL_PREFIX):
-                        data['package.json'][
-                            source.from_[len(GIT_URL_PREFIX) :]
-                        ] = new_version
+                        data['package.json'][source.from_[len(GIT_URL_PREFIX) :]] = (
+                            new_version
+                        )
 
                     if source.original.startswith(GIT_URL_PREFIX):
                         data['package-lock.json'][

@@ -1,3 +1,6 @@
+import base64
+import json
+import types
 from pathlib import Path
 from typing import (
     Any,
@@ -11,10 +14,6 @@ from typing import (
     Type,
     Union,
 )
-
-import base64
-import json
-import types
 
 from .integrity import Integrity
 

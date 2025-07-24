@@ -1,11 +1,10 @@
-from pathlib import Path
-
 import itertools
 import shlex
+from pathlib import Path
 
 import pytest
-
 from conftest import FlatpakBuilder, ProviderFactorySpec
+
 from flatpak_node_generator.manifest import ManifestGenerator
 
 
@@ -113,7 +112,7 @@ async def test_missing_resolved_field(
         sources=gen.ordered_sources(),
         commands=[
             npm_provider_factory_spec.install_command,
-            f"""node -e 'require("word-wrap")'""",
+            """node -e 'require("word-wrap")'""",
         ],
         use_node=node_version,
     )
@@ -138,7 +137,7 @@ async def test_url_as_dep(
         sources=gen.ordered_sources(),
         commands=[
             npm_provider_factory_spec.install_command,
-            f"""node -e 'require("word-wrap")'""",
+            """node -e 'require("word-wrap")'""",
         ],
         use_node=node_version,
     )

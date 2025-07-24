@@ -1,8 +1,7 @@
-from typing import Any, NamedTuple, Union
-
 import base64
 import binascii
 import hashlib
+from typing import Any, NamedTuple, Union
 
 
 class Integrity(NamedTuple):

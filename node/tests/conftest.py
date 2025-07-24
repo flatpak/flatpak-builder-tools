@@ -1,15 +1,13 @@
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
-
 import enum
 import json
 import subprocess
 import sys
-
-from pytest_httpserver import HTTPServer
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import pytest
+from pytest_httpserver import HTTPServer
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -193,7 +191,7 @@ class ProviderPaths:
             else:
                 suffix = self._V1_JSON
 
-            return (self.root / f'package-lock').with_suffix(suffix)
+            return (self.root / 'package-lock').with_suffix(suffix)
         elif self.type == ProviderFactoryType.YARN:
             return self.root / 'yarn.lock'
         else:
@@ -213,7 +211,7 @@ class ProviderPaths:
         gen.add_local_file_source(self.lockfile_source, Path(self.lockfile_dest))
         if self.type == ProviderFactoryType.YARN:
             gen.add_data_source(
-                f'yarn-offline-mirror "./flatpak-node/yarn-mirror"', Path('.yarnrc')
+                'yarn-offline-mirror "./flatpak-node/yarn-mirror"', Path('.yarnrc')
             )
 
 

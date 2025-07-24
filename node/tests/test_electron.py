@@ -1,6 +1,7 @@
 from typing import List
 
 from conftest import RequestsController
+
 from flatpak_node_generator.electron import ElectronBinaryManager
 from flatpak_node_generator.integrity import Integrity
 

@@ -1,5 +1,3 @@
-from re import S
-
 from flatpak_node_generator.package import SemVer
 
 

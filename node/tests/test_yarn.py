@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from conftest import ProviderFactorySpec
 from flatpak_node_generator.integrity import Integrity
 from flatpak_node_generator.package import GitSource, Package, ResolvedSource
 from flatpak_node_generator.providers.yarn import YarnLockfileProvider

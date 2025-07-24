@@ -1,8 +1,7 @@
-from pathlib import Path
-from typing import ContextManager, Dict, Iterator, List, Optional
-
 import re
 import urllib.parse
+from pathlib import Path
+from typing import ContextManager, Dict, Iterator, List, Optional
 
 from ..manifest import ManifestGenerator
 from ..node_headers import NodeHeaders

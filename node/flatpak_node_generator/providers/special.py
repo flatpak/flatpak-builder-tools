@@ -1,13 +1,10 @@
-from pathlib import Path
-from typing import DefaultDict, List, NamedTuple, Optional, Tuple
-
 import collections
-import hashlib
 import itertools
 import json
-import os
 import re
 import urllib.parse
+from pathlib import Path
+from typing import DefaultDict, List, NamedTuple, Optional, Tuple
 
 from ..electron import ElectronBinaryManager
 from ..integrity import Integrity

@@ -1,9 +1,8 @@
-from typing import Collection, ContextManager, Optional, Type
-
 import asyncio
 import shutil
 import sys
 import types
+from typing import Collection, ContextManager, Optional, Type
 
 from .package import Package
 from .providers import ModuleProvider

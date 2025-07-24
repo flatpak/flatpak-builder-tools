@@ -1,10 +1,9 @@
-from dataclasses import dataclass
-from pathlib import Path
-from typing import List, NamedTuple, Optional, Tuple, Union
-
 import abc
 import functools
 import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, NamedTuple, Optional, Tuple, Union
 
 from .integrity import Integrity
 from .url_metadata import RemoteUrlMetadata

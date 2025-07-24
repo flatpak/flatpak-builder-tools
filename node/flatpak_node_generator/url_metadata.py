@@ -1,6 +1,5 @@
-from typing import Any, NamedTuple
-
 import json
+from typing import Any, NamedTuple
 
 from .cache import Cache
 from .integrity import Integrity, IntegrityBuilder

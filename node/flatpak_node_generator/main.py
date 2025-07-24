@@ -1,11 +1,10 @@
-from pathlib import Path
-from typing import Iterator, List, Set
-
 import argparse
 import asyncio
 import json
 import os
 import sys
+from pathlib import Path
+from typing import Iterator, List, Set
 
 from .cache import Cache, FilesystemBasedCache
 from .manifest import ManifestGenerator

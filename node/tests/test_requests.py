@@ -1,10 +1,9 @@
 from typing import AsyncIterator
 
+import pytest
+from conftest import RequestsController
 from pytest_httpserver import RequestHandler
 
-import pytest
-
-from conftest import RequestsController
 from flatpak_node_generator.requests import Requests
 
 _HELLO = '/hello'
