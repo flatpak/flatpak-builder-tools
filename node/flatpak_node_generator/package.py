@@ -30,13 +30,14 @@ class SemVer:
 
             parts: List[Union[str, int]] = []
 
-            for part in rel.split('.'):  # type: Union[str, int]
+            for part_s in rel.split('.'):
+                converted_part: Union[str, int]
                 try:
-                    part = int(part)
+                    converted_part = int(part_s)
                 except ValueError:
-                    pass
+                    converted_part = part_s
 
-                parts.append(part)
+                parts.append(converted_part)
 
             return SemVer.Prerelease(tuple(parts))
 

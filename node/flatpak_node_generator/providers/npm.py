@@ -54,15 +54,18 @@ class NpmLockfileProvider(LockfileProvider):
     def _process_packages_v1(
         self, lockfile: Path, entry: Dict[str, Dict[Any, Any]]
     ) -> Iterator[Package]:
-        for name, info in entry.get('dependencies', {}).items():
+        for pkgname, info in entry.get('dependencies', {}).items():
             if info.get('dev') and self.no_devel:
                 continue
             elif info.get('bundled'):
                 continue
 
+            name = pkgname
+
             version: str = info['version']
             version_url = urllib.parse.urlparse(version)
             alias_match = self._ALIAS_RE.match(version)
+
             if alias_match is not None:
                 name, version = alias_match.groups()
 
@@ -481,7 +484,7 @@ class NpmModuleProvider(ModuleProvider):
 
                 for filename, script in scripts.items():
                     target = Path('$FLATPAK_BUILDER_BUILDDIR') / prefix / filename
-                    script = (
+                    processed_script = (
                         textwrap.dedent(script.lstrip('\n')).strip().replace('\n', '')
                     )
                     json_data = json.dumps(data[filename])
@@ -489,7 +492,7 @@ class NpmModuleProvider(ModuleProvider):
                         'jq'
                         ' --arg buildroot "$FLATPAK_BUILDER_BUILDDIR"'
                         f' --argjson data {shlex.quote(json_data)}'
-                        f' {shlex.quote(script)} {target}'
+                        f' {shlex.quote(processed_script)} {target}'
                         f' > {target}.new'
                     )
                     patch_commands[lockfile].append(f'mv {target}{{.new,}}')

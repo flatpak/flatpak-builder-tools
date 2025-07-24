@@ -42,10 +42,11 @@ class YarnLockfileProvider(LockfileProvider):
             indent = '  '
             for line in lockfile.open():
                 level = 0
-                while line.startswith(indent):
+                current_line = line
+                while current_line.startswith(indent):
                     level += 1
-                    line = line[len(indent) :]
-                yield level, line.strip()
+                    current_line = current_line[len(indent) :]
+                yield level, current_line.strip()
 
         root_entry: Dict[str, Any] = {}
         parent_entries = [root_entry]
