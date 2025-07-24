@@ -14,8 +14,7 @@ dependencies = [
 ]
 
 [tool.poetry.group.dev.dependencies]
-blue = {git = "https://github.com/grantjenks/blue"}
-isort = "^6.0.1"
+ruff = "^0.6.7"
 mypy = "^1.11.2"
 poethepoet = "^0.34.0"
 pytest = "^8.3.5"
@@ -27,30 +26,53 @@ pytest-xdist = "^3.6.1"
 [tool.poetry.scripts]
 flatpak-node-generator = "flatpak_node_generator.main:main"
 
-[tool.blue]
+[tool.ruff]
 line-length = 88
-target-version = ["py39"]
+include = ["*.py"]
+target-version = "py39"
 
-[tool.isort]
-from_first = true
-lines_between_types = 1
-profile = "black"
-src_paths = ["flatpak_node_generator", "tests"]
+[tool.ruff.lint]
+preview = true
+extend-select = [
+  "B",
+  "ERA",
+  "I",
+  "PLE",
+  "PLW",
+  "W",
+]
+
+ignore = [
+  "B011",
+  "ERA001",
+]
+
+
+
+[tool.ruff.format]
+line-ending = "lf"
+quote-style = "single"
 
 [tool.mypy]
 python_version = "3.9"
 exclude = "^(.*/)?((([^/]+)-quick-start)|(\\.venv)|npm-cache|yarn-mirror)/.*$"
+disallow_untyped_defs = true
+disallow_any_unimported = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_unused_ignores = true
+show_error_codes = true
+warn_return_any = true
 strict = true
 
 [tool.poe.tasks]
-check-format = "blue --check flatpak_node_generator tests"
-check-isort = "isort --check flatpak_node_generator tests"
+check-format = "ruff format --check flatpak_node_generator tests"
+check-lint = "ruff check flatpak_node_generator tests"
 check-mypy = "mypy ."
 check-test = "pytest -vvvs -n auto"
-check = ["check-format", "check-isort", "check-mypy", "check-test"]
-
-apply-format = "blue flatpak_node_generator"
-apply-isort = "isort flatpak_node_generator"
+check = ["check-format", "check-lint", "check-mypy", "check-test"]
+apply-format = "ruff format flatpak_node_generator tests"
+apply-lint = "ruff check --fix flatpak_node_generator tests"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
