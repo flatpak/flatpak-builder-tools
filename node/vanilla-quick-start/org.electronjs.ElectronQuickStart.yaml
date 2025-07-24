@@ -1,14 +1,14 @@
 app-id: org.electronjs.ElectronQuickStart
-branch: stable
 runtime: org.freedesktop.Platform
-runtime-version: '22.08'
+runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
 # Use the Electron 2 BaseApp, which adds several common libraries we'll need.
 base: org.electronjs.Electron2.BaseApp
-base-version: '22.08'
-# Add the Node 16 SDK extension.
+base-version: '24.08'
+separate-locales: false
+# Add the Node SDK extension.
 sdk-extensions:
-  - org.freedesktop.Sdk.Extension.node18
+  - org.freedesktop.Sdk.Extension.node24
 command: start-electron-quick-start
 finish-args:
   # These three lines add the permissions needed for graphics.
@@ -16,9 +16,9 @@ finish-args:
   - --share=ipc
   - --socket=x11
   # Sound access.
-  - --socket=pulseaudio
+  # - --socket=pulseaudio
   # Network access.
-  - --share=network
+  # - --share=network
   # If you need to access the filesystem, also add:
   # - --filesystem=home
 modules:
@@ -30,14 +30,14 @@ modules:
   - name: node
     buildsystem: simple
     build-commands:
-      - /usr/lib/sdk/node18/install-sdk.sh
+      - /usr/lib/sdk/node24/install-sdk.sh
 
   # Now is the quickstart module.
   - name: electron-quick-start
     buildsystem: simple
     build-options:
       # Add the node bin directory.
-      append-path: /usr/lib/sdk/node18/bin
+      append-path: /usr/lib/sdk/node24/bin
       env:
         # Set the cache directory, used to find Electron and some other helper
         # tools.
@@ -45,8 +45,6 @@ modules:
         XDG_CACHE_HOME: /run/build/electron-quick-start/flatpak-node/cache
         # Set the npm cache directory, used by npm to find its package metadata.
         npm_config_cache: /run/build/electron-quick-start/flatpak-node/npm-cache
-        # Sets the directory where Node is located so that npm won't download the headers.
-        npm_config_nodedir: /usr/lib/sdk/node18
     build-commands:
       # Install the packages from our offline cache.
       # --prefix= is the path to our subdirectory (see the electron-quick-start source below).
@@ -60,15 +58,11 @@ modules:
       - cp -r electron-quick-start /app
       # Install the wrapper script to start it.
       - install -Dm 755 start-electron-quick-start.sh /app/bin/start-electron-quick-start
-
-      # To allow separate locales
-      - setup-separate-locales ${FLATPAK_DEST}/electron-quick-start
     sources:
       - type: git
         url: https://github.com/electron/electron-quick-start
-        # Use the Electron 22 version.
-        commit: 7f1b2bc2906a672084af9b930ccb2f333593b55c
-        branch: 22-x-y
+        # branch: 33-x-y
+        commit: 27ba774d361875442c0ac6877996700434c156bd
         # Checkout into a subdirectory so we can copy the whole thing to /app.
         dest: electron-quick-start
       # Add the flatpak-node-generator generated sources.

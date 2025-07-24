@@ -1,14 +1,14 @@
 app-id: build.electron.webpack.ElectronWebpackQuickStart
-branch: stable
 runtime: org.freedesktop.Platform
-runtime-version: '21.08'
+runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
 # Use the Electron 2 BaseApp, which adds several common libraries we'll need.
 base: org.electronjs.Electron2.BaseApp
-base-version: '21.08'
-# Add the Node 12 SDK extension.
+base-version: '24.08'
+separate-locales: false
+# Add the Node SDK extension.
 sdk-extensions:
-  - org.freedesktop.Sdk.Extension.node12
+  - org.freedesktop.Sdk.Extension.node24
 command: start-electron-webpack-quick-start
 finish-args:
   # These three lines add the permissions needed for graphics.
@@ -16,9 +16,9 @@ finish-args:
   - --share=ipc
   - --socket=x11
   # Sound access.
-  - --socket=pulseaudio
+  #  --socket=pulseaudio
   # Network access.
-  - --share=network
+  # - --share=network
   # If you need to access the filesystem, also add:
   # - --filesystem=home
 modules:
@@ -30,14 +30,14 @@ modules:
     buildsystem: simple
     build-options:
       # Add the node bin directory.
-      append-path: /usr/lib/sdk/node12/bin
+      append-path: /usr/lib/sdk/node24/bin
       env:
         # Set the cache directory, used to find Electron and some other helper
         # tools.
         # (The directory format is: /run/build/MODULE_NAME/flatpak-node/cache)
         XDG_CACHE_HOME: /run/build/electron-webpack-quick-start/flatpak-node/cache
-        # Sets the directory where Node is located so that npm won't download the headers.
-        npm_config_nodedir: /usr/lib/sdk/node12
+        # ⚠️  ONLY used as the webpack example project is outdated ⚠️ 
+        NODE_OPTIONS: "--openssl-legacy-provider"
     build-commands:
       # Have Yarn use the offline mirror.
       - HOME=$PWD yarn config --offline set yarn-offline-mirror $FLATPAK_BUILDER_BUILDDIR/flatpak-node/yarn-mirror
@@ -58,9 +58,6 @@ modules:
       # - 'install -Dm 755 flatpak-node/libffmpeg.so -t /app/electron-webpack-quick-start'
       # Install the wrapper script to start it.
       - install -Dm 755 start-electron-webpack-quick-start.sh /app/bin/start-electron-webpack-quick-start
-
-      # To allow separate locales
-      - setup-separate-locales ${FLATPAK_DEST}/electron-webpack-quick-start
     sources:
       - type: git
         url: https://github.com/electron-userland/electron-webpack-quick-start
