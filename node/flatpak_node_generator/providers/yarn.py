@@ -44,7 +44,23 @@ class YarnLockfileProvider(LockfileProvider):
             return len([p for p in url.path.split('/') if p]) == 2
         return False
 
+    @staticmethod
+    def is_yarn_v1_lockfile(path: Path) -> bool:
+        if path.exists():
+            with open(path, encoding='utf-8') as f:
+                for i, line in enumerate(f):
+                    if i > 10:
+                        break
+                    if '# yarn lockfile v1' in line.strip():
+                        return True
+        return False
+
     def parse_lockfile(self, lockfile: Path) -> Dict[str, Any]:
+        if not self.is_yarn_v1_lockfile(lockfile):
+            raise NotImplementedError(
+                'Only yarn v1 lockfiles are supported. See https://classic.yarnpkg.com/'
+            )
+
         def _iter_lines() -> Iterator[Tuple[int, str]]:
             indent = '  '
             for line in lockfile.open():
