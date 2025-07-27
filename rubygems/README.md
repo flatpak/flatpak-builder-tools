@@ -1,3 +1,6 @@
+> [!WARNING]
+> This is not actively maintained.
+
 Flatpak RubyGems Module Generator
 =============================
 Tool to generate `flatpak-builder` manifest json from `Gemfile`. This tool uses bundler's `bundle package` subcommand to get gem names and version numbers.

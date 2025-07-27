@@ -1,3 +1,6 @@
+> [!WARNING]
+> This is not actively maintained
+
 # flatpak-cpan-generator
 
 Generates a sources file for a list of CPAN modules.
