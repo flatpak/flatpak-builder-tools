@@ -46,3 +46,9 @@ the manual commands above to ship in your Flatpak repository, so you can run:
 $ flatpak run --command=bash --share=network --filesystem=`pwd` -d org.freedesktop.Sdk//21.08 ./script.sh
 $ flatpak-gradle-generator.py gradle-log.txt gradle-dependencies.json
 ```
+
+If necessary, you can modify the level of output from the script by setting the
+`LOGLEVEL` environment variable to a [supported log level](https://docs.python.org/3/library/logging.html#logging-levels):
+```
+$ LOGLEVEL=debug flatpak-gradle-generator.py gradle-log.txt gradle-dependencies.json
+```
