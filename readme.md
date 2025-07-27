@@ -1,6 +1,7 @@
 # Flatpak Builder Tools
 
-This repository contains a collection of various scripts to aid in using `flatpak-builder`.
+This repository contains a collection of various scripts to aid in using
+`flatpak-builder`.
 
 Feel free to submit your own scripts that would be useful for others.
 
@@ -9,15 +10,15 @@ process to generate manifests.
 
 See the sub-directories of the respective tools for more information and licenses.
 
-## Converting manifests from JSON to YAML
+## Flutter
+
+Please look at the [flatpak-flutter](https://github.com/TheAppgineer/flatpak-flutter)
+project, developed by [Jan Koudijs](https://github.com/JanKoudijs).
+
+### Converting manifests from JSON to YAML
 
 A simple script to help convert JSON manifests to YAML is also in this repo.
 
 After cloning the repository you can run `./flatpak-json2yaml.py /path/to/example.json --output=example.yml`.
 
 This depends on [PyYAML](https://pypi.org/project/PyYAML/) which may need to be installed.
-
-## Flutter
-
-Please look at the [flatpak-flutter](https://github.com/TheAppgineer/flatpak-flutter)
-project, developed by [Jan Koudijs](https://github.com/JanKoudijs).
