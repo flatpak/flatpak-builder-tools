@@ -1,4 +1,80 @@
-# Flatpak Gradle Generator
+There are two alternative methods to generate a Flatpak sources file for a
+Gradle project:
+
+1. Using a Gradle plugin
+2. Using the `flatpak-gradle-generator.py` script
+
+# Gradle plugin
+
+Available on the [Gradle Plugin Portal](https://plugins.gradle.org/plugin/io.github.jwharm.flatpak-gradle-generator).
+
+Add the plugin to your build:
+
+```groovy
+plugins {
+  id "io.github.jwharm.flatpak-gradle-generator" version "1.5.0"
+}
+```
+
+Configure the `flatpakGradleGenerator` task:
+
+```groovy
+tasks.flatpakGradleGenerator {
+  outputFile = file("flatpak-sources.json")
+  downloadDirectory = "./offline-repository"
+  excludeConfigurations = ["testCompileClasspath", "testRuntimeClasspath"]
+}
+```
+
+The `outputFile` is the Flatpak sources file containing the download urls of
+all dependency artifacts. Flatpak-builder will download these files in the
+`downloadDirectory` location. This directory will have a standard Maven
+repository layout. Add it to your project `repositories`:
+
+```groovy
+repositories {
+  mavenCentral()
+  maven { url "./offline-repository" }
+}
+```
+
+With this setup, Gradle will use the normal repositories such as Maven Central
+during regular ("online") builds, and the "offline repository" in the
+flatpak-builder sandbox environment.
+
+Run the `flatpakGeneratorTask` to generate the "flatpak-sources.json" file.
+When done, commit the file to your project repository and add it to the flatpak
+manifest.
+
+## Modular builds
+
+Gradle plugins are not allowed to resolve configurations of other Gradle
+(sub)projects. In a modular Gradle build, configure a `flatpakGradleGenerator`
+task for each subproject individually.
+
+## Plugin dependencies
+
+Add the offline repository in the `settings.gradle` file to use it as a
+plugin repository:
+
+```groovy
+pluginManagement {
+  repositories {
+    maven { url "./offline-repository" }
+  }
+}
+```
+
+This is necessary for all plugins that are not included in the Gradle
+distribution directly, such as (for example) the Kotlin JVM plugin.
+
+## Issues and contributions
+
+Please log issues and contributions for the plugin in the GitHub
+[jwharm/flatpak-gradle-generator](https://github.com/jwharm/flatpak-gradle-generator/)
+repository.
+
+# Flatpak Gradle Generator script
 
 Tool to automatically generate a `flatpak-builder` sources file from a Gradle log.
 
