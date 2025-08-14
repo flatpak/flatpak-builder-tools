@@ -289,7 +289,12 @@ elif opts.pyproject_file:
         dependencies = get_poetry_deps(pyproject_data)
     else:
         dependencies = pyproject_data.get("project", {}).get("dependencies", [])
+
+    if not dependencies:
+        sys.exit("Pyproject file was specified but no dependencies were collected")
+
     packages = list(requirements.parse("\n".join(dependencies)))
+
     with tempfile.NamedTemporaryFile(
         "w", delete=False, prefix="requirements."
     ) as req_file:
