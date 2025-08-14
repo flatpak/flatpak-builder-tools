@@ -82,12 +82,7 @@ parser.add_argument(
     help="Ignore errors when downloading packages",
 )
 parser.add_argument(
-    "--ignore-pkg",
-    nargs="*",
-    help=(
-        "Ignore a package when generating the manifest. "
-        "Can only be used with a requirements file"
-    ),
+    "--ignore-pkg", nargs="*", help="Ignore a package when generating the manifest"
 )
 opts = parser.parse_args()
 
@@ -296,6 +291,13 @@ elif opts.pyproject_file:
     build_system_requires = pyproject_data.get("build-system", {}).get("requires", [])
     if build_system_requires:
         dependencies.extend(build_system_requires)
+
+    if opts.ignore_pkg:
+        print(dependencies)
+        print(opts.ignore_pkg)
+        dependencies = [
+            dep for dep in dependencies if dep.split(" ")[0] not in opts.ignore_pkg
+        ]
 
     packages = list(requirements.parse("\n".join(dependencies)))
 
