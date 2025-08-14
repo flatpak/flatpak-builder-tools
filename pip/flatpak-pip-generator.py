@@ -82,8 +82,15 @@ parser.add_argument(
     help="Ignore errors when downloading packages",
 )
 parser.add_argument(
-    "--ignore-pkg", nargs="*", help="Ignore a package when generating the manifest"
+    "--ignore-pkg",
+    nargs="*",
+    help=(
+        "Ignore packages when generating the manifest. "
+        "Needs to be specified with version constraints if present "
+        "(e.g. --ignore-pkg 'foo>=3.0.0' 'baz>=21.0')."
+    ),
 )
+
 opts = parser.parse_args()
 
 if opts.requirements_file and opts.pyproject_file:
