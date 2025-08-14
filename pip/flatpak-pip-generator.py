@@ -32,8 +32,15 @@ parser.add_argument(
 parser.add_argument(
     "--cleanup", choices=["scripts", "all"], help="Select what to clean up after build"
 )
-parser.add_argument("--requirements-file", "-r", help="Specify requirements.txt file")
-parser.add_argument("--pyproject-file", help="Specify pyproject.toml file")
+parser.add_argument(
+    "--requirements-file",
+    "-r",
+    help="Specify requirements.txt file. Cannot be used with pyproject file.",
+)
+parser.add_argument(
+    "--pyproject-file",
+    help="Specify pyproject.toml file. Cannot be used with requirements file.",
+)
 parser.add_argument(
     "--build-only",
     action="store_const",
