@@ -263,6 +263,21 @@ def fprint(string: str) -> None:
     print(separator)
 
 
+def get_flatpak_runtime_scope(runtime: str) -> str:
+    for scope in ("--user", "--system"):
+        try:
+            subprocess.run(
+                ["flatpak", "info", scope, runtime],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+            return scope
+        except subprocess.CalledProcessError:
+            continue
+    sys.exit(f"Runtime {runtime} not found for user or system")
+
+
 packages = []
 if opts.requirements_file:
     requirements_file_input = os.path.expanduser(opts.requirements_file)
@@ -358,6 +373,7 @@ if opts.runtime:
 
     flatpak_cmd = [
         "flatpak",
+        get_flatpak_runtime_scope(opts.runtime),
         "--devel",
         "--share=network",
         "--filesystem=/tmp",
