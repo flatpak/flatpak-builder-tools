@@ -110,6 +110,53 @@ if opts.yaml:
         sys.exit('PyYAML modules is not installed. Run "pip install PyYAML"')
 
 
+def get_poetry_deps(pyproject_data: dict[str, Any]) -> list[str]:
+    poetry_deps = pyproject_data.get("tool", {}).get("poetry", {}).get("dependencies")
+
+    if not poetry_deps:
+        return []
+
+    def format_dependency_version(name: str, value: Any) -> str:
+        sep, suffix = "@", ""
+        dep_name = name
+
+        if isinstance(value, dict):
+            if version := value.get("version"):
+                sep, val = "==", version
+            elif git_url := value.get("git"):
+                val = f"git+{git_url}" if not git_url.startswith("git@") else git_url
+                if rev := value.get("branch") or value.get("rev") or value.get("tag"):
+                    val += f"@{rev}"
+                if subdir := value.get("subdirectory"):
+                    val += f"#subdirectory={subdir}"
+            elif path := value.get("path"):
+                dep_name, sep, val = "", "", path
+            elif url := value.get("url"):
+                dep_name, sep, val = "", "", url
+            else:
+                dep_name, sep, val = name, "", ""
+
+            if markers := value.get("markers"):
+                suffix = f";{markers}"
+        else:
+            sep, val = "==", value
+
+        if val.startswith("^"):
+            sep, val = ">=", val[1:]
+        elif val.startswith("~"):
+            sep, val = "~=", val[1:]
+        elif "<" in val or ">" in val:
+            sep, val = "", val.replace(" ", "")
+
+        return f"{dep_name}{sep}{val}{suffix}"
+
+    return sorted(
+        format_dependency_version(dep, val)
+        for dep, val in poetry_deps.items()
+        if dep != "python"
+    )
+
+
 def get_pypi_url(name: str, filename: str) -> str:
     url = f"https://pypi.org/pypi/{name}/json"
     print("Extracting download url for", name)
@@ -237,7 +284,11 @@ elif opts.pyproject_file:
     pyproject_file = os.path.expanduser(opts.pyproject_file)
     with open(pyproject_file, "rb") as f:
         pyproject_data = toml_load(f)
-    dependencies = pyproject_data.get("project", {}).get("dependencies", [])
+    is_poetry = pyproject_data.get("tool", {}).get("poetry") is not None
+    if is_poetry:
+        dependencies = get_poetry_deps(pyproject_data)
+    else:
+        dependencies = pyproject_data.get("project", {}).get("dependencies", [])
     packages = list(requirements.parse("\n".join(dependencies)))
     with tempfile.NamedTemporaryFile(
         "w", delete=False, prefix="requirements."
