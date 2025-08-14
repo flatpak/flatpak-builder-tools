@@ -70,7 +70,7 @@ parser.add_argument(
     "--runtime",
     help=(
         "Specify a flatpak to run pip inside of a sandbox, "
-        "ensures python version compatibility"
+        "ensures python version compatibility. Format: $RUNTIME_ID//$RUNTIME_BRANCH"
     ),
 )
 parser.add_argument(
@@ -334,6 +334,12 @@ python_version = "2" if opts.python2 else "3"
 pip_executable = "pip2" if opts.python2 else "pip3"
 
 if opts.runtime:
+    parts = opts.runtime.split("//", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        sys.exit(
+            "Runtime argument must be in the following format: $RUNTIME_ID//$RUNTIME_BRANCH"
+        )
+
     flatpak_cmd = [
         "flatpak",
         "--devel",
