@@ -293,6 +293,10 @@ elif opts.pyproject_file:
     if not dependencies:
         sys.exit("Pyproject file was specified but no dependencies were collected")
 
+    build_system_requires = pyproject_data.get("build-system", {}).get("requires", [])
+    if build_system_requires:
+        dependencies.extend(build_system_requires)
+
     packages = list(requirements.parse("\n".join(dependencies)))
 
     with tempfile.NamedTemporaryFile(
