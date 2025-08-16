@@ -6,7 +6,7 @@ Tool to automatically generate `flatpak-builder` manifest json from a `Cargo.loc
 
 Poetry users can run `poetry install` and skip this.
 
-Otherwise install Python 3.8+ with these modules:
+Otherwise install Python 3.9+ with these modules:
 - tomlkit
 - aiohttp
 - (Optional) PyYAML>=6.0.2 for YAML output instead of JSON
