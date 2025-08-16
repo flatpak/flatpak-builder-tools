@@ -155,7 +155,7 @@ def fetch_git_repo(git_url: str, commit: str) -> str:
 
 
 def update_workspace_keys(pkg: dict[str, Any], workspace: dict[str, Any]) -> None:
-    for key, item in pkg.items():
+    for key, item in list(pkg.items()):
         # There cannot be a 'workspace' key if the item is not a dict.
         if not isinstance(item, dict):
             continue
