@@ -10,14 +10,13 @@ readme = "README.md"
 requires-python = "<4.0,>=3.9"
 dependencies = [
     "aiohttp<4.0.0,>=3.9.5",
-    "toml<1.0.0,>=0.10.2",
     "PyYAML<7.0.0,>=6.0.2",
+    "tomlkit>=0.13.3,<1.0"
 ]
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.7"
 mypy = "^1.11.2"
-types-toml = "^0.10.8"
 types-pyyaml = "^6.0.12"
 
 [tool.ruff]

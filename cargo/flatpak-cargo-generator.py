@@ -24,7 +24,7 @@ from typing import (
 from urllib.parse import ParseResult, parse_qs, urlparse
 
 import aiohttp
-import toml
+import tomlkit
 
 try:
     import yaml
@@ -112,7 +112,7 @@ _TomlType = Dict[str, Any]
 
 def load_toml(tomlfile: str = "Cargo.lock") -> _TomlType:
     with open(tomlfile, "r", encoding="utf-8") as f:
-        toml_data = toml.load(f)
+        toml_data = tomlkit.parse(f.read())
     return toml_data
 
 
@@ -348,7 +348,7 @@ async def get_git_package_sources(
         },
         {
             "type": "inline",
-            "contents": toml.dumps(git_pkg.normalized),
+            "contents": tomlkit.dumps(git_pkg.normalized),
             "dest": f"{CARGO_CRATES}/{name}",  # -{version}',
             "dest-filename": "Cargo.toml",
         },
@@ -445,7 +445,7 @@ async def generate_sources(
     sources.append(
         {
             "type": "inline",
-            "contents": toml.dumps(
+            "contents": tomlkit.dumps(
                 {
                     "source": cargo_vendored_sources,
                 }
