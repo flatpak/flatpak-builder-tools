@@ -120,7 +120,7 @@ _TomlType = Dict[str, Any]
 
 def load_toml(tomlfile: str = "Cargo.lock") -> _TomlType:
     with open(tomlfile, "r", encoding="utf-8") as f:
-        toml_data = tomlkit.parse(f.read())
+        toml_data = tomlkit.parse(f.read()).unwrap()
     return toml_data
 
 
