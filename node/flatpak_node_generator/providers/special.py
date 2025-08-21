@@ -348,6 +348,10 @@ class SpecialSourceProvider:
                 else:
                     url_tp = 'https://playwright.azureedge.net/builds/chromium/%d/%s'
                     dl_file = 'chromium-linux.zip'
+            elif name == 'chromium-headless-shell':
+                # Shouldn't need the old scheme (didn't exist in 'browsers')
+                url_tp = 'https://playwright.azureedge.net/builds/chromium/%d/%s'
+                dl_file = 'chromium-headless-shell-linux.zip'
             elif name == 'firefox':
                 url_tp = 'https://playwright.azureedge.net/builds/firefox/%d/%s'
                 if revision < 1140:
