@@ -2,6 +2,12 @@
 
 __license__ = "MIT"
 
+import sys
+
+if sys.version_info < (3, 10):
+    sys.stderr.write("Error: This script requires Python 3.10 or higher.\n")
+    sys.exit(1)
+
 import argparse
 import hashlib
 import json
@@ -9,7 +15,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 import urllib.request
 from collections import OrderedDict
