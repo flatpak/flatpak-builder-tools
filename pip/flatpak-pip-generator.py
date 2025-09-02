@@ -548,14 +548,12 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
 # Python3 packages that come as part of org.freedesktop.Sdk.
 system_packages = [
     "cython",
-    "easy_install",
     "mako",
     "markdown",
     "meson",
+    "packaging",
     "pip",
-    "pygments",
     "setuptools",
-    "six",
     "wheel",
 ]
 
