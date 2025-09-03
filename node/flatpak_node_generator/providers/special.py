@@ -348,6 +348,10 @@ class SpecialSourceProvider:
                 else:
                     url_tp = 'https://playwright.azureedge.net/builds/chromium/%d/%s'
                     dl_file = 'chromium-linux.zip'
+            elif name == 'chromium-headless-shell':
+                # Shouldn't need the old scheme (didn't exist in 'browsers')
+                url_tp = 'https://playwright.azureedge.net/builds/chromium/%d/%s'
+                dl_file = 'chromium-headless-shell-linux.zip'
             elif name == 'firefox':
                 url_tp = 'https://playwright.azureedge.net/builds/firefox/%d/%s'
                 if revision < 1140:
@@ -358,8 +362,10 @@ class SpecialSourceProvider:
                 url_tp = 'https://playwright.azureedge.net/builds/webkit/%d/%s'
                 if revision < 1317:
                     dl_file = 'minibrowser-gtk-wpe.zip'
-                else:
+                elif revision <= 2092:
                     dl_file = 'webkit-ubuntu-20.04.zip'
+                else:
+                    dl_file = 'webkit-ubuntu-24.04.zip'
             elif name == 'ffmpeg':
                 url_tp = 'https://playwright.azureedge.net/builds/ffmpeg/%d/%s'
                 dl_file = 'ffmpeg-linux.zip'
