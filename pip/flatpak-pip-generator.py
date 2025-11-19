@@ -35,6 +35,11 @@ except ImportError:
         'Requirements module is not installed. Run "pip install requirements-parser"'
     )
 
+try:
+    import graphlib
+except ImportError:
+    sys.exit("This script requires Python 3.9 or higher for graphlib support.")
+
 parser = argparse.ArgumentParser()
 parser.add_argument("packages", nargs="*")
 parser.add_argument(
@@ -425,9 +430,10 @@ suffix = ".yaml" if opts.yaml else ".json"
 if not output_filename.endswith(suffix):
     output_filename += suffix
 
-modules: list[dict[str, str | list[str] | list[dict[str, Any]]]] = []
-vcs_modules: list[dict[str, str | list[str] | list[dict[str, Any]]]] = []
-sources = {}
+modules: list[dict[str, Any]] = []
+vcs_modules: list[dict[str, Any]] = []
+sources: dict[str, Any] = {}
+dependency_graph: dict[str, set[str]] = {}
 
 unresolved_dependencies_errors = []
 
@@ -558,6 +564,10 @@ system_packages = [
 ]
 
 fprint("Generating dependencies")
+
+# Build dependency graph
+modules_map: dict[str, dict[str, Any]] = {}
+
 for package in packages:
     if package.name is None:
         print(
@@ -625,8 +635,18 @@ for package in packages:
 
     is_vcs = bool(package.vcs)
     package_sources = []
+
+    # Add to dependency graph
+    package_name_key = package.name.casefold()
+    dependency_graph[package_name_key] = set()
+
     for dependency in dependencies:
         casefolded = dependency.casefold()
+
+        # Add dependency to graph (ignore self-dependencies)
+        if casefolded != package_name_key:
+            dependency_graph[package_name_key].add(casefolded)
+
         if casefolded in sources and sources[casefolded].get("pypi") is True:
             source = sources[casefolded]
         elif dependency in sources and sources[dependency].get("pypi") is False:
@@ -684,6 +704,26 @@ for package in packages:
     if package.vcs:
         vcs_modules.append(module)
     else:
+        # Store module for sorting later
+        modules_map[package_name_key] = module
+
+# Topological Sort
+ts = graphlib.TopologicalSorter(dependency_graph)
+try:
+    sorted_nodes = list(ts.static_order())
+except graphlib.CycleError as cycle_error:
+    print(f"Dependency cycle detected: {cycle_error}. Falling back to input order.")
+    sorted_nodes = list(modules_map.keys())
+
+# Reconstruct modules list based on sorted order
+# Only include modules that were actually processed (present in modules_map)
+for node in sorted_nodes:
+    if node in modules_map:
+        modules.append(modules_map[node])
+
+# Add any modules that might have been missed
+for name, module in modules_map.items():
+    if module not in modules:
         modules.append(module)
 
 modules = vcs_modules + modules
