@@ -348,10 +348,22 @@ def handle_req_env_markers(requirements_text: str) -> str:
 
         return True
 
+    def handle_platform_machine(marker: str) -> bool:
+        pattern = r'platform_machine\s*(==|!=)\s*["\']([^"\']+)["\']'
+
+        if re.search(pattern, marker, re.IGNORECASE):
+            print(
+                f"WARNING: Ignoring platform_machine marker: '{marker}'",
+                file=sys.stderr,
+            )
+
+        return True
+
     marker_handlers = (
         handle_sys_platform,
         handle_os_name,
         handle_implementation_name,
+        handle_platform_machine,
     )
 
     filtered_lines = []
