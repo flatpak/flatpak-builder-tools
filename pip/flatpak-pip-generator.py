@@ -3,6 +3,7 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #    "requirements-parser<1.0.0,>=0.11.0",
+#    "packaging>=23.0",
 # ]
 # ///
 
@@ -27,7 +28,9 @@ import urllib.request
 from collections import OrderedDict
 from collections.abc import Iterator
 from contextlib import suppress
-from typing import Any, TextIO
+from typing import Any, TextIO, Callable
+import operator
+from packaging.version import Version
 
 try:
     import requirements
@@ -356,6 +359,52 @@ def handle_req_env_markers(requirements_text: str) -> str:
                 f"WARNING: Ignoring platform_machine marker: '{marker}'",
                 file=sys.stderr,
             )
+
+        return True
+
+    def handle_version_markers(marker: str) -> bool:
+        # https://peps.python.org/pep-0496/#version-numbers
+        def format_full_version(info) -> str:
+            version = f"{info.major}.{info.minor}.{info.micro}"
+            if info.releaselevel != "final":
+                version += info.releaselevel[0] + str(info.serial)
+            return version
+
+        MARKERS: dict[str, str] = {
+            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}",  # MAJOR.MINOR, :3 breaks comparison
+            "python_full_version": format_full_version(sys.version_info),
+            "platform_version": platform.version(),
+            "implementation_version": format_full_version(sys.implementation.version),
+        }
+
+        OPS: dict[str, Callable[[Version, Version], bool]] = {
+            "==": operator.eq,
+            "!=": operator.ne,
+            "<": operator.lt,
+            "<=": operator.le,
+            ">": operator.gt,
+            ">=": operator.ge,
+        }
+
+        PAT = (
+            r"(python_version|python_full_version|platform_version|implementation_version)"
+            r'\s*(==|!=|<=|>=|<|>)\s*["\']([^"\']+)["\']'
+        )
+
+        def to_ver(v: str) -> Version | None:
+            for s in (v, v.split("-", 1)[0]):
+                try:
+                    return Version(s)
+                except Exception:
+                    pass
+            print(f"WARNING: unable to parse version '{v}'", file=sys.stderr)
+            return None
+
+        for name, op, rhs in re.findall(PAT, marker):
+            lhs = to_ver(MARKERS[name])
+            rhs = to_ver(rhs)
+            if lhs and rhs and not OPS[op](lhs, rhs):
+                return False
 
         return True
 
