@@ -14,6 +14,7 @@ if sys.version_info < (3, 10):
     sys.stderr.write("Error: This script requires Python 3.10 or higher.\n")
     sys.exit(1)
 
+import platform
 import argparse
 import hashlib
 import json
@@ -310,9 +311,47 @@ def handle_req_env_markers(requirements_text: str) -> str:
                 return False
         return True
 
+    def handle_implementation_name(marker: str) -> bool:
+        pattern_impl_name = r'implementation_name\s*(==|!=)\s*["\']([^"\']+)["\']'
+        pattern_platform_impl = (
+            r'platform_python_implementation\s*(==|!=)\s*["\']([^"\']+)["\']'
+        )
+
+        current_impl_name = sys.implementation.name.lower()
+        current_platform_impl = platform.python_implementation().lower()
+
+        if current_impl_name != "cpython":
+            print(
+                f"WARNING: sys.implementation.name '{current_impl_name}' does not match fdsdk runtime",
+                file=sys.stderr,
+            )
+        if current_platform_impl != "cpython":
+            print(
+                f"WARNING: platform.python_implementation() '{current_platform_impl}' "
+                f"does not match fdsdk runtime",
+                file=sys.stderr,
+            )
+
+        for match in re.finditer(pattern_impl_name, marker, re.IGNORECASE):
+            op, expected = match.group(1), match.group(2).lower()
+            if (op == "==" and expected != current_impl_name) or (
+                op == "!=" and expected == current_impl_name
+            ):
+                return False
+
+        for match in re.finditer(pattern_platform_impl, marker, re.IGNORECASE):
+            op, expected = match.group(1), match.group(2).lower()
+            if (op == "==" and expected != current_platform_impl) or (
+                op == "!=" and expected == current_platform_impl
+            ):
+                return False
+
+        return True
+
     marker_handlers = (
         handle_sys_platform,
         handle_os_name,
+        handle_implementation_name,
     )
 
     filtered_lines = []
