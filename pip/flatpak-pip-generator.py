@@ -301,7 +301,19 @@ def handle_req_env_markers(requirements_text: str) -> str:
                 return False
         return True
 
-    marker_handlers = (handle_sys_platform,)
+    def handle_os_name(marker: str) -> bool:
+        pattern = r'os_name\s*(==|!=)\s*["\']([^"\']+)["\']'
+
+        for match in re.finditer(pattern, marker, re.IGNORECASE):
+            op, name = match.group(1), match.group(2).lower()
+            if (op == "==" and name != "posix") or (op == "!=" and name == "posix"):
+                return False
+        return True
+
+    marker_handlers = (
+        handle_sys_platform,
+        handle_os_name,
+    )
 
     filtered_lines = []
     ignored_lines = []
