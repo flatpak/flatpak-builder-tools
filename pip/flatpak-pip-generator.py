@@ -289,13 +289,56 @@ def get_flatpak_runtime_scope(runtime: str) -> str:
     sys.exit(f"Runtime {runtime} not found for user or system")
 
 
+def handle_req_env_markers(requirements_text: str) -> str:
+    def handle_sys_platform(marker: str) -> bool:
+        pattern = r'sys_platform\s*(==|!=)\s*["\']([^"\']+)["\']'
+
+        for match in re.finditer(pattern, marker, re.IGNORECASE):
+            op, platform = match.group(1), match.group(2).lower()
+            if (op == "==" and not platform.startswith("linux")) or (
+                op == "!=" and platform.startswith("linux")
+            ):
+                return False
+        return True
+
+    marker_handlers = (handle_sys_platform,)
+
+    filtered_lines = []
+    ignored_lines = []
+
+    for line in requirements_text.split("\n"):
+        stripped = line.strip()
+
+        if not stripped or stripped.startswith("#"):
+            filtered_lines.append(line)
+            continue
+
+        if ";" in line:
+            marker = line.split(";", 1)[1].strip()
+            should_include = all(handler(marker) for handler in marker_handlers)
+        else:
+            should_include = True
+
+        if should_include:
+            filtered_lines.append(line)
+        else:
+            ignored_lines.append(line)
+
+    if ignored_lines:
+        print(f"Ignored packages: {ignored_lines}")
+
+    return "\n".join(filtered_lines)
+
+
 packages = []
 if opts.requirements_file:
     requirements_file_input = os.path.expanduser(opts.requirements_file)
     try:
         with open(requirements_file_input) as in_req_file:
             reqs = parse_continuation_lines(in_req_file)
-            reqs_as_str = "\n".join([r.split("--hash")[0] for r in reqs])
+            reqs_as_str = handle_req_env_markers(
+                "\n".join([r.split("--hash")[0] for r in reqs])
+            )
             reqs_list_raw = reqs_as_str.splitlines()
             py_version_regex = re.compile(
                 r";.*python_version .+$"
@@ -348,11 +391,12 @@ elif opts.pyproject_file:
         requirements_file_output = req_file.name
 
 elif opts.packages:
-    packages = list(requirements.parse("\n".join(opts.packages)))
+    filtered_packages_str = handle_req_env_markers("\n".join(opts.packages))
+    packages = list(requirements.parse(filtered_packages_str))
     with tempfile.NamedTemporaryFile(
         "w", delete=False, prefix="requirements."
     ) as req_file:
-        req_file.write("\n".join(opts.packages))
+        req_file.write(filtered_packages_str)
         requirements_file_output = req_file.name
 elif not len(sys.argv) > 1:
     sys.exit("Please specifiy either packages or requirements file argument")
