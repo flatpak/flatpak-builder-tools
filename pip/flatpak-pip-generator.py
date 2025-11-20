@@ -35,9 +35,7 @@ from packaging.version import Version
 try:
     import requirements
 except ImportError:
-    sys.exit(
-        'Requirements module is not installed. Run "pip install requirements-parser"'
-    )
+    sys.exit("Please install the 'requirements-parser' module")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("packages", nargs="*")
@@ -125,13 +123,13 @@ if opts.pyproject_file:
         try:
             from tomli import load as toml_load  # type: ignore
         except ModuleNotFoundError:
-            sys.exit('tomli modules is not installed. Run "pip install tomli"')
+            sys.exit("Please install the 'tomli' module")
 
 if opts.yaml:
     try:
         import yaml
     except ImportError:
-        sys.exit('PyYAML modules is not installed. Run "pip install PyYAML"')
+        sys.exit("Please install the 'PyYAML' module")
 
 
 def get_poetry_deps(pyproject_data: dict[str, Any]) -> list[str]:
