@@ -19,7 +19,6 @@ from .integrity import Integrity
 
 
 class ManifestGenerator(ContextManager['ManifestGenerator']):
-    MAX_GITHUB_SIZE = 49 * 1000 * 1000
     JSON_INDENT = 4
 
     def __init__(self) -> None:
@@ -27,6 +26,7 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         # That way, we ensure uniqueness.
         self._sources: Set[Tuple[Tuple[str, Any], ...]] = set()
         self._commands: List[str] = []
+        self.split_size = 49 * 1000 * 1000
 
     def __exit__(
         self,
@@ -66,7 +66,7 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
             # opening brackets.
             source_json = json.dumps([source], indent=ManifestGenerator.JSON_INDENT)
             source_json_len = len('\n'.join(source_json.splitlines()[1:-1]))
-            if current_size + source_json_len >= ManifestGenerator.MAX_GITHUB_SIZE:
+            if current_size + source_json_len >= self.split_size:
                 yield current
                 current = []
                 current_size = BASE_CURRENT_SIZE

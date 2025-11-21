@@ -96,6 +96,14 @@ async def _async_main() -> None:
         help='Split the sources file to fit onto GitHub.',
     )
     parser.add_argument(
+        '-S',
+        '--split-size',
+        type=int,
+        default=49 * 1000,  # GITHUB has 49MB limit.
+        dest='split_size',
+        help='If splitting the sources file, split at this size in KB. Default is 49000KB.',
+    )
+    parser.add_argument(
         '--node-chromedriver-from-electron',
         help='Use the ChromeDriver version associated with the given '
         'Electron version for node-chromedriver',
@@ -206,6 +214,7 @@ async def _async_main() -> None:
     print(f'{len(packages)} packages read.')
 
     gen = ManifestGenerator()
+    gen.split_size = args.split_size * 1000
     with gen:
         options = SpecialSourceProvider.Options(
             node_chromedriver_from_electron=args.node_chromedriver_from_electron
@@ -267,7 +276,7 @@ async def _async_main() -> None:
                 indent=ManifestGenerator.JSON_INDENT,
             )
 
-            if fp.tell() >= ManifestGenerator.MAX_GITHUB_SIZE:
+            if fp.tell() >= gen.split_size:
                 print(
                     'WARNING: generated-sources.json is too large for GitHub.',
                     file=sys.stderr,
