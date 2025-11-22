@@ -101,7 +101,7 @@ async def _async_main() -> None:
         type=int,
         default=DEFAULT_SPLIT_SIZE_KB,
         dest='split_size',
-        help='If splitting the sources file, split at this size in KB. Default is 49000KB.',
+        help=f'If splitting the sources file, split at this size in KB. Default is {DEFAULT_SPLIT_SIZE_KB} KB.',
     )
     parser.add_argument(
         '--node-chromedriver-from-electron',
