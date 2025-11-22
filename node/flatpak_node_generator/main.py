@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Iterator, List, Set
 
 from .cache import Cache, FilesystemBasedCache
-from .manifest import ManifestGenerator
+from .manifest import DEFAULT_SPLIT_SIZE_KB, ManifestGenerator
 from .node_headers import NodeHeaders
 from .package import Package
 from .progress import GeneratorProgress
@@ -99,7 +99,7 @@ async def _async_main() -> None:
         '-S',
         '--split-size',
         type=int,
-        default=49 * 1000,  # GITHUB has 49MB limit.
+        default=DEFAULT_SPLIT_SIZE_KB,
         dest='split_size',
         help='If splitting the sources file, split at this size in KB. Default is 49000KB.',
     )

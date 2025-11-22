@@ -17,6 +17,8 @@ from typing import (
 
 from .integrity import Integrity
 
+DEFAULT_SPLIT_SIZE_KB = 49 * 1000  # GitHub has 49 MB limit
+
 
 class ManifestGenerator(ContextManager['ManifestGenerator']):
     JSON_INDENT = 4
@@ -26,7 +28,7 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         # That way, we ensure uniqueness.
         self._sources: Set[Tuple[Tuple[str, Any], ...]] = set()
         self._commands: List[str] = []
-        self.split_size = 49 * 1000 * 1000
+        self.split_size = DEFAULT_SPLIT_SIZE_KB * 1000
 
     def __exit__(
         self,
