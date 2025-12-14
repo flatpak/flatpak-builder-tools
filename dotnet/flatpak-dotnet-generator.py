@@ -46,6 +46,9 @@ def main() -> None:
         default="nuget-sources",
     )
     parser.add_argument(
+        "--only-arches", help="limit the outout to this flatpak arch", default=None
+    )
+    parser.add_argument(
         "--dotnet-args",
         "-a",
         nargs=argparse.REMAINDER,
@@ -103,15 +106,18 @@ def main() -> None:
             with path.open() as fp:
                 sha512 = binascii.hexlify(base64.b64decode(fp.read())).decode("ascii")
 
-            sources.append(
-                {
-                    "type": "file",
-                    "url": url,
-                    "sha512": sha512,
-                    "dest": args.destdir,
-                    "dest-filename": filename,
-                }
-            )
+            data = {
+                "type": "file",
+                "url": url,
+                "sha512": sha512,
+                "dest": args.destdir,
+                "dest-filename": filename,
+            }
+
+            if args.only_arches is not None:
+                data["only-arches"] = [args.only_arches]
+
+            sources.append(data)
 
     with open(args.output, "w", encoding="utf-8") as fp:
         json.dump(sorted(sources, key=lambda n: n.get("dest-filename")), fp, indent=4)
