@@ -46,7 +46,7 @@ def main() -> None:
         default="nuget-sources",
     )
     parser.add_argument(
-        "--only-arches", help="limit the outout to this flatpak arch", default=None
+        "--only-arches", help="Limit the source to this Flatpak arch", default=None
     )
     parser.add_argument(
         "--dotnet-args",
