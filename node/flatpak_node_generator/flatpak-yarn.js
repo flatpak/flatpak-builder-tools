@@ -130,7 +130,7 @@ module.exports = {
       async execute() {
         const configuration = await Configuration.find(this.context.cwd,
           this.context.plugins);
-        const lockfilePath = ppath.join(this.context.cwd, configuration.get(`lockfileFilename`));
+        const lockfilePath = ppath.join(this.context.cwd, 'yarn.lock');
         const cacheFolder = `${configuration.get('globalFolder')}/cache`;
         const locatorFolder = `${cacheFolder}/locator`;
 

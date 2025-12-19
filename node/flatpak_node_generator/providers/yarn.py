@@ -128,8 +128,9 @@ class YarnLockfileProvider(LockfileProvider):
         version: str = entry['version']
         resolution: str = entry['resolution']
         resolved: str = f'resolution#{resolution}'
+        lock_checksum: str =  entry.get('checksum', self.cacheKey)
         integrity: Integrity = Integrity(
-            algorithm='sha512', digest=entry.get('checksum', self.cacheKey)
+            algorithm='sha512', digest=lock_checksum.split('/')[-1]
         )
 
         source: PackageSource
