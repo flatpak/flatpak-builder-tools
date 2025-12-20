@@ -56,7 +56,7 @@ def requests() -> Iterator[RequestsController]:
 
 
 _DEFAULT_MODULE = 'module'
-_DEFAULT_NODE = 16
+_DEFAULT_NODE = 20
 
 
 @dataclass
@@ -99,11 +99,9 @@ class FlatpakBuilder:
         sdk_extensions = []
         build_options = {}
         NODE_RUNTIME_VERSION_MAP = {
-            '14': '22.08',
-            '16': '22.08',
-            '18': '22.08',
-            '20': '24.08',
-            '22': '24.08',
+            '20': '25.08',
+            '22': '25.08',
+            '24': '25.08',
         }
 
         if use_node:
@@ -121,9 +119,9 @@ class FlatpakBuilder:
             for i, command in enumerate(commands):
                 commands[i] = f'. /usr/lib/sdk/node{use_node}/enable.sh && {command}'
 
-            runtime_version = NODE_RUNTIME_VERSION_MAP.get(use_node_str, '24.08')
+            runtime_version = NODE_RUNTIME_VERSION_MAP.get(use_node_str, '25.08')
         else:
-            runtime_version = '22.08'
+            runtime_version = '25.08'
 
         manifest = {
             'id': 'com.test.Test',
@@ -322,7 +320,7 @@ def provider_factory_spec(request: Any, shared_datadir: Path) -> ProviderFactory
     return ProviderFactorySpec(datadir=shared_datadir, type=type)
 
 
-@pytest.fixture(params=[14, 16, 18, 20, 22])
+@pytest.fixture(params=[20, 22, 24])
 def node_version(request: Any) -> int:
     version = request.param
     assert isinstance(version, int)
