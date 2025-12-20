@@ -23,11 +23,9 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - '3.9'
-          - '3.10'
-          - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
     runs-on: ubuntu-latest
     steps:
         # 4.2.2
@@ -57,9 +55,7 @@ jobs:
         run: |
           flatpak --user remote-add flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak --user install -y flathub \
-            org.freedesktop.{Platform,Sdk{,.Extension.node{14,16,18}}}//22.08
-          flatpak --user install -y flathub \
-            org.freedesktop.{Platform,Sdk{,.Extension.node{20,22}}}//24.08
+            org.freedesktop.{Platform,Sdk{,.Extension.node{20,22,24}}}//25.08
 
       - name: Install dependencies
         run: poetry install --with=dev
