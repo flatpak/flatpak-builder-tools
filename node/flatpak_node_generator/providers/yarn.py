@@ -221,7 +221,7 @@ class YarnModuleProvider(ModuleProvider):
         self.gen = gen
         self.special_source_provider = special
         self.mirror_dir = self.gen.data_root / 'yarn-mirror'
-        self.mirror_berry_dir = self.mirror_dir / 'global' / 'cache'
+        self.mirror_berry_dir = self.gen.data_root / 'yarn-berry' / 'cache'
         self.mirror_locator_dir = self.mirror_berry_dir / 'locator'
         self.registry = 'https://registry.yarnpkg.com'
         self.has_resolution = False
