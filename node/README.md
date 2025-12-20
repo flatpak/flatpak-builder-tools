@@ -11,7 +11,7 @@ required, however, you can disable it explicitly via `--no-xdg-layout`.
 ## Requirements
 
 - flatpak-builder 1.1.2 or newer
-- Python 3.9+.
+- Python 3.11+.
 - [pipx](https://pypa.github.io/pipx/) (recommended) or
   [pip](https://pip.pypa.io/en/stable/) (both of these are usually available in
   your distro repositories, the latter is often included with Python installs).
@@ -40,6 +40,9 @@ There are two examples provided for how to use flatpak-node-generator:
 - `webpack-quick-start` - A Flatpak of
   [electron-webpack-quick-start](https://github.com/electron-userland/electron-webpack-quick-start).
   It uses yarn for package management and electron-builder + webpack.
+- `fiddle-yarn-berry` - A Flatpak of
+  [electron-fiddle](https://github.com/electron/fiddle.git). It uses yarn/berry for
+  package management and a rather basic Electron workflow.
 
 Both manifests have comments to highlight their differences, so you can mix and match to e.g.
 get npm with electron-builder.
