@@ -140,6 +140,7 @@ class LocalSource(PackageSource):
 class Lockfile:
     path: Path
     version: int
+    cache_key: Optional[str] = None
 
 
 class Package(NamedTuple):

@@ -39,7 +39,6 @@ class YarnLockfileProvider(LockfileProvider):
 
     def __init__(self) -> None:
         self.version = 1
-        self.cacheKey = str()
 
     @staticmethod
     def is_git_version(version: str) -> bool:
@@ -149,7 +148,7 @@ class YarnLockfileProvider(LockfileProvider):
         version: str = entry['version']
         resolution: str = entry['resolution']
         resolved: str = f'resolution#{resolution}'
-        lock_checksum: str = entry.get('checksum', self.cacheKey)
+        lock_checksum: str = entry.get('checksum', lockfile.cache_key or '')
         integrity: Integrity = Integrity(
             algorithm='sha512', digest=lock_checksum.split('/')[-1]
         )
@@ -165,16 +164,17 @@ class YarnLockfileProvider(LockfileProvider):
 
     def process_lockfile(self, lockfile_path: Path) -> Iterator[Package]:
         lock_dict: Dict[str, Any] = self.parse_lockfile(lockfile_path)
+        cache_key = None
         if '__metadata' in lock_dict:
             metadata: Dict[str, Any] = lock_dict['__metadata']
             self.version = int(metadata.get('version', 1))
             assert self.version > 0
             if self.version > 1:
-                self.cacheKey = metadata['cacheKey']
+                cache_key = metadata['cacheKey']
 
             lock_dict.pop('__metadata')
 
-        lockfile = Lockfile(lockfile_path, self.version)
+        lockfile = Lockfile(lockfile_path, self.version, cache_key)
 
         if self.version == 1:
             for name_line, package in lock_dict.items():
