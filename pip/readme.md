@@ -41,8 +41,12 @@ You can use that in your manifest like
 ## Options
 
 ```
-usage: flatpak-pip-generator.py [-h] [--python2] [--cleanup {scripts,all}] [--requirements-file REQUIREMENTS_FILE] [--pyproject-file PYPROJECT_FILE] [--build-only] [--build-isolation]
-                                [--ignore-installed IGNORE_INSTALLED] [--checker-data] [--output OUTPUT] [--runtime RUNTIME] [--yaml] [--ignore-errors] [--ignore-pkg [IGNORE_PKG ...]]
+usage: flatpak-pip-generator.py [-h] [--python2] [--cleanup {scripts,all}]
+                                [--requirements-file REQUIREMENTS_FILE]
+                                [--pyproject-file PYPROJECT_FILE] [--build-only]
+                                [--build-isolation][--ignore-installed IGNORE_INSTALLED]
+                                [--checker-data] [--output OUTPUT] [--runtime RUNTIME]
+                                [--yaml] [--ignore-errors] [--ignore-pkg [IGNORE_PKG ...]]
                                 [packages ...]
 
 positional arguments:
@@ -60,14 +64,17 @@ options:
   --build-only          Clean up all files after build
   --build-isolation     Do not disable build isolation. Mostly useful on pip that does't support the feature.
   --ignore-installed IGNORE_INSTALLED
-                        Comma-separated list of package names for which pip should ignore already installed packages. Useful when the package is installed in the SDK but not in the runtime.
+                        Comma-separated list of package names for which pip should ignore already installed packages.
+                        Useful when the package is installed in the SDK but not in the runtime.
   --checker-data        Include x-checker-data in output for the "Flatpak External Data Checker"
   --output, -o OUTPUT   Specify output file name
-  --runtime RUNTIME     Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility. Format: $RUNTIME_ID//$RUNTIME_BRANCH
+  --runtime RUNTIME     Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility.
+                        Format: $RUNTIME_ID//$RUNTIME_BRANCH
   --yaml                Use YAML as output format instead of JSON
   --ignore-errors       Ignore errors when downloading packages
   --ignore-pkg [IGNORE_PKG ...]
-                        Ignore packages when generating the manifest. Needs to be specified with version constraints if present (e.g. --ignore-pkg 'foo>=3.0.0' 'baz>=21.0').
+                        Ignore packages when generating the manifest. Needs to be specified
+                        with version constraints if present (e.g. --ignore-pkg 'foo>=3.0.0' 'baz>=21.0').
 ```
 
 ## Development
