@@ -114,6 +114,14 @@ If you're using npm, you must run this script when the `node_modules` directory 
 If you generate the `generated-sources.json` in CI, you can do this by passing `--package-lock-only`
 to `npm install`.
 
+### Lockfile requirements
+
+If using npm, your lockfile must be **committed** to the project's version control. It's not enough
+to generate it locally and feed it to `flatpak-node-generator` because without it, `npm` will make
+API requests that won't be cached by the generator.
+
+You also must be using at least `package-lock.json` version 2.
+
 ### Caching
 
 flatpak-node-generator will cache many API responses and archives from the server to speed up
