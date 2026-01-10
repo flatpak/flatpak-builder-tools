@@ -2,7 +2,18 @@
 
 Tool to automatically generate `flatpak-builder` manifest json from a `Cargo.lock`.
 
-## Requirements
+## Installation
+### Automatic (unofficial)
+
+You can get [flatpak-cargo-generator](https://pypi.org/project/flatpak-cargo-generator/) from PyPi, although it's an external package outside our control. If you have pipx:
+
+```
+pipx install flatpak-cargo-generator
+```
+
+You should be able to run `flatpak-cargo-generator /path/to/Cargo.lock -o cargo-sources.json` now.
+
+### Manual (official)
 
 Poetry users can run `poetry install` and skip this.
 
@@ -13,11 +24,13 @@ Otherwise install Python 3.9+ with these modules:
 
 Generated manifests are supported by flatpak-builder 1.2.x or newer.
 
-## Usage
+To invoke the generator:
 
 1. Install poetry v2 https://python-poetry.org/docs/#installation
 2. Run `poetry env activate` inside the `cargo` folder
 3. `python3 flatpak-cargo-generator.py /path/to/Cargo.lock -o cargo-sources.json`
+
+## Usage
 
 The generated cargo manifest file `cargo-sources.json` should be added
 to the Flatpak manifest inside `sources`. An example of a complete
