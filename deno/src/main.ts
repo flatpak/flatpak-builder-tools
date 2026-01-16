@@ -116,12 +116,16 @@ export async function jsrPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
     const [checksumType, checksumValue] = splitOnce(fileMeta.checksum, "-");
 
     const url = `https://jsr.io/${pkg.module}/${pkg.version}${fileUrl}`;
-    let [fileDir, fileName] = splitOnce(fileUrl, "/", "right");
-    const dest = `vendor/jsr.io/${pkg.module}/${pkg.version}${fileDir}`;
-
-    if (shouldHash(fileName)) {
-      fileName = await shortHash(fileName);
-    }
+    const segments = fileUrl.split("/").filter(Boolean);
+    const hashedSegments = await Promise.all(
+      segments.map(async (part) =>
+        shouldHash(part) ? await shortHash(part) : part
+      ),
+    );
+    const fileName = hashedSegments.pop();
+    const dest = `vendor/jsr.io/${pkg.module}/${pkg.version}${
+      hashedSegments.length > 0 ? "/" + hashedSegments.join("/") : ""
+    }`;
 
     flatpkData.push({
       type: "file",
@@ -143,8 +147,17 @@ export async function jsrPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
         "-",
       );
       const url = `https://jsr.io/${pkg.module}/${pkg.version}${fileUrl}`;
-      const [fileDir, fileName] = splitOnce(fileUrl, "/", "right");
-      const dest = `vendor/jsr.io/${pkg.module}/${pkg.version}${fileDir}`;
+      const segments = fileUrl.split("/").filter(Boolean);
+      const hashedSegments = await Promise.all(
+        segments.map(async (part) =>
+          shouldHash(part) ? await shortHash(part) : part
+        ),
+      );
+      const fileName = hashedSegments.pop();
+      const dest = `vendor/jsr.io/${pkg.module}/${pkg.version}${
+        hashedSegments.length > 0 ? "/" + hashedSegments.join("/") : ""
+      }`;
+
       flatpkData.push({
         type: "file",
         url,
