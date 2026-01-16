@@ -1,9 +1,9 @@
 // LICENSE = MIT
-// deno-lint-ignore-file no-explicit-any
+// deno-lint-ignore-file no-explicit-any no-import-prefix
 import { main } from "../src/main.ts";
-import { assert } from "jsr:@std/assert@0.221.0";
-import { join } from "jsr:@std/path@0.221.0";
-import { existsSync } from "jsr:@std/fs@0.221.0";
+import { assert } from "jsr:@std/assert@1.0.16";
+import { join } from "jsr:@std/path@1.1.4";
+import { existsSync } from "jsr:@std/fs@1.0.21";
 
 Deno.test("main function: generates deno-sources.json from lockfile", async () => {
   const tmpDir = "./tests/tmp_main";
@@ -82,6 +82,72 @@ Deno.test("main function: generates deno-sources.json from lockfile", async () =
       typeof s.url === "string" &&
       s.url.startsWith("https://deno.land/std@0.203.0/uuid/v1.ts")
     ));
+  } finally {
+    await Deno.remove(tmpDir, { recursive: true });
+  }
+});
+
+Deno.test("main function: handles JSR packages via npm.jsr.io", async () => {
+  const tmpDir = "./tests/tmp_jsr_npm";
+  await Deno.mkdir(tmpDir, { recursive: true });
+  const lockPath = join(tmpDir, "deno.lock");
+  const sourcesPath = join(tmpDir, "deno-sources.json");
+
+  // Create a lock file with JSR packages accessed via npm.jsr.io
+  await Deno.writeTextFile(
+    lockPath,
+    JSON.stringify(
+      {
+        version: "5",
+        npm: {
+          "@jsr/sigma__deno-compat@0.9.0": {
+            "integrity":
+              "sha512-aR+PgQ2FXHc94QKFJTKpSl7W1PlL8iECN7wMcNbjVCOtPjqgcYS8qEKbiN7W1d/TvxgwFJmSSIpWXwtXw+NDmg==",
+            "tarball":
+              "https://npm.jsr.io/~/11/@jsr/sigma__deno-compat/0.9.0.tgz",
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  );
+
+  try {
+    await main(lockPath, sourcesPath);
+    assert(existsSync(sourcesPath), "deno-sources.json should be created");
+    const sources = JSON.parse(await Deno.readTextFile(sourcesPath));
+    assert(Array.isArray(sources));
+
+    // Check that JSR packages are handled correctly
+    // Should have entries for @jsr/sigma__deno-compat
+    const jsrNpmEntries = sources.filter((s: any) =>
+      s.dest && s.dest.includes("npm.jsr.io")
+    );
+    assert(
+      jsrNpmEntries.length > 0,
+      "Should have entries for JSR packages accessed via npm.jsr.io",
+    );
+
+    // Verify the path structure is correct: npm/npm.jsr.io/@jsr/sigma__deno-compat/0.9.0/
+    const denoCompatEntry = sources.find((s: any) =>
+      s.dest && s.dest.includes("@jsr/sigma__deno-compat/0.9.0")
+    );
+    assert(
+      denoCompatEntry,
+      "Should have entry for @jsr/sigma__deno-compat@0.9.0",
+    );
+    assert(
+      denoCompatEntry.dest ===
+        "deno_dir/npm/npm.jsr.io/@jsr/sigma__deno-compat/0.9.0",
+      `Expected path deno_dir/npm/npm.jsr.io/@jsr/sigma__deno-compat/0.9.0, got ${denoCompatEntry.dest}`,
+    );
+
+    // Verify tarball URL points to npm.jsr.io
+    assert(
+      denoCompatEntry.url && denoCompatEntry.url.includes("npm.jsr.io"),
+      "Tarball URL should point to npm.jsr.io",
+    );
   } finally {
     await Deno.remove(tmpDir, { recursive: true });
   }

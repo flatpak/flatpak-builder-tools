@@ -1,5 +1,6 @@
 // LICENSE = MIT
-import { assert, assertEquals, assertMatch } from "jsr:@std/assert@0.221.0";
+// deno-lint-ignore no-import-prefix
+import { assert, assertEquals, assertMatch } from "jsr:@std/assert@1.0.16";
 import {
   base64ToHex,
   sha256,
