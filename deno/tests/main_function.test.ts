@@ -1,9 +1,9 @@
 // LICENSE = MIT
-// deno-lint-ignore-file no-explicit-any
+// deno-lint-ignore-file no-explicit-any no-import-prefix
 import { main } from "../src/main.ts";
-import { assert } from "jsr:@std/assert@0.221.0";
-import { join } from "jsr:@std/path@0.221.0";
-import { existsSync } from "jsr:@std/fs@0.221.0";
+import { assert } from "jsr:@std/assert@1.0.16";
+import { join } from "jsr:@std/path@1.1.4";
+import { existsSync } from "jsr:@std/fs@1.0.21";
 
 Deno.test("main function: generates deno-sources.json from lockfile", async () => {
   const tmpDir = "./tests/tmp_main";

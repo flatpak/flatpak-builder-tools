@@ -1,6 +1,7 @@
 // LICENSE = MIT
 // deno-lint-ignore-file require-await
-import { assert, assertEquals, assertMatch } from "jsr:@std/assert@0.221.0";
+// deno-lint-ignore no-import-prefix
+import { assert, assertEquals, assertMatch } from "jsr:@std/assert@1.0.16";
 import {
   jsrNpmPkgToFlatpakData,
   jsrPkgToFlatpakData,
@@ -97,6 +98,67 @@ Deno.test("jsrPkgToFlatpakData returns correct flatpak data", async () => {
   assertEquals(data[3].url, "https://jsr.io/@std/encoding/1.0.10/deno.json");
   assertEquals(data[3].sha256, "ffeeddccbbaa9988");
   assertEquals(data[3]["dest-filename"], "deno.json");
+});
+
+Deno.test("jsrPkgToFlatpakData hashes directory segments", async () => {
+  const metaJson = {
+    scope: "@sigmasd",
+    name: "gtk",
+    latest: "0.13.1",
+  };
+  const metaVerJson = JSON.stringify({
+    moduleGraph2: {
+      "/src/libPaths/mod.ts": {},
+    },
+    manifest: {
+      "/src/libPaths/mod.ts": {
+        checksum: "sha256-abcdef",
+      },
+    },
+  });
+
+  const origFetch = globalThis.fetch;
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    writable: true,
+    value: async (input: URL | RequestInfo, _init?: RequestInit) => {
+      const url = typeof input === "string"
+        ? input
+        : input instanceof URL
+        ? input.toString()
+        : (input as Request).url;
+      if (url.endsWith("_meta.json")) {
+        return { text: async () => metaVerJson } as Response;
+      }
+      if (url.endsWith("meta.json")) {
+        return { json: async () => metaJson } as Response;
+      }
+      throw new Error("Unexpected fetch url: " + url);
+    },
+  });
+
+  try {
+    const pkg = { module: "@sigmasd/gtk", version: "0.13.1", name: "gtk" };
+    const data = await jsrPkgToFlatpakData(pkg);
+
+    const modFile = data.find((d) =>
+      d.url === "https://jsr.io/@sigmasd/gtk/0.13.1/src/libPaths/mod.ts"
+    );
+    assert(modFile, "Should find mod.ts");
+
+    // "libPaths" should be hashed to "#libpaths_8b87f"
+    assert(
+      modFile.dest.includes("#libpaths_8b87f"),
+      `Path should be hashed, got: ${modFile.dest}`,
+    );
+    assertEquals(modFile["dest-filename"], "mod.ts");
+  } finally {
+    Object.defineProperty(globalThis, "fetch", {
+      configurable: true,
+      writable: true,
+      value: origFetch,
+    });
+  }
 });
 
 Deno.test("npmPkgToFlatpakData returns correct flatpak data", async () => {

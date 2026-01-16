@@ -1,4 +1,5 @@
 // LICENSE = MIT
+// deno-lint-ignore-file no-import-prefix
 
 import { encodeHex } from "jsr:@std/encoding@1/hex";
 import { decodeBase64 } from "jsr:@std/encoding@1/base64";

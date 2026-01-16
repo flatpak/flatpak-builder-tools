@@ -188,11 +188,11 @@ function isJsrNpmPackage(module: string): boolean {
  * @param lockData The lock file data for this specific package.
  * @returns A promise that resolves to an array of FlatpakData objects.
  */
-export async function jsrNpmPkgToFlatpakData(
+export function jsrNpmPkgToFlatpakData(
   pkg: Pkg,
   // deno-lint-ignore no-explicit-any
   lockData: any,
-): Promise<FlatpakData[]> {
+): FlatpakData[] {
   const tarballUrl = lockData.tarball;
   const integrity = lockData.integrity;
 
@@ -344,6 +344,7 @@ export async function main(
   jsrPkgs;
 
   // Process npm packages, separating JSR packages from regular npm packages
+  // deno-lint-ignore no-explicit-any
   const npmEntries: Array<[string, any]> = !lock.npm
     ? []
     : Object.entries(lock.npm)
