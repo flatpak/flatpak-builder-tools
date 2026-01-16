@@ -159,6 +159,106 @@ export async function jsrPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
 }
 
 /**
+ * Checks if a package is a JSR package accessed via npm.jsr.io
+ * @param module The module identifier (e.g., "@jsr/sigma__deno-compat")
+ * @returns true if this is a JSR package via npm compatibility layer
+ */
+function isJsrNpmPackage(module: string): boolean {
+  return module.startsWith("@jsr/");
+}
+
+/**
+ * Converts JSR package (accessed via npm.jsr.io) into FlatpakData objects.
+ * JSR packages via npm have tarball URLs and integrity in the lock file,
+ * so we don't need to fetch from a registry.
+ * @param pkg The JSR-via-npm package information.
+ * @param lockData The lock file data for this specific package.
+ * @returns A promise that resolves to an array of FlatpakData objects.
+ */
+export async function jsrNpmPkgToFlatpakData(
+  pkg: Pkg,
+  // deno-lint-ignore no-explicit-any
+  lockData: any,
+): Promise<FlatpakData[]> {
+  const tarballUrl = lockData.tarball;
+  const integrity = lockData.integrity;
+
+  if (!tarballUrl || !integrity) {
+    throw new Error(
+      `Missing tarball or integrity for JSR package ${pkg.module}@${pkg.version}`,
+    );
+  }
+
+  const [checksumType, checksumValue] = splitOnce(integrity, "-");
+
+  const registryContents = JSON.stringify({
+    name: pkg.module,
+    "dist-tags": {},
+    versions: {
+      [pkg.version]: {
+        dist: {
+          integrity: integrity,
+          tarball: tarballUrl,
+        },
+      },
+    },
+  });
+
+  // Deno's npm cache resolution for JSR packages can be inconsistent
+  // Sometimes it looks under npm.jsr.io, sometimes under registry.npmjs.org
+  // We generate entries for both paths to ensure compatibility
+  const results: FlatpakData[] = [];
+
+  // Create inline registry.json for npm.jsr.io path
+  results.push({
+    type: "inline",
+    contents: registryContents,
+    dest: `deno_dir/npm/npm.jsr.io/${pkg.module}`,
+    "dest-filename": "registry.json",
+  });
+
+  // Create inline registry.json for registry.npmjs.org path
+  results.push({
+    type: "inline",
+    contents: registryContents,
+    dest: `deno_dir/npm/registry.npmjs.org/${pkg.module}`,
+    "dest-filename": "registry.json",
+  });
+
+  // Archive for npm.jsr.io path
+  const pkgDataJsr: FlatpakData = {
+    type: "archive",
+    "archive-type": "tar-gzip",
+    url: tarballUrl,
+    [checksumType]: base64ToHex(checksumValue),
+    dest: `deno_dir/npm/npm.jsr.io/${pkg.module}/${pkg.version}`,
+  };
+
+  if (pkg.cpu) {
+    pkgDataJsr["only-arches"] = [pkg.cpu];
+  }
+
+  results.push(pkgDataJsr);
+
+  // Archive for registry.npmjs.org path
+  const pkgDataNpm: FlatpakData = {
+    type: "archive",
+    "archive-type": "tar-gzip",
+    url: tarballUrl,
+    [checksumType]: base64ToHex(checksumValue),
+    dest: `deno_dir/npm/registry.npmjs.org/${pkg.module}/${pkg.version}`,
+  };
+
+  if (pkg.cpu) {
+    pkgDataNpm["only-arches"] = [pkg.cpu];
+  }
+
+  results.push(pkgDataNpm);
+
+  return results;
+}
+
+/**
  * Converts NPM package information into an array of FlatpakData objects.
  * It fetches metadata for the package and creates entries for the package's
  * registry metadata and the package tarball itself.
@@ -229,25 +329,59 @@ export async function main(
     return { module: r[0], version: r[1], name };
   });
   jsrPkgs;
-  const npmPkgs: Pkg[] = !lock.npm ? [] : Object.entries(lock.npm)
-    .filter((
-      // deno-lint-ignore no-explicit-any
-      [_key, val]: any,
-    ) => (val.os === undefined || val.os?.at(0) === "linux"))
+
+  // Process npm packages, separating JSR packages from regular npm packages
+  const npmEntries: Array<[string, any]> = !lock.npm
+    ? []
+    : Object.entries(lock.npm)
+      .filter((
+        // deno-lint-ignore no-explicit-any
+        [_key, val]: any,
+      ) => (val.os === undefined || val.os?.at(0) === "linux"));
+
+  // deno-lint-ignore no-explicit-any
+  const npmPkgs: Array<[Pkg, any]> = npmEntries
+    .filter(([key, _val]) => {
+      const r = key.match(/(^@?.+?)@([^_]+?)(?=_|$)/)!;
+      return !isJsrNpmPackage(r[1]);
+    })
     // deno-lint-ignore no-explicit-any
     .map(([key, val]: [string, any]) => {
       const r = key.match(/(^@?.+?)@([^_]+?)(?=_|$)/)!;
       const name = r[1].includes("/") ? r[1].split("/")[1] : r[1];
       const cpu = val.cpu?.at(0);
-      return {
-        module: r[1],
-        version: r[2],
-        name,
-        cpu: cpu === "x64" ? "x86_64" : cpu === "arm64" ? "aarch64" : cpu,
-      };
+      return [
+        {
+          module: r[1],
+          version: r[2],
+          name,
+          cpu: cpu === "x64" ? "x86_64" : cpu === "arm64" ? "aarch64" : cpu,
+        },
+        val,
+      ];
     });
-  //url: https://registry.npmjs.org/@napi-rs/cli/-/cli-2.18.4.tgz
-  npmPkgs;
+
+  // deno-lint-ignore no-explicit-any
+  const jsrNpmPkgs: Array<[Pkg, any]> = npmEntries
+    .filter(([key, _val]) => {
+      const r = key.match(/(^@?.+?)@([^_]+?)(?=_|$)/)!;
+      return isJsrNpmPackage(r[1]);
+    })
+    // deno-lint-ignore no-explicit-any
+    .map(([key, val]: [string, any]) => {
+      const r = key.match(/(^@?.+?)@([^_]+?)(?=_|$)/)!;
+      const name = r[1].includes("/") ? r[1].split("/")[1] : r[1];
+      const cpu = val.cpu?.at(0);
+      return [
+        {
+          module: r[1],
+          version: r[2],
+          name,
+          cpu: cpu === "x64" ? "x86_64" : cpu === "arm64" ? "aarch64" : cpu,
+        },
+        val,
+      ];
+    });
   const httpPkgsData = !lock.remote
     ? []
     : Object.entries(lock.remote).map(async ([urlStr, checksum]) => {
@@ -270,9 +404,14 @@ export async function main(
     await Promise.all(
       jsrPkgs.map((pkg) => jsrPkgToFlatpakData(pkg)),
     ).then((r) => r.flat()),
-    await Promise.all(npmPkgs.map((pkg) => npmPkgToFlatpakData(pkg))).then(
-      (r) => r.flat(),
-    ),
+    await Promise.all(
+      npmPkgs.map(([pkg, _lockData]) => npmPkgToFlatpakData(pkg)),
+    ).then((r) => r.flat()),
+    await Promise.all(
+      jsrNpmPkgs.map(([pkg, lockData]) =>
+        jsrNpmPkgToFlatpakData(pkg, lockData)
+      ),
+    ).then((r) => r.flat()),
     await Promise.all(httpPkgsData),
   ].flat();
   // console.log(flatpakData);
