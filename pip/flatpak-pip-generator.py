@@ -541,7 +541,7 @@ if opts.runtime:
         get_flatpak_runtime_scope(opts.runtime),
         "--devel",
         "--share=network",
-        "--filesystem=/tmp",
+        f"--filesystem={tempfile.gettempdir()}",
         f"--command={pip_executable}",
         "run",
         opts.runtime,
