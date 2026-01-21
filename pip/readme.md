@@ -5,6 +5,10 @@ package-name.
 
 This requires `requirements-parser` which can be installed on your host with `pip3 install --user requirements-parser`.
 
+Alternatively, this tool may be installed in an isolated Python environment using `pipx`:
+
+`pipx install git+https://github.com/flatpak/flatpak-builder-tools.git#subdirectory=pip`
+
 ## Usage
 
 `flatpak-pip-generator --runtime='org.freedesktop.Sdk//22.08' foo` which generates `python3-foo.json` and can be included in a manifest like:

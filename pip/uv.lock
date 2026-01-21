@@ -5,7 +5,7 @@ requires-python = ">=3.10, <4.0"
 [[package]]
 name = "flatpak-pip-generator"
 version = "0.0.1"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "packaging" },
     { name = "requirements-parser" },

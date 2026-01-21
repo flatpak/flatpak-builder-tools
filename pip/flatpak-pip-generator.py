@@ -28,7 +28,7 @@ import urllib.request
 from collections import OrderedDict
 from collections.abc import Iterator
 from contextlib import suppress
-from typing import Any, TextIO, Callable
+from typing import Any, BinaryIO, TextIO, Callable
 import operator
 from packaging.version import Version
 
@@ -36,6 +36,20 @@ try:
     import requirements
 except ImportError:
     sys.exit("Please install the 'requirements-parser' module")
+
+toml_load: Callable[[BinaryIO], Any] | None
+try:
+    from tomllib import load as toml_load  # type: ignore
+except ModuleNotFoundError:
+    try:
+        from tomli import load as toml_load  # type: ignore
+    except ModuleNotFoundError:
+        toml_load = None
+
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore
 
 parser = argparse.ArgumentParser()
 parser.add_argument("packages", nargs="*")
@@ -110,26 +124,6 @@ parser.add_argument(
         "(e.g. --ignore-pkg 'foo>=3.0.0' 'baz>=21.0')."
     ),
 )
-
-opts = parser.parse_args()
-
-if opts.requirements_file and opts.pyproject_file:
-    sys.exit("Can't use both requirements and pyproject files at the same time")
-
-if opts.pyproject_file:
-    try:
-        from tomllib import load as toml_load
-    except ModuleNotFoundError:
-        try:
-            from tomli import load as toml_load  # type: ignore
-        except ModuleNotFoundError:
-            sys.exit("Please install the 'tomli' module")
-
-if opts.yaml:
-    try:
-        import yaml
-    except ImportError:
-        sys.exit("Please install the 'PyYAML' module")
 
 
 def get_poetry_deps(pyproject_data: dict[str, Any]) -> list[str]:
@@ -440,459 +434,487 @@ def handle_req_env_markers(requirements_text: str) -> str:
     return "\n".join(filtered_lines)
 
 
-packages = []
-if opts.requirements_file:
-    requirements_file_input = os.path.expanduser(opts.requirements_file)
-    try:
-        with open(requirements_file_input) as in_req_file:
-            reqs = parse_continuation_lines(in_req_file)
-            reqs_as_str = handle_req_env_markers(
-                "\n".join([r.split("--hash")[0] for r in reqs])
-            )
-            reqs_list_raw = reqs_as_str.splitlines()
-            py_version_regex = re.compile(
-                r";.*python_version .+$"
-            )  # Remove when pip-generator can handle python_version
-            reqs_list = [py_version_regex.sub("", p) for p in reqs_list_raw]
-            if opts.ignore_pkg:
-                reqs_new = "\n".join(i for i in reqs_list if i not in opts.ignore_pkg)
-            else:
-                reqs_new = reqs_as_str
-            packages = list(requirements.parse(reqs_new))
-            with tempfile.NamedTemporaryFile(
-                "w", delete=False, prefix="requirements."
-            ) as temp_req_file:
-                temp_req_file.write(reqs_new)
-                requirements_file_output = temp_req_file.name
-    except FileNotFoundError as err:
-        print(err)
-        sys.exit(1)
+def main(argv: list[str] = sys.argv[1:]):
+    opts = parser.parse_args(argv)
 
-elif opts.pyproject_file:
-    pyproject_file = os.path.expanduser(opts.pyproject_file)
-    with open(pyproject_file, "rb") as f:
-        pyproject_data = toml_load(f)
-    is_poetry = pyproject_data.get("tool", {}).get("poetry") is not None
-    if is_poetry:
-        dependencies = get_poetry_deps(pyproject_data)
-    else:
-        dependencies = pyproject_data.get("project", {}).get("dependencies", [])
+    if opts.requirements_file and opts.pyproject_file:
+        sys.exit("Can’t use both requirements and pyproject files at the same time")
 
-    if not dependencies:
-        sys.exit("Pyproject file was specified but no dependencies were collected")
+    if opts.pyproject_file and toml_load is None:
+        sys.exit("Please install the 'tomli' module")
 
-    build_system_requires = pyproject_data.get("build-system", {}).get("requires", [])
-    if build_system_requires:
-        dependencies.extend(build_system_requires)
+    if opts.yaml and yaml is None:
+        sys.exit("Please install the 'PyYAML' module")
 
-    if opts.ignore_pkg:
-        print(dependencies)
-        print(opts.ignore_pkg)
-        dependencies = [
-            dep for dep in dependencies if dep.split(" ")[0] not in opts.ignore_pkg
-        ]
-
-    packages = list(requirements.parse("\n".join(dependencies)))
-
-    with tempfile.NamedTemporaryFile(
-        "w", delete=False, prefix="requirements."
-    ) as req_file:
-        req_file.write("\n".join(dependencies))
-        requirements_file_output = req_file.name
-
-elif opts.packages:
-    filtered_packages_str = handle_req_env_markers("\n".join(opts.packages))
-    packages = list(requirements.parse(filtered_packages_str))
-    with tempfile.NamedTemporaryFile(
-        "w", delete=False, prefix="requirements."
-    ) as req_file:
-        req_file.write(filtered_packages_str)
-        requirements_file_output = req_file.name
-elif not len(sys.argv) > 1:
-    sys.exit("Please specifiy either packages or requirements file argument")
-else:
-    sys.exit("This option can only be used with requirements file")
-
-for i in packages:
-    if i["name"].lower().startswith("pyqt"):
-        print("PyQt packages are not supported by flapak-pip-generator")
-        print("However, there is a BaseApp for PyQt available, that you should use")
-        print(
-            "Visit https://github.com/flathub/com.riverbankcomputing.PyQt.BaseApp "
-            "for more information"
-        )
-        sys.exit(0)
-
-with open(requirements_file_output) as in_req_file:
-    use_hash = "--hash=" in in_req_file.read()
-
-python_version = "2" if opts.python2 else "3"
-pip_executable = "pip2" if opts.python2 else "pip3"
-
-if opts.runtime:
-    parts = opts.runtime.split("//", 1)
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        sys.exit(
-            "Runtime argument must be in the following format: $RUNTIME_ID//$RUNTIME_BRANCH"
-        )
-
-    flatpak_cmd = [
-        "flatpak",
-        get_flatpak_runtime_scope(opts.runtime),
-        "--devel",
-        "--share=network",
-        f"--filesystem={tempfile.gettempdir()}",
-        f"--command={pip_executable}",
-        "run",
-        opts.runtime,
-    ]
-    if opts.requirements_file and os.path.exists(requirements_file_output):
-        prefix = os.path.realpath(requirements_file_output)
-        flag = f"--filesystem={prefix}"
-        flatpak_cmd.insert(1, flag)
-else:
-    flatpak_cmd = [pip_executable]
-
-output_path = ""
-output_package = ""
-
-if opts.output:
-    if os.path.isdir(opts.output):
-        output_path = opts.output
-    else:
-        output_path = os.path.dirname(opts.output)
-        output_package = os.path.basename(opts.output)
-
-if not output_package:
+    packages = []
     if opts.requirements_file:
-        output_package = "python{}-{}".format(
-            python_version,
-            os.path.basename(opts.requirements_file).replace(".txt", ""),
-        )
-    elif len(packages) == 1:
-        output_package = f"python{python_version}-{packages[0].name}"
-    else:
-        output_package = f"python{python_version}-modules"
-
-output_filename = os.path.join(output_path, output_package)
-suffix = ".yaml" if opts.yaml else ".json"
-if not output_filename.endswith(suffix):
-    output_filename += suffix
-
-modules: list[dict[str, str | list[str] | list[dict[str, Any]]]] = []
-vcs_modules: list[dict[str, str | list[str] | list[dict[str, Any]]]] = []
-sources = {}
-
-unresolved_dependencies_errors = []
-
-tempdir_prefix = f"pip-generator-{output_package}"
-with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
-    pip_download = [
-        *flatpak_cmd,
-        "download",
-        "--exists-action=i",
-        "--dest",
-        tempdir,
-        "-r",
-        requirements_file_output,
-    ]
-    if use_hash:
-        pip_download.append("--require-hashes")
-
-    fprint("Downloading sources")
-    cmd = " ".join(pip_download)
-    print(f'Running: "{cmd}"')
-    try:
-        subprocess.run(pip_download, check=True)
-        os.remove(requirements_file_output)
-    except subprocess.CalledProcessError:
-        os.remove(requirements_file_output)
-        print("Failed to download")
-        print("Please fix the module manually in the generated file")
-        if not opts.ignore_errors:
-            print("Ignore the error by passing --ignore-errors")
-            raise
-
-        with suppress(FileNotFoundError):
-            os.remove(requirements_file_output)
-
-    fprint("Downloading arch independent packages")
-    for filename in os.listdir(tempdir):
-        if not filename.endswith(("bz2", "any.whl", "gz", "xz", "zip")):
-            version = get_file_version(filename)
-            name = get_package_name(filename)
-            try:
-                url = get_tar_package_url_pypi(name, version)
-                print(f"Downloading {url}")
-                download_tar_pypi(url, tempdir)
-            except Exception as err:
-                # Can happen if only an arch dependent wheel is
-                # available like for wasmtime-27.0.2
-                unresolved_dependencies_errors.append(err)
-            print("Deleting", filename)
-            with suppress(FileNotFoundError):
-                os.remove(os.path.join(tempdir, filename))
-
-    files: dict[str, list[str]] = {get_package_name(f): [] for f in os.listdir(tempdir)}
-
-    for filename in os.listdir(tempdir):
-        name = get_package_name(filename)
-        files[name].append(filename)
-
-    # Delete redundant sources, for vcs sources
-    for name, files_list in files.items():
-        if len(files_list) > 1:
-            zip_source = False
-            for fname in files[name]:
-                if fname.endswith(".zip"):
-                    zip_source = True
-            if zip_source:
-                for fname in files[name]:
-                    if not fname.endswith(".zip"):
-                        with suppress(FileNotFoundError):
-                            os.remove(os.path.join(tempdir, fname))
-
-    vcs_packages: dict[str, dict[str, str | None]] = {
-        str(x.name): {"vcs": x.vcs, "revision": x.revision, "uri": x.uri}
-        for x in packages
-        if x.vcs and x.name
-    }
-
-    fprint("Obtaining hashes and urls")
-    for filename in os.listdir(tempdir):
-        source: OrderedDict[str, str | dict[str, str]] = OrderedDict()
-        name = get_package_name(filename)
-        sha256 = get_file_hash(os.path.join(tempdir, filename))
-        is_pypi = False
-
-        if name in vcs_packages:
-            uri = vcs_packages[name]["uri"]
-            if not uri:
-                raise ValueError(f"Missing URI for VCS package: {name}")
-            revision = vcs_packages[name]["revision"]
-            vcs = vcs_packages[name]["vcs"]
-            if not vcs:
-                raise ValueError(
-                    f"Unable to determine VCS type for VCS package: {name}"
+        requirements_file_input = os.path.expanduser(opts.requirements_file)
+        try:
+            with open(requirements_file_input) as in_req_file:
+                reqs = parse_continuation_lines(in_req_file)
+                reqs_as_str = handle_req_env_markers(
+                    "\n".join([r.split("--hash")[0] for r in reqs])
                 )
-            url = "https://" + uri.split("://", 1)[1]
-            s = "commit"
-            if vcs == "svn":
-                s = "revision"
-            source["type"] = vcs
-            source["url"] = url
-            if revision:
-                source[s] = revision
-            is_vcs = True
+                reqs_list_raw = reqs_as_str.splitlines()
+                py_version_regex = re.compile(
+                    r";.*python_version .+$"
+                )  # Remove when pip-generator can handle python_version
+                reqs_list = [py_version_regex.sub("", p) for p in reqs_list_raw]
+                if opts.ignore_pkg:
+                    reqs_new = "\n".join(
+                        i for i in reqs_list if i not in opts.ignore_pkg
+                    )
+                else:
+                    reqs_new = reqs_as_str
+                packages = list(requirements.parse(reqs_new))
+                with tempfile.NamedTemporaryFile(
+                    "w", delete=False, prefix="requirements."
+                ) as temp_req_file:
+                    temp_req_file.write(reqs_new)
+                    requirements_file_output = temp_req_file.name
+        except FileNotFoundError as err:
+            sys.exit(f"Can’t open requirements file “{opts.requirements_file}”: {err}")
+
+    elif opts.pyproject_file:
+        assert toml_load is not None
+
+        pyproject_file = os.path.expanduser(opts.pyproject_file)
+        with open(pyproject_file, "rb") as f:
+            pyproject_data = toml_load(f)
+        is_poetry = pyproject_data.get("tool", {}).get("poetry") is not None
+        if is_poetry:
+            dependencies = get_poetry_deps(pyproject_data)
         else:
-            name = name.casefold()
-            is_pypi = True
-            url = get_pypi_url(name, filename)
-            source["type"] = "file"
-            source["url"] = url
-            source["sha256"] = sha256
-            if opts.checker_data:
-                checker_data = {"type": "pypi", "name": name}
-                if url.endswith(".whl"):
-                    checker_data["packagetype"] = "bdist_wheel"
-                source["x-checker-data"] = checker_data
-            is_vcs = False
-        sources[name] = {"source": source, "vcs": is_vcs, "pypi": is_pypi}
+            dependencies = pyproject_data.get("project", {}).get("dependencies", [])
 
-# Python3 packages that come as part of org.freedesktop.Sdk.
-system_packages = [
-    "cython",
-    "mako",
-    "markdown",
-    "meson",
-    "packaging",
-    "pip",
-    "setuptools",
-    "wheel",
-]
+        if not dependencies:
+            sys.exit("Pyproject file was specified but no dependencies were collected")
 
-fprint("Generating dependencies")
-for package in packages:
-    if package.name is None:
-        print(
-            f"Warning: skipping invalid requirement specification {package.line} "
-            "because it is missing a name",
-            file=sys.stderr,
+        build_system_requires = pyproject_data.get("build-system", {}).get(
+            "requires", []
         )
-        print(
-            "Append #egg=<pkgname> to the end of the requirement line to fix",
-            file=sys.stderr,
-        )
-        continue
-    elif (
-        not opts.python2
-        and package.name.casefold() in system_packages
-        and package.name.casefold() not in opts.ignore_installed
-    ):
-        print(f"{package.name} is in system_packages. Skipping.")
-        continue
+        if build_system_requires:
+            dependencies.extend(build_system_requires)
 
-    if len(package.extras) > 0:
-        extras = "[" + ",".join(extra for extra in package.extras) + "]"
+        if opts.ignore_pkg:
+            print(dependencies)
+            print(opts.ignore_pkg)
+            dependencies = [
+                dep for dep in dependencies if dep.split(" ")[0] not in opts.ignore_pkg
+            ]
+
+        packages = list(requirements.parse("\n".join(dependencies)))
+
+        with tempfile.NamedTemporaryFile(
+            "w", delete=False, prefix="requirements."
+        ) as req_file:
+            req_file.write("\n".join(dependencies))
+            requirements_file_output = req_file.name
+
+    elif opts.packages:
+        filtered_packages_str = handle_req_env_markers("\n".join(opts.packages))
+        packages = list(requirements.parse(filtered_packages_str))
+        with tempfile.NamedTemporaryFile(
+            "w", delete=False, prefix="requirements."
+        ) as req_file:
+            req_file.write(filtered_packages_str)
+            requirements_file_output = req_file.name
+    elif not len(sys.argv) > 1:
+        sys.exit("Please specifiy either packages or requirements file argument")
     else:
-        extras = ""
+        sys.exit("This option can only be used with requirements file")
 
-    version_list = [x[0] + x[1] for x in package.specs]
-    version = ",".join(version_list)
+    for i in packages:
+        if i["name"].lower().startswith("pyqt"):
+            print("PyQt packages are not supported by flapak-pip-generator")
+            print("However, there is a BaseApp for PyQt available, that you should use")
+            print(
+                "Visit https://github.com/flathub/com.riverbankcomputing.PyQt.BaseApp "
+                "for more information"
+            )
+            sys.exit(0)
 
-    if package.vcs:
-        revision = ""
-        if package.revision:
-            revision = "@" + package.revision
-        pkg = package.uri + revision + "#egg=" + package.name
+    with open(requirements_file_output) as in_req_file:
+        use_hash = "--hash=" in in_req_file.read()
+
+    python_version = "2" if opts.python2 else "3"
+    pip_executable = "pip2" if opts.python2 else "pip3"
+
+    if opts.runtime:
+        parts = opts.runtime.split("//", 1)
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            sys.exit(
+                "Runtime argument must be in the following format: $RUNTIME_ID//$RUNTIME_BRANCH"
+            )
+
+        flatpak_cmd = [
+            "flatpak",
+            get_flatpak_runtime_scope(opts.runtime),
+            "--devel",
+            "--share=network",
+            f"--filesystem={tempfile.gettempdir()}",
+            f"--command={pip_executable}",
+            "run",
+            opts.runtime,
+        ]
+        if opts.requirements_file and os.path.exists(requirements_file_output):
+            prefix = os.path.realpath(requirements_file_output)
+            flag = f"--filesystem={prefix}"
+            flatpak_cmd.insert(1, flag)
     else:
-        pkg = package.name + extras + version
+        flatpak_cmd = [pip_executable]
 
-    dependencies = []
-    # Downloads the package again to list dependencies
+    output_path = ""
+    output_package = ""
 
-    tempdir_prefix = f"pip-generator-{package.name}"
-    with tempfile.TemporaryDirectory(
-        prefix=f"{tempdir_prefix}-{package.name}"
-    ) as tempdir:
+    if opts.output:
+        if os.path.isdir(opts.output):
+            output_path = opts.output
+        else:
+            output_path = os.path.dirname(opts.output)
+            output_package = os.path.basename(opts.output)
+
+    if not output_package:
+        if opts.requirements_file:
+            output_package = "python{}-{}".format(
+                python_version,
+                os.path.basename(opts.requirements_file).replace(".txt", ""),
+            )
+        elif len(packages) == 1:
+            output_package = f"python{python_version}-{packages[0].name}"
+        else:
+            output_package = f"python{python_version}-modules"
+
+    output_filename = os.path.join(output_path, output_package)
+    suffix = ".yaml" if opts.yaml else ".json"
+    if not output_filename.endswith(suffix):
+        output_filename += suffix
+
+    modules: list[dict[str, str | list[str] | list[dict[str, Any]]]] = []
+    vcs_modules: list[dict[str, str | list[str] | list[dict[str, Any]]]] = []
+    sources = {}
+
+    unresolved_dependencies_errors = []
+
+    tempdir_prefix = f"pip-generator-{output_package}"
+    with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
         pip_download = [
             *flatpak_cmd,
             "download",
             "--exists-action=i",
             "--dest",
             tempdir,
+            "-r",
+            requirements_file_output,
         ]
+        if use_hash:
+            pip_download.append("--require-hashes")
+
+        fprint("Downloading sources")
+        cmd = " ".join(pip_download)
+        print(f'Running: "{cmd}"')
         try:
-            print(f"Generating dependencies for {package.name}")
-            subprocess.run([*pip_download, pkg], check=True, stdout=subprocess.DEVNULL)
-            for filename in sorted(os.listdir(tempdir)):
-                dep_name = get_package_name(filename)
-                if (
-                    dep_name.casefold() in system_packages
-                    and dep_name.casefold() not in opts.ignore_installed
-                ):
-                    continue
-                dependencies.append(dep_name)
-
+            subprocess.run(pip_download, check=True)
+            os.remove(requirements_file_output)
         except subprocess.CalledProcessError:
-            print(f"Failed to download {package.name}")
+            os.remove(requirements_file_output)
+            print("Failed to download")
+            print("Please fix the module manually in the generated file")
+            if not opts.ignore_errors:
+                print("Ignore the error by passing --ignore-errors")
+                raise
 
-    is_vcs = bool(package.vcs)
-    package_sources = []
-    for dependency in dependencies:
-        casefolded = dependency.casefold()
-        if casefolded in sources and sources[casefolded].get("pypi") is True:
-            source = sources[casefolded]
-        elif dependency in sources and sources[dependency].get("pypi") is False:
-            source = sources[dependency]
-        elif (
-            casefolded.replace("_", "-") in sources
-            and sources[casefolded.replace("_", "-")].get("pypi") is True
-        ):
-            source = sources[casefolded.replace("_", "-")]
-        elif (
-            dependency.replace("_", "-") in sources
-            and sources[dependency.replace("_", "-")].get("pypi") is False
-        ):
-            source = sources[dependency.replace("_", "-")]
-        else:
-            continue
+            with suppress(FileNotFoundError):
+                os.remove(requirements_file_output)
 
-        if not (not source["vcs"] or is_vcs):
-            continue
+        fprint("Downloading arch independent packages")
+        for filename in os.listdir(tempdir):
+            if not filename.endswith(("bz2", "any.whl", "gz", "xz", "zip")):
+                version = get_file_version(filename)
+                name = get_package_name(filename)
+                try:
+                    url = get_tar_package_url_pypi(name, version)
+                    print(f"Downloading {url}")
+                    download_tar_pypi(url, tempdir)
+                except Exception as err:
+                    # Can happen if only an arch dependent wheel is
+                    # available like for wasmtime-27.0.2
+                    unresolved_dependencies_errors.append(err)
+                print("Deleting", filename)
+                with suppress(FileNotFoundError):
+                    os.remove(os.path.join(tempdir, filename))
 
-        package_sources.append(source["source"])
+        files: dict[str, list[str]] = {
+            get_package_name(f): [] for f in os.listdir(tempdir)
+        }
 
-    name_for_pip = "." if package.vcs else pkg
+        for filename in os.listdir(tempdir):
+            name = get_package_name(filename)
+            files[name].append(filename)
 
-    module_name = f"python{python_version}-{package.name}"
+        # Delete redundant sources, for vcs sources
+        for name, files_list in files.items():
+            if len(files_list) > 1:
+                zip_source = False
+                for fname in files[name]:
+                    if fname.endswith(".zip"):
+                        zip_source = True
+                if zip_source:
+                    for fname in files[name]:
+                        if not fname.endswith(".zip"):
+                            with suppress(FileNotFoundError):
+                                os.remove(os.path.join(tempdir, fname))
 
-    pip_command = [
-        pip_executable,
-        "install",
-        "--verbose",
-        "--exists-action=i",
-        "--no-index",
-        '--find-links="file://${PWD}"',
-        "--prefix=${FLATPAK_DEST}",
-        f'"{name_for_pip}"',
+        vcs_packages: dict[str, dict[str, str | None]] = {
+            str(x.name): {"vcs": x.vcs, "revision": x.revision, "uri": x.uri}
+            for x in packages
+            if x.vcs and x.name
+        }
+
+        fprint("Obtaining hashes and urls")
+        for filename in os.listdir(tempdir):
+            source: OrderedDict[str, str | dict[str, str]] = OrderedDict()
+            name = get_package_name(filename)
+            sha256 = get_file_hash(os.path.join(tempdir, filename))
+            is_pypi = False
+
+            if name in vcs_packages:
+                uri = vcs_packages[name]["uri"]
+                if not uri:
+                    raise ValueError(f"Missing URI for VCS package: {name}")
+                revision = vcs_packages[name]["revision"]
+                vcs = vcs_packages[name]["vcs"]
+                if not vcs:
+                    raise ValueError(
+                        f"Unable to determine VCS type for VCS package: {name}"
+                    )
+                url = "https://" + uri.split("://", 1)[1]
+                s = "commit"
+                if vcs == "svn":
+                    s = "revision"
+                source["type"] = vcs
+                source["url"] = url
+                if revision:
+                    source[s] = revision
+                is_vcs = True
+            else:
+                name = name.casefold()
+                is_pypi = True
+                url = get_pypi_url(name, filename)
+                source["type"] = "file"
+                source["url"] = url
+                source["sha256"] = sha256
+                if opts.checker_data:
+                    checker_data = {"type": "pypi", "name": name}
+                    if url.endswith(".whl"):
+                        checker_data["packagetype"] = "bdist_wheel"
+                    source["x-checker-data"] = checker_data
+                is_vcs = False
+            sources[name] = {"source": source, "vcs": is_vcs, "pypi": is_pypi}
+
+    # Python3 packages that come as part of org.freedesktop.Sdk.
+    system_packages = [
+        "cython",
+        "mako",
+        "markdown",
+        "meson",
+        "packaging",
+        "pip",
+        "setuptools",
+        "wheel",
     ]
-    if package.name in opts.ignore_installed:
-        pip_command.append("--ignore-installed")
-    if not opts.build_isolation:
-        pip_command.append("--no-build-isolation")
 
-    module = OrderedDict(
-        [
-            ("name", module_name),
-            ("buildsystem", "simple"),
-            ("build-commands", [" ".join(pip_command)]),
-            ("sources", package_sources),
+    fprint("Generating dependencies")
+    for package in packages:
+        if package.name is None:
+            print(
+                f"Warning: skipping invalid requirement specification {package.line} "
+                "because it is missing a name",
+                file=sys.stderr,
+            )
+            print(
+                "Append #egg=<pkgname> to the end of the requirement line to fix",
+                file=sys.stderr,
+            )
+            continue
+        elif (
+            not opts.python2
+            and package.name.casefold() in system_packages
+            and package.name.casefold() not in opts.ignore_installed
+        ):
+            print(f"{package.name} is in system_packages. Skipping.")
+            continue
+
+        if len(package.extras) > 0:
+            extras = "[" + ",".join(extra for extra in package.extras) + "]"
+        else:
+            extras = ""
+
+        version_list = [x[0] + x[1] for x in package.specs]
+        version = ",".join(version_list)
+
+        if package.vcs:
+            revision = ""
+            if package.revision:
+                revision = "@" + package.revision
+            pkg = package.uri + revision + "#egg=" + package.name
+        else:
+            pkg = package.name + extras + version
+
+        dependencies = []
+        # Downloads the package again to list dependencies
+
+        tempdir_prefix = f"pip-generator-{package.name}"
+        with tempfile.TemporaryDirectory(
+            prefix=f"{tempdir_prefix}-{package.name}"
+        ) as tempdir:
+            pip_download = [
+                *flatpak_cmd,
+                "download",
+                "--exists-action=i",
+                "--dest",
+                tempdir,
+            ]
+            try:
+                print(f"Generating dependencies for {package.name}")
+                subprocess.run(
+                    [*pip_download, pkg], check=True, stdout=subprocess.DEVNULL
+                )
+                for filename in sorted(os.listdir(tempdir)):
+                    dep_name = get_package_name(filename)
+                    if (
+                        dep_name.casefold() in system_packages
+                        and dep_name.casefold() not in opts.ignore_installed
+                    ):
+                        continue
+                    dependencies.append(dep_name)
+
+            except subprocess.CalledProcessError:
+                print(f"Failed to download {package.name}")
+
+        is_vcs = bool(package.vcs)
+        package_sources = []
+        for dependency in dependencies:
+            casefolded = dependency.casefold()
+            if casefolded in sources and sources[casefolded].get("pypi") is True:
+                source = sources[casefolded]
+            elif dependency in sources and sources[dependency].get("pypi") is False:
+                source = sources[dependency]
+            elif (
+                casefolded.replace("_", "-") in sources
+                and sources[casefolded.replace("_", "-")].get("pypi") is True
+            ):
+                source = sources[casefolded.replace("_", "-")]
+            elif (
+                dependency.replace("_", "-") in sources
+                and sources[dependency.replace("_", "-")].get("pypi") is False
+            ):
+                source = sources[dependency.replace("_", "-")]
+            else:
+                continue
+
+            if not (not source["vcs"] or is_vcs):
+                continue
+
+            package_sources.append(source["source"])
+
+        name_for_pip = "." if package.vcs else pkg
+
+        module_name = f"python{python_version}-{package.name}"
+
+        pip_command = [
+            pip_executable,
+            "install",
+            "--verbose",
+            "--exists-action=i",
+            "--no-index",
+            '--find-links="file://${PWD}"',
+            "--prefix=${FLATPAK_DEST}",
+            f'"{name_for_pip}"',
         ]
-    )
-    if opts.cleanup == "all":
-        module["cleanup"] = ["*"]
-    elif opts.cleanup == "scripts":
-        module["cleanup"] = ["/bin", "/share/man/man1"]
+        if package.name in opts.ignore_installed:
+            pip_command.append("--ignore-installed")
+        if not opts.build_isolation:
+            pip_command.append("--no-build-isolation")
 
-    if package.vcs:
-        vcs_modules.append(module)
-    else:
-        modules.append(module)
-
-modules = vcs_modules + modules
-if len(modules) == 1:
-    pypi_module = modules[0]
-else:
-    pypi_module = {
-        "name": output_package,
-        "buildsystem": "simple",
-        "build-commands": [],
-        "modules": modules,
-    }
-
-print()
-with open(output_filename, "w") as output:
-    if opts.yaml:
-
-        class OrderedDumper(yaml.Dumper):
-            def increase_indent(
-                self, flow: bool = False, indentless: bool = False
-            ) -> None:
-                return super().increase_indent(flow, indentless)
-
-        def dict_representer(
-            dumper: yaml.Dumper, data: OrderedDict[str, Any]
-        ) -> yaml.nodes.MappingNode:
-            return dumper.represent_dict(data.items())
-
-        OrderedDumper.add_representer(OrderedDict, dict_representer)
-
-        output.write(
-            "# Generated with flatpak-pip-generator " + " ".join(sys.argv[1:]) + "\n"
+        module = OrderedDict(
+            [
+                ("name", module_name),
+                ("buildsystem", "simple"),
+                ("build-commands", [" ".join(pip_command)]),
+                ("sources", package_sources),
+            ]
         )
-        yaml.dump(pypi_module, output, Dumper=OrderedDumper)
+        if opts.cleanup == "all":
+            module["cleanup"] = ["*"]
+        elif opts.cleanup == "scripts":
+            module["cleanup"] = ["/bin", "/share/man/man1"]
+
+        if package.vcs:
+            vcs_modules.append(module)
+        else:
+            modules.append(module)
+
+    modules = vcs_modules + modules
+    if len(modules) == 1:
+        pypi_module = modules[0]
     else:
-        output.write(json.dumps(pypi_module, indent=4) + "\n")
-    print(f"Output saved to {output_filename}")
+        pypi_module = {
+            "name": output_package,
+            "buildsystem": "simple",
+            "build-commands": [],
+            "modules": modules,
+        }
 
-if len(unresolved_dependencies_errors) != 0:
-    print("Unresolved dependencies. Handle them manually")
-    for e in unresolved_dependencies_errors:
-        print(f"- ERROR: {e}")
+    print()
+    with open(output_filename, "w") as output:
+        if opts.yaml:
+            assert yaml is not None
 
-    workaround = """Example on how to handle arch dependent wheels:
-    - type: file
-      url: https://files.pythonhosted.org/packages/79/ae/7e5b85136806f9dadf4878bf73cf223fe5c2636818ba3ab1c585d0403164/numpy-1.26.4-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
-      sha256: 7ab55401287bfec946ced39700c053796e7cc0e3acbef09993a9ad2adba6ca6e
-      only-arches:
-      - aarch64
-    - type: file
-      url: https://files.pythonhosted.org/packages/3a/d0/edc009c27b406c4f9cbc79274d6e46d634d139075492ad055e3d68445925/numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-      sha256: 666dbfb6ec68962c033a450943ded891bed2d54e6755e35e5835d63f4f6931d5
-      only-arches:
-      - x86_64
-    """
-    raise Exception(
-        f"Not all dependencies can be determined. Handle them manually.\n{workaround}"
-    )
+            class OrderedDumper(yaml.Dumper):
+                def increase_indent(
+                    self, flow: bool = False, indentless: bool = False
+                ) -> None:
+                    return super().increase_indent(flow, indentless)
+
+            def dict_representer(
+                dumper: yaml.Dumper, data: OrderedDict[str, Any]
+            ) -> yaml.nodes.MappingNode:
+                return dumper.represent_dict(data.items())
+
+            OrderedDumper.add_representer(OrderedDict, dict_representer)
+
+            output.write(
+                "# Generated with flatpak-pip-generator "
+                + " ".join(sys.argv[1:])
+                + "\n"
+            )
+            yaml.dump(pypi_module, output, Dumper=OrderedDumper)
+        else:
+            output.write(json.dumps(pypi_module, indent=4) + "\n")
+        print(f"Output saved to {output_filename}")
+
+    if len(unresolved_dependencies_errors) != 0:
+        print("Unresolved dependencies. Handle them manually")
+        for e in unresolved_dependencies_errors:
+            print(f"- ERROR: {e}")
+
+        workaround = """Example on how to handle arch dependent wheels:
+        - type: file
+          url: https://files.pythonhosted.org/packages/79/ae/7e5b85136806f9dadf4878bf73cf223fe5c2636818ba3ab1c585d0403164/numpy-1.26.4-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+          sha256: 7ab55401287bfec946ced39700c053796e7cc0e3acbef09993a9ad2adba6ca6e
+          only-arches:
+          - aarch64
+        - type: file
+          url: https://files.pythonhosted.org/packages/3a/d0/edc009c27b406c4f9cbc79274d6e46d634d139075492ad055e3d68445925/numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+          sha256: 666dbfb6ec68962c033a450943ded891bed2d54e6755e35e5835d63f4f6931d5
+          only-arches:
+          - x86_64
+        """
+        raise Exception(
+            f"Not all dependencies can be determined. Handle them manually.\n{workaround}"
+        )
+
+
+if __name__ == "__main__":
+    main()

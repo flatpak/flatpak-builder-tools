@@ -1,5 +1,9 @@
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
+
 [project]
-name = "flatpak_pip_generator"
+name = "flatpak-pip-generator"
 version = "0.0.1"
 description = "Tool to automatically generate flatpak-builder manifest for pip modules"
 license = {text = "MIT"}
@@ -13,6 +17,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/flatpak/flatpak-builder-tools/tree/master/pip"
 Repository = "https://github.com/flatpak/flatpak-builder-tools.git"
+
+[project.scripts]
+flatpak-pip-generator = "flatpak_pip_generator:main"
 
 [dependency-groups]
 dev = [
