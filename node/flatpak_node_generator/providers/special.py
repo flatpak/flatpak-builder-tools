@@ -303,11 +303,22 @@ class SpecialSourceProvider:
             return match.group(1)
 
         tag = await get_ripgrep_tag(package.version)
+
+        # vscode-ripgrep switched from -gnu to -musl for aarch64 in v1.13.0
+        use_gnu_aarch64 = SemVer.parse(package.version) < SemVer.parse('1.13.0')
+
         ripgrep_arch_map = {
             'x86_64': 'x86_64-unknown-linux-musl',
             'i386': 'i686-unknown-linux-musl',
             'arm': 'arm-unknown-linux-gnueabihf',
-            'aarch64': 'aarch64-unknown-linux-gnu',
+            'aarch64': (
+                'aarch64-unknown-linux-gnu'
+                if use_gnu_aarch64
+                else 'aarch64-unknown-linux-musl'
+            ),
+            'ppc64': 'powerpc64le-unknown-linux-gnu',
+            'riscv64': 'riscv64gc-unknown-linux-gnu',
+            's390x': 's390x-unknown-linux-gnu',
         }
         destdir = self.gen.data_root / 'tmp' / f'vscode-ripgrep-cache-{package.version}'
         for arch, ripgrep_arch in ripgrep_arch_map.items():
