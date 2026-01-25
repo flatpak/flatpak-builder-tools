@@ -55,6 +55,12 @@ parser.add_argument(
     help="Specify pyproject.toml file. Cannot be used with requirements file.",
 )
 parser.add_argument(
+    "--optdep-groups",
+    nargs="*",
+    metavar="GROUP",
+    help="Specify optional dependency groups to include. Can only be used with pyproject file.",
+)
+parser.add_argument(
     "--build-only",
     action="store_const",
     dest="cleanup",
@@ -115,6 +121,9 @@ opts = parser.parse_args()
 
 if opts.requirements_file and opts.pyproject_file:
     sys.exit("Can't use both requirements and pyproject files at the same time")
+
+if opts.requirements_file and opts.optdep_groups:
+    sys.exit("Can only use optional dependency groups with pyproject file")
 
 if opts.pyproject_file:
     try:
@@ -477,6 +486,16 @@ elif opts.pyproject_file:
         dependencies = get_poetry_deps(pyproject_data)
     else:
         dependencies = pyproject_data.get("project", {}).get("dependencies", [])
+        if opts.optdep_groups:
+            pyproject_optdep_groups = pyproject_data.get("project", {}).get(
+                "optional-dependencies", []
+            )
+            for group in opts.optdep_groups:
+                if group not in pyproject_optdep_groups:
+                    sys.exit(
+                        f"Optional dependency group {group} not found in pyproject file"
+                    )
+                dependencies += pyproject_optdep_groups[group]
 
     if not dependencies:
         sys.exit("Pyproject file was specified but no dependencies were collected")
