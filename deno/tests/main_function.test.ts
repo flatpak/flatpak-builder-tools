@@ -122,7 +122,7 @@ Deno.test("main function: handles JSR packages via npm.jsr.io", async () => {
     // Check that JSR packages are handled correctly
     // Should have entries for @jsr/sigma__deno-compat
     const jsrNpmEntries = sources.filter((s: any) =>
-      s.dest && s.dest.includes("npm.jsr.io")
+      s.dest && s.dest.startsWith("deno_dir/npm/npm.jsr.io")
     );
     assert(
       jsrNpmEntries.length > 0,
@@ -145,7 +145,8 @@ Deno.test("main function: handles JSR packages via npm.jsr.io", async () => {
 
     // Verify tarball URL points to npm.jsr.io
     assert(
-      denoCompatEntry.url && denoCompatEntry.url.includes("npm.jsr.io"),
+      denoCompatEntry.url &&
+        new URL(denoCompatEntry.url).hostname === "npm.jsr.io",
       "Tarball URL should point to npm.jsr.io",
     );
   } finally {
