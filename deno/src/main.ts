@@ -326,10 +326,12 @@ export async function npmPkgToFlatpakData(pkg: Pkg): Promise<FlatpakData[]> {
  * and writes the resulting FlatpakData array to an output JSON file.
  * @param lockPath Path to the Deno lock file.
  * @param outputPath Path to the output JSON file for Flatpak sources. Defaults to "deno-sources.json".
+ * @param allOs If true, include all packages regardless of target OS. Defaults to false.
  */
 export async function main(
   lockPath: string,
   outputPath: string = "deno-sources.json",
+  allOs: boolean = false,
 ) {
   const lock = JSON.parse(Deno.readTextFileSync(lockPath));
   if (lock.version !== "5") {
@@ -351,7 +353,7 @@ export async function main(
       .filter((
         // deno-lint-ignore no-explicit-any
         [_key, val]: any,
-      ) => (val.os === undefined || val.os?.at(0) === "linux"));
+      ) => (allOs || val.os === undefined || val.os?.at(0) === "linux"));
 
   // deno-lint-ignore no-explicit-any
   const npmPkgs: Array<[Pkg, any]> = npmEntries
@@ -440,11 +442,12 @@ if (import.meta.main) {
   const lockPath = args[0];
   if (!lockPath) {
     console.error(
-      "Usage: deno run -RN -W=. <this_script> <path-to-lock-file> [--output <output-file>]",
+      "Usage: deno run -RN -W=. <this_script> <path-to-lock-file> [--output <output-file>] [--all-os]",
     );
     console.error(
       `Examples:
      - deno run -RN -W=. main.ts deno.lock
+     - deno run -RN -W=. main.ts deno.lock --all-os
      - deno run -RN -W=. jsr:@flatpak-contrib/flatpak-deno-generator deno.lock --output sources.json`,
     );
     Deno.exit(1);
@@ -452,5 +455,6 @@ if (import.meta.main) {
   const outputFile = args.includes("--output")
     ? args[args.indexOf("--output") + 1]
     : "deno-sources.json";
-  await main(lockPath, outputFile);
+  const allOs = args.includes("--all-os");
+  await main(lockPath, outputFile, allOs);
 }
