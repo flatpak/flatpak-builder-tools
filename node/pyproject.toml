@@ -11,6 +11,7 @@ authors = [
 requires-python = "<4.0,>=3.9"
 dependencies = [
     "aiohttp<4.0.0,>=3.9.0",
+    "pyyaml<7.0,>=6.0",
 ]
 
 [tool.poetry.group.dev.dependencies]
