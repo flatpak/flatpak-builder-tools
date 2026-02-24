@@ -1,3 +1,4 @@
+import json
 import re
 import types
 from pathlib import Path
@@ -5,6 +6,7 @@ from typing import (
     Any,
     Dict,
     Iterator,
+    List,
     NamedTuple,
     Optional,
     Tuple,
@@ -27,6 +29,12 @@ from . import LockfileProvider, ModuleProvider
 from .special import SpecialSourceProvider
 
 _SUPPORTED_V6_VERSIONS = ('6', '7')
+
+# All currently supported lockfile versions (v6/v7/v9) use store v10.
+# Needs to be updated when a new pnpm major changes the store layout
+_STORE_VERSION = 'v10'
+
+_POPULATE_STORE_SCRIPT = Path(__file__).parents[1] / 'populate_pnpm_store.py'
 
 
 class PnpmLockfileProvider(LockfileProvider):
@@ -143,6 +151,12 @@ class PnpmModuleProvider(ModuleProvider):
     class Options(NamedTuple):
         registry: str
 
+    class _TarballInfo(NamedTuple):
+        tarball_name: str
+        name: str
+        version: str
+        integrity: Integrity
+
     def __init__(
         self,
         gen: ManifestGenerator,
@@ -156,6 +170,7 @@ class PnpmModuleProvider(ModuleProvider):
         self.registry = options.registry
         self.tarball_dir = self.gen.data_root / 'pnpm-tarballs'
         self.store_dir = self.gen.data_root / 'pnpm-store'
+        self._tarballs: List[PnpmModuleProvider._TarballInfo] = []
 
     def __exit__(
         self,
@@ -180,6 +195,14 @@ class PnpmModuleProvider(ModuleProvider):
                 integrity=source.integrity,
                 destination=self.tarball_dir / tarball_name,
             )
+            self._tarballs.append(
+                self._TarballInfo(
+                    tarball_name=tarball_name,
+                    name=package.name,
+                    version=package.version,
+                    integrity=source.integrity,
+                )
+            )
 
             await self.special_source_provider.generate_special_sources(package)
 
@@ -195,3 +218,36 @@ class PnpmModuleProvider(ModuleProvider):
             raise NotImplementedError(
                 f'Unknown source type {source.__class__.__name__}'
             )
+
+    def _finalize(self) -> None:
+        if self._tarballs:
+            self._add_store_population_script()
+
+    def _add_store_population_script(self) -> None:
+        packages = {}
+        for info in self._tarballs:
+            packages[info.tarball_name] = {
+                'name': info.name,
+                'version': info.version,
+                'integrity_hex': info.integrity.digest,
+                # TODO: extract from lockfile (v6: requiresBuild on entry,
+                # v9: requiresBuild in snapshots section)
+                'requires_build': False,
+            }
+
+        manifest = {
+            'store_version': _STORE_VERSION,
+            'packages': packages,
+        }
+        manifest_json = json.dumps(manifest, separators=(',', ':'))
+        manifest_dest = self.gen.data_root / 'pnpm-manifest.json'
+        self.gen.add_data_source(manifest_json, manifest_dest)
+
+        with open(_POPULATE_STORE_SCRIPT, encoding='utf-8') as f:
+            script_source = f.read()
+        script_dest = self.gen.data_root / 'populate_pnpm_store.py'
+        self.gen.add_data_source(script_source, script_dest)
+
+        self.gen.add_command(
+            f'python3 {script_dest} {manifest_dest} {self.tarball_dir} {self.store_dir}'
+        )
