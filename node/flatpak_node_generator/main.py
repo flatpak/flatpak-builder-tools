@@ -59,7 +59,7 @@ async def _async_main() -> None:
     )
     parser.add_argument(
         '--registry',
-        help='The registry to use (npm only)',
+        help='The registry to use (npm/pnpm)',
         default='https://registry.npmjs.org',
     )
     parser.add_argument(
@@ -70,7 +70,7 @@ async def _async_main() -> None:
     parser.add_argument(
         '--no-devel',
         action='store_true',
-        help="Don't include devel dependencies (npm only)",
+        help="Don't include devel dependencies (npm/pnpm)",
     )
     parser.add_argument(
         '--no-requests-cache',
@@ -157,6 +157,9 @@ async def _async_main() -> None:
 
     if args.type == 'yarn' and (args.no_devel or args.no_autopatch):
         sys.exit('--no-devel and --no-autopatch do not apply to Yarn.')
+
+    if args.type == 'pnpm' and args.no_autopatch:
+        sys.exit('--no-autopatch does not apply to pnpm.')
 
     if args.electron_chromedriver:
         print('WARNING: --electron-chromedriver is deprecated', file=sys.stderr)
