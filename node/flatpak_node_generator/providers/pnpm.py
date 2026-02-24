@@ -25,7 +25,8 @@ from ..package import (
     PackageSource,
     ResolvedSource,
 )
-from . import LockfileProvider, ModuleProvider
+from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
+from .npm import NpmRCFileProvider
 from .special import SpecialSourceProvider
 
 _SUPPORTED_V6_VERSIONS = ('6', '7')
@@ -255,3 +256,26 @@ class PnpmModuleProvider(ModuleProvider):
 
     def _add_pnpm_config(self) -> None:
         self.gen.add_command(f'echo "store-dir=$PWD/{self.store_dir}" >> .npmrc')
+
+
+class PnpmProviderFactory(ProviderFactory):
+    class Options(NamedTuple):
+        lockfile: PnpmLockfileProvider.Options
+        module: PnpmModuleProvider.Options
+
+    def __init__(
+        self, lockfile_root: Path, options: 'PnpmProviderFactory.Options'
+    ) -> None:
+        self.lockfile_root = lockfile_root
+        self.options = options
+
+    def create_lockfile_provider(self) -> PnpmLockfileProvider:
+        return PnpmLockfileProvider(self.options.lockfile)
+
+    def create_rcfile_providers(self) -> List[RCFileProvider]:
+        return [NpmRCFileProvider()]
+
+    def create_module_provider(
+        self, gen: ManifestGenerator, special: SpecialSourceProvider
+    ) -> PnpmModuleProvider:
+        return PnpmModuleProvider(gen, special, self.lockfile_root, self.options.module)
