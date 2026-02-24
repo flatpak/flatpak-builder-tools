@@ -1,4 +1,5 @@
 import re
+import types
 from pathlib import Path
 from typing import (
     Any,
@@ -7,11 +8,13 @@ from typing import (
     NamedTuple,
     Optional,
     Tuple,
+    Type,
 )
 
 import yaml
 
 from ..integrity import Integrity
+from ..manifest import ManifestGenerator
 from ..package import (
     GitSource,
     LocalSource,
@@ -20,7 +23,8 @@ from ..package import (
     PackageSource,
     ResolvedSource,
 )
-from . import LockfileProvider
+from . import LockfileProvider, ModuleProvider
+from .special import SpecialSourceProvider
 
 _SUPPORTED_V6_VERSIONS = ('6', '7')
 
@@ -130,4 +134,64 @@ class PnpmLockfileProvider(LockfileProvider):
                 version=version,
                 source=source,
                 lockfile=lockfile,
+            )
+
+
+class PnpmModuleProvider(ModuleProvider):
+    """Generates flatpak sources for pnpm packages."""
+
+    class Options(NamedTuple):
+        registry: str
+
+    def __init__(
+        self,
+        gen: ManifestGenerator,
+        special: SpecialSourceProvider,
+        lockfile_root: Path,
+        options: 'PnpmModuleProvider.Options',
+    ) -> None:
+        self.gen = gen
+        self.special_source_provider = special
+        self.lockfile_root = lockfile_root
+        self.registry = options.registry
+        self.tarball_dir = self.gen.data_root / 'pnpm-tarballs'
+        self.store_dir = self.gen.data_root / 'pnpm-store'
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        tb: Optional[types.TracebackType],
+    ) -> None:
+        if exc_type is None:
+            self._finalize()
+
+    async def generate_package(self, package: Package) -> None:
+        source = package.source
+
+        if isinstance(source, ResolvedSource):
+            assert source.resolved is not None
+            assert source.integrity is not None
+
+            # Use name-version as filename; replace / in scoped names
+            tarball_name = f'{package.name.replace("/", "-")}-{package.version}.tgz'
+            self.gen.add_url_source(
+                url=source.resolved,
+                integrity=source.integrity,
+                destination=self.tarball_dir / tarball_name,
+            )
+
+            await self.special_source_provider.generate_special_sources(package)
+
+        elif isinstance(source, GitSource):
+            name = f'{package.name}-{source.commit}'
+            path = self.gen.data_root / 'git-packages' / name
+            self.gen.add_git_source(source.url, source.commit, path)
+
+        elif isinstance(source, LocalSource):
+            pass
+
+        else:
+            raise NotImplementedError(
+                f'Unknown source type {source.__class__.__name__}'
             )
