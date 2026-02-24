@@ -220,3 +220,42 @@ def test_lockfile_v5_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match='v5.*not supported'):
         list(provider.process_lockfile(lockfile_path))
+
+
+def test_lockfile_unsupported_version_rejected(tmp_path: Path) -> None:
+    provider = PnpmLockfileProvider(
+        PnpmLockfileProvider.Options(
+            no_devel=False,
+            registry='https://registry.npmjs.org',
+        )
+    )
+
+    lockfile_path = tmp_path / 'pnpm-lock.yaml'
+    lockfile_path.write_text(
+        'lockfileVersion: 42\npackages:\n'
+        '  foo@1.0.0:\n'
+        '    resolution: {integrity: sha256-dGVzdA==}\n'
+    )
+
+    with pytest.raises(ValueError, match='unsupported lockfileVersion 42'):
+        list(provider.process_lockfile(lockfile_path))
+
+
+def test_lockfile_v9_no_devel_warns(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    provider = PnpmLockfileProvider(
+        PnpmLockfileProvider.Options(
+            no_devel=True,
+            registry='https://registry.npmjs.org',
+        )
+    )
+
+    lockfile = Lockfile(tmp_path / 'pnpm-lock.yaml', 9)
+    lockfile.path.write_text(TEST_LOCKFILE_V9)
+
+    packages = list(provider.process_lockfile(lockfile.path))
+
+    captured = capsys.readouterr()
+    assert '--no-devel is not yet supported for pnpm lockfile v9' in captured.err
+    assert len(packages) == 3

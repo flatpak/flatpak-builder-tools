@@ -15,7 +15,6 @@ from .providers import ProviderFactory
 from .providers.npm import NpmLockfileProvider, NpmModuleProvider, NpmProviderFactory
 from .providers.pnpm import (
     PnpmLockfileProvider,
-    PnpmModuleProvider,
     PnpmProviderFactory,
 )
 from .providers.special import SpecialSourceProvider
@@ -204,9 +203,6 @@ async def _async_main() -> None:
         pnpm_options = PnpmProviderFactory.Options(
             PnpmLockfileProvider.Options(
                 no_devel=args.no_devel,
-                registry=args.registry,
-            ),
-            PnpmModuleProvider.Options(
                 registry=args.registry,
             ),
         )

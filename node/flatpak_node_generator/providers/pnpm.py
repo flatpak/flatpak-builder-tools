@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 import types
 from pathlib import Path
 from typing import (
@@ -29,7 +30,8 @@ from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
 from .npm import NpmRCFileProvider
 from .special import SpecialSourceProvider
 
-_SUPPORTED_V6_VERSIONS = ('6', '7')
+_V6_FORMAT_VERSIONS = ('6', '7')
+_SUPPORTED_VERSIONS = ('6', '7', '9')
 
 # All currently supported lockfile versions (v6/v7/v9) use store v10.
 # Needs to be updated when a new pnpm major changes the store layout
@@ -74,7 +76,7 @@ class PnpmLockfileProvider(LockfileProvider):
     def _parse_package_key(
         self, key: str, lockfile_version: str
     ) -> Optional[Tuple[str, str]]:
-        if lockfile_version.startswith(_SUPPORTED_V6_VERSIONS):
+        if lockfile_version.startswith(_V6_FORMAT_VERSIONS):
             match = self._V6_PACKAGE_RE.match(key)
         else:
             match = self._V9_PACKAGE_RE.match(key)
@@ -96,6 +98,19 @@ class PnpmLockfileProvider(LockfileProvider):
             raise ValueError(
                 f'{lockfile_path}: lockfile v5 (pnpm 5) is not supported. '
                 'Please upgrade to pnpm 8+ and regenerate your lockfile.'
+            )
+
+        if not lockfile_version.startswith(_SUPPORTED_VERSIONS):
+            raise ValueError(
+                f'{lockfile_path}: unsupported lockfileVersion {raw_version}. '
+                f'Supported versions: {", ".join(_SUPPORTED_VERSIONS)}.'
+            )
+
+        if self.no_devel and not lockfile_version.startswith(_V6_FORMAT_VERSIONS):
+            print(
+                'WARNING: --no-devel is not yet supported for pnpm lockfile v9; '
+                'all packages will be included.',
+                file=sys.stderr,
             )
 
         lockfile = Lockfile(lockfile_path, int(float(lockfile_version)))
@@ -149,9 +164,6 @@ class PnpmLockfileProvider(LockfileProvider):
 class PnpmModuleProvider(ModuleProvider):
     """Generates flatpak sources for pnpm packages."""
 
-    class Options(NamedTuple):
-        registry: str
-
     class _TarballInfo(NamedTuple):
         tarball_name: str
         name: str
@@ -163,12 +175,10 @@ class PnpmModuleProvider(ModuleProvider):
         gen: ManifestGenerator,
         special: SpecialSourceProvider,
         lockfile_root: Path,
-        options: 'PnpmModuleProvider.Options',
     ) -> None:
         self.gen = gen
         self.special_source_provider = special
         self.lockfile_root = lockfile_root
-        self.registry = options.registry
         self.tarball_dir = self.gen.data_root / 'pnpm-tarballs'
         self.store_dir = self.gen.data_root / 'pnpm-store'
         self._tarballs: List[PnpmModuleProvider._TarballInfo] = []
@@ -190,7 +200,7 @@ class PnpmModuleProvider(ModuleProvider):
             assert source.integrity is not None
 
             # Use name-version as filename; replace / in scoped names
-            tarball_name = f'{package.name.replace("/", "-")}-{package.version}.tgz'
+            tarball_name = f'{package.name.replace("/", "__")}-{package.version}.tgz'
             self.gen.add_url_source(
                 url=source.resolved,
                 integrity=source.integrity,
@@ -261,7 +271,6 @@ class PnpmModuleProvider(ModuleProvider):
 class PnpmProviderFactory(ProviderFactory):
     class Options(NamedTuple):
         lockfile: PnpmLockfileProvider.Options
-        module: PnpmModuleProvider.Options
 
     def __init__(
         self, lockfile_root: Path, options: 'PnpmProviderFactory.Options'
@@ -278,4 +287,4 @@ class PnpmProviderFactory(ProviderFactory):
     def create_module_provider(
         self, gen: ManifestGenerator, special: SpecialSourceProvider
     ) -> PnpmModuleProvider:
-        return PnpmModuleProvider(gen, special, self.lockfile_root, self.options.module)
+        return PnpmModuleProvider(gen, special, self.lockfile_root)
