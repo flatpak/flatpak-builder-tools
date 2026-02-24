@@ -197,7 +197,14 @@ class PnpmModuleProvider(ModuleProvider):
 
         if isinstance(source, ResolvedSource):
             assert source.resolved is not None
-            assert source.integrity is not None
+
+            if source.integrity is None:
+                print(
+                    f'WARNING: skipping {package.name}@{package.version}: '
+                    'no integrity in lockfile (required for pnpm store)',
+                    file=sys.stderr,
+                )
+                return
 
             # Use name-version as filename; replace / in scoped names
             tarball_name = f'{package.name.replace("/", "__")}-{package.version}.tgz'
