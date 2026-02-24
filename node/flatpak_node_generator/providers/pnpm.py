@@ -222,6 +222,7 @@ class PnpmModuleProvider(ModuleProvider):
     def _finalize(self) -> None:
         if self._tarballs:
             self._add_store_population_script()
+            self._add_pnpm_config()
 
     def _add_store_population_script(self) -> None:
         packages = {}
@@ -251,3 +252,6 @@ class PnpmModuleProvider(ModuleProvider):
         self.gen.add_command(
             f'python3 {script_dest} {manifest_dest} {self.tarball_dir} {self.store_dir}'
         )
+
+    def _add_pnpm_config(self) -> None:
+        self.gen.add_command(f'echo "store-dir=$PWD/{self.store_dir}" >> .npmrc')
