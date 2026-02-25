@@ -90,7 +90,7 @@ def main():
         for lines in f:
             res = r.findall(lines)
             for url in res:
-                if url.endswith('.jar'):
+                if url.endswith('.jar') or url.endswith('.pom'):
                     urls.append(url)
                 elif url.endswith('.exe'):
                     for host in req_gradle_arches:
