@@ -258,7 +258,7 @@ class PnpmModuleProvider(ModuleProvider):
             'store_version': _STORE_VERSION,
             'packages': packages,
         }
-        manifest_json = json.dumps(manifest, separators=(',', ':'))
+        manifest_json = json.dumps(manifest, separators=(',', ':'), sort_keys=True)
         manifest_dest = self.gen.data_root / 'pnpm-manifest.json'
         self.gen.add_data_source(manifest_json, manifest_dest)
 

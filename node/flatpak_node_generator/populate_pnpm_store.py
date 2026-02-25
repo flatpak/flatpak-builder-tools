@@ -77,6 +77,8 @@ def _process_tarball(
                 os.makedirs(cas_dir, exist_ok=True)
                 with open(cas_path, 'wb') as out:
                     out.write(data)
+                if is_exec:
+                    os.chmod(cas_path, 0o755)
 
             rel_name = member.name
             if '/' in rel_name:
