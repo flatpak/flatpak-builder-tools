@@ -218,7 +218,7 @@ def test_lockfile_v5_rejected(tmp_path: Path) -> None:
         '    resolution: {integrity: sha256-dGVzdA==}\n'
     )
 
-    with pytest.raises(ValueError, match='v5.*not supported'):
+    with pytest.raises(ValueError, match='unsupported lockfileVersion 5.4'):
         list(provider.process_lockfile(lockfile_path))
 
 

@@ -30,8 +30,8 @@ from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
 from .npm import NpmRCFileProvider
 from .special import SpecialSourceProvider
 
-_V6_FORMAT_VERSIONS = ('6', '7')
-_SUPPORTED_VERSIONS = ('6', '7', '9')
+_V6_FORMAT_VERSIONS = {6, 7}
+_SUPPORTED_VERSIONS = {6, 7, 9}
 
 # All currently supported lockfile versions (v6/v7/v9) use store v10.
 # Needs to be updated when a new pnpm major changes the store layout
@@ -43,10 +43,7 @@ _POPULATE_STORE_SCRIPT = Path(__file__).parents[1] / 'populate_pnpm_store.py'
 class PnpmLockfileProvider(LockfileProvider):
     """Parses pnpm-lock.yaml (v6/v7 and v9) into Package objects."""
 
-    # NOTE v6/v7 keys: /name@version or /@scope/name@version
-    # Version may have peer dep suffix like (react@18.2.0) — stop before '('
     _V6_PACKAGE_RE = re.compile(r'^/(?P<name>(?:@[^/]+/)?[^@]+)@(?P<version>[^(]+)')
-    # NOTE v9 keys: name@version or @scope/name@version
     _V9_PACKAGE_RE = re.compile(r'^(?P<name>(?:@[^/]+/)?[^@]+)@(?P<version>[^(]+)')
 
     class Options(NamedTuple):
@@ -73,10 +70,8 @@ class PnpmLockfileProvider(LockfileProvider):
 
         return f'{self.registry}/{name}/-/{basename}-{version}.tgz'
 
-    def _parse_package_key(
-        self, key: str, lockfile_version: str
-    ) -> Optional[Tuple[str, str]]:
-        if lockfile_version.startswith(_V6_FORMAT_VERSIONS):
+    def _parse_package_key(self, key: str, major: int) -> Optional[Tuple[str, str]]:
+        if major in _V6_FORMAT_VERSIONS:
             match = self._V6_PACKAGE_RE.match(key)
         else:
             match = self._V9_PACKAGE_RE.match(key)
@@ -93,27 +88,22 @@ class PnpmLockfileProvider(LockfileProvider):
         if raw_version is None:
             raise ValueError(f'{lockfile_path}: missing lockfileVersion field')
 
-        lockfile_version = str(raw_version)
-        if lockfile_version.startswith('5'):
-            raise ValueError(
-                f'{lockfile_path}: lockfile v5 (pnpm 5) is not supported. '
-                'Please upgrade to pnpm 8+ and regenerate your lockfile.'
-            )
-
-        if not lockfile_version.startswith(_SUPPORTED_VERSIONS):
+        major = int(str(raw_version).split('.', 1)[0])
+        if major not in _SUPPORTED_VERSIONS:
+            supported = ', '.join(str(v) for v in sorted(_SUPPORTED_VERSIONS))
             raise ValueError(
                 f'{lockfile_path}: unsupported lockfileVersion {raw_version}. '
-                f'Supported versions: {", ".join(_SUPPORTED_VERSIONS)}.'
+                f'Supported versions: {supported}.'
             )
 
-        if self.no_devel and not lockfile_version.startswith(_V6_FORMAT_VERSIONS):
+        if self.no_devel and major not in _V6_FORMAT_VERSIONS:
             print(
                 'WARNING: --no-devel is not yet supported for pnpm lockfile v9; '
                 'all packages will be included.',
                 file=sys.stderr,
             )
 
-        lockfile = Lockfile(lockfile_path, int(float(lockfile_version)))
+        lockfile = Lockfile(lockfile_path, major)
 
         packages_dict: Dict[str, Any] = data.get('packages', {})
         if not packages_dict:
@@ -123,7 +113,7 @@ class PnpmLockfileProvider(LockfileProvider):
             if info is None:
                 continue
 
-            parsed = self._parse_package_key(key, lockfile_version)
+            parsed = self._parse_package_key(key, major)
             if parsed is None:
                 continue
 
