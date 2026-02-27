@@ -13,6 +13,10 @@ from .package import Package
 from .progress import GeneratorProgress
 from .providers import ProviderFactory
 from .providers.npm import NpmLockfileProvider, NpmModuleProvider, NpmProviderFactory
+from .providers.pnpm import (
+    PnpmLockfileProvider,
+    PnpmProviderFactory,
+)
 from .providers.special import SpecialSourceProvider
 from .providers.yarn import YarnProviderFactory
 from .requests import Requests, StubRequests
@@ -28,9 +32,10 @@ def _scan_for_lockfiles(base: Path, patterns: List[str]) -> Iterator[Path]:
 
 async def _async_main() -> None:
     parser = argparse.ArgumentParser(description='Flatpak Node generator')
-    parser.add_argument('type', choices=['npm', 'yarn'])
+    parser.add_argument('type', choices=['npm', 'yarn', 'pnpm'])
     parser.add_argument(
-        'lockfile', help='The lockfile path (package-lock.json or yarn.lock)'
+        'lockfile',
+        help='The lockfile path (package-lock.json, yarn.lock, or pnpm-lock.yaml)',
     )
     parser.add_argument(
         '-o',
@@ -53,7 +58,7 @@ async def _async_main() -> None:
     )
     parser.add_argument(
         '--registry',
-        help='The registry to use (npm only)',
+        help='The registry to use (npm/pnpm)',
         default='https://registry.npmjs.org',
     )
     parser.add_argument(
@@ -64,7 +69,7 @@ async def _async_main() -> None:
     parser.add_argument(
         '--no-devel',
         action='store_true',
-        help="Don't include devel dependencies (npm only)",
+        help="Don't include devel dependencies (npm/pnpm)",
     )
     parser.add_argument(
         '--no-requests-cache',
@@ -152,6 +157,9 @@ async def _async_main() -> None:
     if args.type == 'yarn' and (args.no_devel or args.no_autopatch):
         sys.exit('--no-devel and --no-autopatch do not apply to Yarn.')
 
+    if args.type == 'pnpm' and args.no_autopatch:
+        sys.exit('--no-autopatch does not apply to pnpm.')
+
     if args.electron_chromedriver:
         print('WARNING: --electron-chromedriver is deprecated', file=sys.stderr)
         print(
@@ -191,6 +199,14 @@ async def _async_main() -> None:
         provider_factory = NpmProviderFactory(lockfile_root, npm_options)
     elif args.type == 'yarn':
         provider_factory = YarnProviderFactory()
+    elif args.type == 'pnpm':
+        pnpm_options = PnpmProviderFactory.Options(
+            PnpmLockfileProvider.Options(
+                no_devel=args.no_devel,
+                registry=args.registry,
+            ),
+        )
+        provider_factory = PnpmProviderFactory(lockfile_root, pnpm_options)
     else:
         assert False, args.type
 
