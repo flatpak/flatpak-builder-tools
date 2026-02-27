@@ -4,6 +4,8 @@ import pytest
 
 from flatpak_node_generator.integrity import Integrity
 from flatpak_node_generator.package import (
+    GitSource,
+    LocalSource,
     Lockfile,
     Package,
     ResolvedSource,
@@ -259,3 +261,67 @@ def test_lockfile_v9_no_devel_warns(
     captured = capsys.readouterr()
     assert '--no-devel is not yet supported for pnpm lockfile v9' in captured.err
     assert len(packages) == 3
+
+
+TEST_LOCKFILE_V9_GIT_AND_LOCAL = """
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+  .:
+    dependencies:
+      my-git-pkg:
+        specifier: github:user/repo#abc123
+        version: github.com/user/repo/abc123
+      my-local-pkg:
+        specifier: file:../local-pkg
+        version: file:../local-pkg
+
+packages:
+  my-git-pkg@github.com/user/repo/abc123:
+    resolution: {type: git, repo: https://github.com/user/repo, commit: abc123def456}
+
+  my-local-pkg@file:../local-pkg:
+    resolution: {directory: ../local-pkg}
+
+snapshots:
+  my-git-pkg@github.com/user/repo/abc123: {}
+  my-local-pkg@file:../local-pkg: {}
+"""
+
+
+def test_lockfile_v9_git_and_local(tmp_path: Path) -> None:
+    provider = PnpmLockfileProvider(
+        PnpmLockfileProvider.Options(
+            no_devel=False,
+            registry='https://registry.npmjs.org',
+        )
+    )
+
+    lockfile = Lockfile(tmp_path / 'pnpm-lock.yaml', 9)
+    lockfile.path.write_text(TEST_LOCKFILE_V9_GIT_AND_LOCAL)
+
+    packages = list(provider.process_lockfile(lockfile.path))
+
+    assert packages == [
+        Package(
+            lockfile=lockfile,
+            name='my-git-pkg',
+            version='github.com/user/repo/abc123',
+            source=GitSource(
+                original='git+https://github.com/user/repo#abc123def456',
+                url='https://github.com/user/repo',
+                commit='abc123def456',
+                from_=None,
+            ),
+        ),
+        Package(
+            lockfile=lockfile,
+            name='my-local-pkg',
+            version='file:../local-pkg',
+            source=LocalSource(path='../local-pkg'),
+        ),
+    ]
