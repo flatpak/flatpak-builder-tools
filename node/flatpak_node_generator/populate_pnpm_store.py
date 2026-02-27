@@ -35,7 +35,6 @@ def populate_store(manifest_path: str, tarball_dir: str, store_dir: str) -> None
             pkg_name=info['name'],
             pkg_version=info['version'],
             integrity_hex=info['integrity_hex'],
-            requires_build=info.get('requires_build', False),
             store=store,
             now=now,
         )
@@ -47,7 +46,6 @@ def _process_tarball(
     pkg_name: str,
     pkg_version: str,
     integrity_hex: str,
-    requires_build: bool,
     store: str,
     now: int,
 ) -> None:
@@ -97,7 +95,6 @@ def _process_tarball(
     index_data = {
         'name': pkg_name,
         'version': pkg_version,
-        'requiresBuild': requires_build,
         'files': index_files,
     }
     with open(idx_path, 'w', encoding='utf-8') as out:

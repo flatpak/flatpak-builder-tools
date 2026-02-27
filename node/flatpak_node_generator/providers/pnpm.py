@@ -245,9 +245,6 @@ class PnpmModuleProvider(ModuleProvider):
                 'name': info.name,
                 'version': info.version,
                 'integrity_hex': info.integrity.digest,
-                # TODO: extract from lockfile (v6: requiresBuild on entry,
-                # v9: requiresBuild in snapshots section)
-                'requires_build': False,
             }
 
         manifest = {
