@@ -28,11 +28,7 @@ def populate_store(manifest_path: str, tarball_dir: str, store_dir: str) -> None
     for tarball_name, info in packages.items():
         tarball_path = os.path.join(tarball_dir, tarball_name)
         if not os.path.isfile(tarball_path):
-            print(
-                f'ERROR: {tarball_path} not found',
-                file=sys.stderr,
-            )
-            sys.exit(1)
+            raise FileNotFoundError(tarball_path)
 
         _process_tarball(
             tarball_path=tarball_path,
