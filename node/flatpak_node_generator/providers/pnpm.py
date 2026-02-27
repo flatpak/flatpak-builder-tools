@@ -33,9 +33,11 @@ from .special import SpecialSourceProvider
 _V6_FORMAT_VERSIONS = {6, 7}
 _SUPPORTED_VERSIONS = {6, 7, 9}
 
-# All currently supported lockfile versions (v6/v7/v9) use store v10.
-# Needs to be updated when a new pnpm major changes the store layout
-_STORE_VERSION = 'v10'
+_STORE_VERSION_BY_LOCKFILE: Dict[int, str] = {
+    6: 'v3',
+    7: 'v3',
+    9: 'v10',
+}
 
 _POPULATE_STORE_SCRIPT = Path(__file__).parents[1] / 'populate_pnpm_store.py'
 
@@ -172,6 +174,7 @@ class PnpmModuleProvider(ModuleProvider):
         self.tarball_dir = self.gen.data_root / 'pnpm-tarballs'
         self.store_dir = self.gen.data_root / 'pnpm-store'
         self._tarballs: List[PnpmModuleProvider._TarballInfo] = []
+        self._store_version: Optional[str] = None
 
     def __exit__(
         self,
@@ -183,6 +186,9 @@ class PnpmModuleProvider(ModuleProvider):
             self._finalize()
 
     async def generate_package(self, package: Package) -> None:
+        if self._store_version is None:
+            self._store_version = _STORE_VERSION_BY_LOCKFILE[package.lockfile.version]
+
         source = package.source
 
         if isinstance(source, ResolvedSource):
@@ -245,7 +251,7 @@ class PnpmModuleProvider(ModuleProvider):
             }
 
         manifest = {
-            'store_version': _STORE_VERSION,
+            'store_version': self._store_version,
             'packages': packages,
         }
         manifest_json = json.dumps(manifest, separators=(',', ':'), sort_keys=True)
