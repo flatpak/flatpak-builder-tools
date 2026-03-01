@@ -83,7 +83,7 @@ options:
   --no-devel            Don't include devel dependencies (npm only)
   --no-requests-cache   Disable the requests cache
   --max-parallel MAX_PARALLEL
-                        Maximium number of packages to process in parallel
+                        Maximum number of packages to process in parallel
   --retries RETRIES     Number of retries of failed requests
   -P, --no-autopatch    Don't automatically patch Git sources from
                         package*.json
