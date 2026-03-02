@@ -228,6 +228,7 @@ class ProviderFactorySpec:
         nwjs_node_headers=False,
         nwjs_ffmpeg=False,
         xdg_layout=True,
+        node_sdk_extension=None,
     )
 
     def create_factory(
