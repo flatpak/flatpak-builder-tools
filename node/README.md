@@ -50,17 +50,9 @@ get npm with electron-builder.
 ## Usage
 
 ```
-usage: flatpak-node-generator [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN]
-                              [--registry REGISTRY] [--no-trim-index]
-                              [--no-devel] [--no-requests-cache]
-                              [--max-parallel MAX_PARALLEL]
-                              [--retries RETRIES] [-P] [-s]
-                              [--node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON]
-                              [--electron-ffmpeg {archive,lib}]
-                              [--electron-node-headers]
-                              [--nwjs-version NWJS_VERSION]
-                              [--nwjs-node-headers] [--nwjs-ffmpeg]
-                              [--no-xdg-layout]
+usage: flatpak-node-generator [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN] [--registry REGISTRY] [--no-trim-index] [--no-devel] [--no-requests-cache] [--max-parallel MAX_PARALLEL] [--retries RETRIES] [-P]
+                              [-s] [-S SPLIT_SIZE] [--node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON] [--electron-ffmpeg {archive,lib}] [--electron-node-headers]
+                              [--nwjs-version NWJS_VERSION] [--nwjs-node-headers] [--nwjs-ffmpeg] [--no-xdg-layout] [--node-sdk-extension NODE_SDK_EXTENSION]
                               {npm,yarn} lockfile
 
 Flatpak Node generator
@@ -71,26 +63,23 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -o OUTPUT, --output OUTPUT
-                        The output sources file
-  -r, --recursive       Recursively process all files under the lockfile
-                        directory with the lockfile basename
-  -R RECURSIVE_PATTERN, --recursive-pattern RECURSIVE_PATTERN
-                        Given -r, restrict files to those matching the given
-                        pattern.
+  -o, --output OUTPUT   The output sources file
+  -r, --recursive       Recursively process all files under the lockfile directory with the lockfile basename
+  -R, --recursive-pattern RECURSIVE_PATTERN
+                        Given -r, restrict files to those matching the given pattern.
   --registry REGISTRY   The registry to use (npm only)
   --no-trim-index       Don't trim npm package metadata (npm only)
   --no-devel            Don't include devel dependencies (npm only)
   --no-requests-cache   Disable the requests cache
   --max-parallel MAX_PARALLEL
-                        Maximum number of packages to process in parallel
+                        Maximium number of packages to process in parallel
   --retries RETRIES     Number of retries of failed requests
-  -P, --no-autopatch    Don't automatically patch Git sources from
-                        package*.json
+  -P, --no-autopatch    Don't automatically patch Git sources from package*.json
   -s, --split           Split the sources file to fit onto GitHub.
+  -S, --split-size SPLIT_SIZE
+                        If splitting the sources file, split at this size in KB. Default is 49000 KB.
   --node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON
-                        Use the ChromeDriver version associated with the given
-                        Electron version for node-chromedriver
+                        Use the ChromeDriver version associated with the given Electron version for node-chromedriver
   --electron-ffmpeg {archive,lib}
                         Download prebuilt ffmpeg for matching electron version
   --electron-node-headers
@@ -100,7 +89,8 @@ options:
   --nwjs-node-headers   Download the NW.js node headers
   --nwjs-ffmpeg         Download prebuilt ffmpeg for current NW.js version
   --no-xdg-layout       Don't use the XDG layout for caches
-
+  --node-sdk-extension NODE_SDK_EXTENSION
+                        Flatpak node SDK extension (e.g. org.freedesktop.Sdk.Extension.node24//25.08)
 ```
 
 flatpak-node-generator.py takes the package manager (npm or yarn), and a path to a lockfile for

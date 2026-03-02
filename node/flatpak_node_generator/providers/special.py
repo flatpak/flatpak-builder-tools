@@ -26,6 +26,7 @@ class SpecialSourceProvider:
         nwjs_node_headers: bool
         nwjs_ffmpeg: bool
         xdg_layout: bool
+        node_sdk_extension: Optional[str]
 
     def __init__(self, gen: ManifestGenerator, options: Options):
         self.gen = gen
@@ -36,6 +37,7 @@ class SpecialSourceProvider:
         self.nwjs_node_headers = options.nwjs_node_headers
         self.nwjs_ffmpeg = options.nwjs_ffmpeg
         self.xdg_layout = options.xdg_layout
+        self.node_sdk_extension = options.node_sdk_extension
 
     @property
     def electron_cache_dir(self) -> Path:
@@ -461,7 +463,7 @@ class SpecialSourceProvider:
         self, node_headers: NodeHeaders, dest: Optional[Path] = None
     ) -> None:
         url = node_headers.url
-        install_version = node_headers.install_version
+        install_version = node_headers.install_version(self.node_sdk_extension)
         if dest is None:
             dest = self.gyp_dir / node_headers.target
         metadata = await RemoteUrlMetadata.get(url, cachable=True)

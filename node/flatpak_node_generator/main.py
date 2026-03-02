@@ -144,6 +144,11 @@ async def _async_main() -> None:
     )
     # Internal option, useful for testing.
     parser.add_argument('--stub-requests', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument(
+        '--node-sdk-extension',
+        help='Flatpak node SDK extension (e.g. org.freedesktop.Sdk.Extension.node24//25.08)',
+        default=None,
+    )
 
     args = parser.parse_args()
 
@@ -225,6 +230,7 @@ async def _async_main() -> None:
             xdg_layout=args.xdg_layout,
             electron_ffmpeg=args.electron_ffmpeg,
             electron_node_headers=args.electron_node_headers,
+            node_sdk_extension=args.node_sdk_extension,
         )
         special = SpecialSourceProvider(gen, options)
 
