@@ -69,7 +69,8 @@ strict = true
 check-format = "ruff format --check flatpak_node_generator tests"
 check-lint = "ruff check flatpak_node_generator tests"
 check-mypy = "mypy ."
-check-test = "pytest -vvvs -n auto"
+check-test = "pytest -vvvs -n auto -m 'not integration'"
+check-integration = "pytest -vvvs -m integration"
 check = ["check-format", "check-lint", "check-mypy", "check-test"]
 apply-format = "ruff format flatpak_node_generator tests"
 apply-lint = "ruff check --fix flatpak_node_generator tests"
@@ -77,6 +78,10 @@ apply-lint = "ruff check --fix flatpak_node_generator tests"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+  "integration: tests requiring flatpak runtimes or SDK extensions"
+]
+addopts = "-m 'not integration'"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
