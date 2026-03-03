@@ -59,7 +59,7 @@ class SpecialSourceProvider:
         electron_cache_dir = self.electron_cache_dir
         links_to_create: DefaultDict[
             str, List[Tuple[ElectronBinaryManager.Binary, str]]
-        ] = collections.defaultdict(lambda: [])
+        ] = collections.defaultdict(list)
 
         for binary in manager.find_binaries(binary_name):
             assert binary.arch is not None
@@ -157,9 +157,9 @@ class SpecialSourceProvider:
         js = await Requests.instance.read_all(url, cachable=True)
         # XXX: a tad ugly
         match = re.search(r"exports\.version = '([^']+)'", js.decode())
-        assert (
-            match is not None
-        ), f'Failed to get ChromeDriver binary version from {url}'
+        assert match is not None, (
+            f'Failed to get ChromeDriver binary version from {url}'
+        )
         return match.group(1)
 
     async def _handle_electron_chromedriver(self, package: Package) -> None:

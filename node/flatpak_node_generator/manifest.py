@@ -1,12 +1,12 @@
 import base64
 import json
 import types
+from collections.abc import Iterator
 from pathlib import Path
 from typing import (
     Any,
     ContextManager,
     Dict,
-    Iterator,
     List,
     Optional,
     Set,

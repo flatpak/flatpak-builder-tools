@@ -3,8 +3,9 @@ import asyncio
 import json
 import os
 import sys
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, List, Set
+from typing import List, Set
 
 from .cache import Cache, FilesystemBasedCache
 from .manifest import DEFAULT_SPLIT_SIZE_KB, ManifestGenerator

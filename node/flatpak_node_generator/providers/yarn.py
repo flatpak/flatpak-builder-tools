@@ -5,8 +5,9 @@ import re
 import shlex
 import types
 import urllib.parse
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, NamedTuple, Optional, Tuple, Type
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
@@ -90,8 +91,7 @@ class YarnLockfileProvider(LockfileProvider):
                 # _key, _value = line.split(' ', 1)
                 # parent_entries[-1][self.unquote(_key)] = self.unquote(_value)
                 key, *values = shlex.split(line)
-                if key.endswith(':'):
-                    key = key[:-1]
+                key = key.removesuffix(':')
                 parent_entries[-1][key] = values[0] if len(values) == 1 else values
 
         return root_entry
@@ -293,9 +293,9 @@ class YarnModuleProvider(ModuleProvider):
         assert 'versions' in data, f'{data_url} returned an invalid package index'
 
         versions = data['versions']
-        assert (
-            version in versions
-        ), f'{locator.name} versions available are {", ".join(versions)}, not {version}'
+        assert version in versions, (
+            f'{locator.name} versions available are {", ".join(versions)}, not {version}'
+        )
 
         dist = versions[version]['dist']
         assert 'tarball' in dist, f'{locator.name}@{version} has no tarball in dist'
@@ -335,9 +335,9 @@ class YarnModuleProvider(ModuleProvider):
                             git_parts.repo, tag=git_parts.request, destination=repo_dir
                         )
                     else:
-                        assert (
-                            False
-                        ), f'Not supported git protocol: {git_parts.protocol}'
+                        assert False, (
+                            f'Not supported git protocol: {git_parts.protocol}'
+                        )
                     repo_dir_rel = os.path.relpath(repo_dir, self.mirror_berry_dir)
                     self.gen.add_data_source(
                         json.dumps(
