@@ -271,26 +271,32 @@ async def _async_main() -> None:
         for i, part in enumerate(gen.split_sources()):
             output = Path(args.output)
             output = output.with_suffix(f'.{i}{output.suffix}')
-            with open(output, 'w', encoding='utf-8') as fp:
-                json.dump(part, fp, indent=ManifestGenerator.JSON_INDENT)
+            await asyncio.to_thread(
+                output.write_text,
+                json.dumps(part, indent=ManifestGenerator.JSON_INDENT),
+                encoding='utf-8',
+            )
         delattr(gen, '_upgraded_sources')
         print(f'Wrote {gen.source_count} to {i + 1} file(s).')
     else:
         sources = list(gen.ordered_sources())
         await Requests.instance.upgrade_to_sha256(sources)
-        with open(args.output, 'w', encoding='utf-8') as fp:
-            json.dump(
-                sources,
-                fp,
-                indent=ManifestGenerator.JSON_INDENT,
+        output_path = Path(args.output)
+        data = json.dumps(
+            sources,
+            indent=ManifestGenerator.JSON_INDENT,
+        )
+        await asyncio.to_thread(
+            output_path.write_text,
+            data,
+            encoding='utf-8',
+        )
+        if len(data.encode('utf-8')) >= gen.split_size:
+            print(
+                'WARNING: generated-sources.json is too large for GitHub.',
+                file=sys.stderr,
             )
-
-            if fp.tell() >= gen.split_size:
-                print(
-                    'WARNING: generated-sources.json is too large for GitHub.',
-                    file=sys.stderr,
-                )
-                print('  (Pass -s to enable splitting.)')
+            print('  (Pass -s to enable splitting.)')
 
         print(f'Wrote {gen.source_count} source(s).')
 
