@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import tempfile
@@ -152,17 +153,34 @@ class FilesystemBasedCache(Cache):
         def __init__(self, key: str, cache_root: Path) -> None:
             super().__init__(key)
             self._cache_root = cache_root
+            self._cache_path = self._cache_root / self._hash_key(key)
+            self._legacy_cache_path = (
+                self._cache_root / FilesystemBasedCache._escape_key(key)
+            )
 
-            self._cache_path = self._cache_root / FilesystemBasedCache._escape_key(key)
+        @staticmethod
+        def _hash_key(key: str) -> str:
+            return hashlib.sha256(key.encode('utf-8')).hexdigest()
+
+        def _migrate_cache_path(self) -> None:
+            if not self._cache_path.exists() and self._legacy_cache_path.exists():
+                try:
+                    self._legacy_cache_path.rename(self._cache_path)
+                except OSError:
+                    pass
 
         def open_read(self) -> Cache.BucketReader | None:
+            self._migrate_cache_path()
 
             try:
                 fp = self._cache_path.open('rb')
             except FileNotFoundError:
-                return None
-            else:
-                return FilesystemBasedCache.FilesystemBucketReader(fp)
+                try:
+                    fp = self._legacy_cache_path.open('rb')
+                except FileNotFoundError:
+                    return None
+
+            return FilesystemBasedCache.FilesystemBucketReader(fp)
 
         def open_write(self) -> Cache.BucketWriter:
             target = self._cache_path
