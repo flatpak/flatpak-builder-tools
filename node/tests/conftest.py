@@ -44,7 +44,7 @@ class RequestsController:
     server: HTTPServer
 
     def url_for(self, suffix: str) -> str:
-        return self.server.url_for(suffix)  # type: ignore
+        return self.server.url_for(suffix)
 
     @property
     def url(self) -> str:
