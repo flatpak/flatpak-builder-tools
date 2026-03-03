@@ -50,7 +50,7 @@ class SemVer:
             if not isinstance(other, SemVer.Prerelease):
                 return NotImplemented
 
-            for our_part, other_part in zip(self._parts, other._parts):
+            for our_part, other_part in zip(self._parts, other._parts, strict=False):
                 if type(our_part) == type(other_part):
                     if our_part < other_part:  # type: ignore
                         return True
