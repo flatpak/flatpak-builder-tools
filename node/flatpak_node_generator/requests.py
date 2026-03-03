@@ -60,11 +60,11 @@ class Requests:
                     async for part in self._read_parts(url, size):
                         bucket_writer.write(part)
                         yield part
-
-                return
             except Exception:
                 if i == Requests.retries:
                     raise
+            else:
+                return
 
     async def read_all(self, url: str, *, cachable: bool = False) -> bytes:
         bucket = self.__get_cache_bucket(cachable, url)
