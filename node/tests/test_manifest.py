@@ -4,10 +4,13 @@ import subprocess
 import urllib.parse
 from pathlib import Path
 
+import pytest
 from conftest import FlatpakBuilder, RequestsController
 
 from flatpak_node_generator.integrity import Integrity
 from flatpak_node_generator.manifest import ManifestGenerator
+
+pytestmark = pytest.mark.integration
 
 
 def test_url(requests: RequestsController, flatpak_builder: FlatpakBuilder) -> None:

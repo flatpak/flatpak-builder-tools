@@ -7,6 +7,8 @@ from conftest import FlatpakBuilder, ProviderFactorySpec
 
 from flatpak_node_generator.manifest import ManifestGenerator
 
+pytestmark = pytest.mark.integration
+
 TEST_SCRIPT = """
 require("array-range");
 require("is-empty-object");
