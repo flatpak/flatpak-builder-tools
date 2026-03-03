@@ -200,7 +200,7 @@ class YarnModuleProvider(ModuleProvider):
         name: str
         reference: str
 
-    _GIT_PROTOCOLS = ['commit', 'head', 'tag', 'semver']
+    _GIT_PROTOCOLS: tuple[str, ...] = ('commit', 'head', 'tag', 'semver')
 
     class GitRepoUrlParts(NamedTuple):
         repo: str
