@@ -1,6 +1,7 @@
 import contextlib
 import hashlib
-from typing import Any, AsyncIterator, ClassVar
+from collections.abc import AsyncIterator
+from typing import Any, ClassVar
 
 import aiohttp
 

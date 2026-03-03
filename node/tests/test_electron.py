@@ -32,7 +32,7 @@ def _list_binaries(
     manager: ElectronBinaryManager,
     binary: str,
 ) -> List[ElectronBinaryManager.Binary]:
-    return list(sorted(manager.find_binaries(binary), key=lambda b: b.filename))
+    return sorted(manager.find_binaries(binary), key=lambda b: b.filename)
 
 
 async def test_integrity_file(requests: RequestsController) -> None:

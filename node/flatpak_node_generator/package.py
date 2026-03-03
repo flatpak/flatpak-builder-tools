@@ -49,7 +49,7 @@ class SemVer:
                 return NotImplemented
 
             for our_part, other_part in zip(self._parts, other._parts):
-                if type(our_part) == type(other_part):  # noqa: E721
+                if type(our_part) == type(other_part):
                     if our_part < other_part:  # type: ignore
                         return True
                 # Number parts are always less than strings.

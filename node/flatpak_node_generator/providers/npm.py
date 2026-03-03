@@ -7,12 +7,12 @@ import shlex
 import textwrap
 import types
 import urllib.parse
+from collections.abc import Iterator
 from pathlib import Path
 from typing import (
     Any,
     DefaultDict,
     Dict,
-    Iterator,
     List,
     NamedTuple,
     Optional,
@@ -57,9 +57,7 @@ class NpmLockfileProvider(LockfileProvider):
         self, lockfile: Lockfile, entry: Dict[str, Dict[Any, Any]]
     ) -> Iterator[Package]:
         for pkgname, info in entry.get('dependencies', {}).items():
-            if info.get('dev') and self.no_devel:
-                continue
-            elif info.get('bundled'):
+            if info.get('dev') and self.no_devel or info.get('bundled'):
                 continue
 
             name = pkgname
@@ -214,7 +212,7 @@ class NpmModuleProvider(ModuleProvider):
         # Mapping of lockfiles to a dict of the Git source target paths and
         # NamedGitSource objects (package name + GitSource)
         self.git_sources: DefaultDict[Lockfile, Dict[Path, NamedGitSource]] = (
-            collections.defaultdict(lambda: {})
+            collections.defaultdict(dict)
         )
         # FIXME better pass the same provider object we created in main
         self.rcfile_provider = NpmRCFileProvider()
@@ -308,14 +306,14 @@ class NpmModuleProvider(ModuleProvider):
         index = await self.registry_packages[package.name]
 
         versions = index.data['versions']
-        assert (
-            package.version in versions
-        ), f'{package.name} versions available are {", ".join(versions)}, not {package.version}'
+        assert package.version in versions, (
+            f'{package.name} versions available are {", ".join(versions)}, not {package.version}'
+        )
 
         dist = versions[package.version]['dist']
-        assert (
-            'tarball' in dist
-        ), f'{package.name}@{package.version} has no tarball in dist'
+        assert 'tarball' in dist, (
+            f'{package.name}@{package.version} has no tarball in dist'
+        )
 
         index.used_versions.add(package.version)
 
@@ -474,9 +472,7 @@ class NpmModuleProvider(ModuleProvider):
                 index.url, metadata, request_headers={'accept': _NPM_CORGIDOC}
             )
 
-        patch_commands: DefaultDict[Path, List[str]] = collections.defaultdict(
-            lambda: []
-        )
+        patch_commands: DefaultDict[Path, List[str]] = collections.defaultdict(list)
 
         if self.git_sources:
             # Generate jq scripts to patch the package*.json files.

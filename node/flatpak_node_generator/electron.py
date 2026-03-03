@@ -1,7 +1,8 @@
 import hashlib
 import os.path
 import urllib.parse
-from typing import Dict, Iterator, NamedTuple, Optional
+from collections.abc import Iterator
+from typing import Dict, NamedTuple, Optional
 
 from .integrity import Integrity
 from .package import SemVer
