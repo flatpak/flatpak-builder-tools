@@ -265,7 +265,7 @@ class NpmModuleProvider(ModuleProvider):
         )
 
         content_integrity = Integrity.generate(index_json, algorithm='sha1')
-        index = '\t'.join((content_integrity.digest, index_json))
+        index = f'{content_integrity.digest}\t{index_json}'
 
         key_integrity = Integrity.generate(key)
         index_path = self.get_cacache_index_path(key_integrity)
@@ -446,7 +446,7 @@ class NpmModuleProvider(ModuleProvider):
         return self.registry
 
     def _finalize(self) -> None:
-        for _, async_index in self.registry_packages.items():
+        for async_index in self.registry_packages.values():
             index = async_index.result()
 
             if not self.no_trim_index:
