@@ -4,7 +4,7 @@ import hashlib
 import os.path
 import urllib.parse
 from collections.abc import Iterator
-from typing import NamedTuple
+from typing import ClassVar, NamedTuple
 
 from .integrity import Integrity
 from .package import SemVer
@@ -31,7 +31,7 @@ class ElectronBinaryManager:
             )
             return hashlib.sha256(url_dir.encode()).hexdigest()
 
-    ELECTRON_ARCHES_TO_FLATPAK = {
+    ELECTRON_ARCHES_TO_FLATPAK: ClassVar[dict[str, str]] = {
         'ia32': 'i386',
         'x64': 'x86_64',
         'armv7l': 'arm',
