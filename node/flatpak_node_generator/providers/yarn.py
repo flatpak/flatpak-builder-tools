@@ -267,7 +267,7 @@ class YarnModuleProvider(ModuleProvider):
             )
         if re.match(r'^[a-z]+=', subsequent):
             queries = urllib.parse.parse_qs(subsequent)
-            for q in queries.keys():
+            for q in queries:
                 if q in self._GIT_PROTOCOLS:
                     protocol = q
                     request = queries[q][0]
