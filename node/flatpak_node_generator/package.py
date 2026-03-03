@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import functools
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, NamedTuple, Optional, Tuple, Union
+from typing import NamedTuple
 
 from .integrity import Integrity
 from .url_metadata import RemoteUrlMetadata
@@ -16,21 +18,21 @@ class SemVer:
 
     @functools.total_ordering
     class Prerelease:
-        def __init__(self, parts: Tuple[Union[str, int], ...]) -> None:
+        def __init__(self, parts: tuple[str | int, ...]) -> None:
             self._parts = parts
 
         def __hash__(self) -> int:
             return hash(self._parts)
 
         @staticmethod
-        def parse(rel: str) -> Optional['SemVer.Prerelease']:
+        def parse(rel: str) -> SemVer.Prerelease | None:
             if not rel:
                 return None
 
-            parts: List[Union[str, int]] = []
+            parts: list[str | int] = []
 
             for part_s in rel.split('.'):
-                converted_part: Union[str, int]
+                converted_part: str | int
                 try:
                     converted_part = int(part_s)
                 except ValueError:
@@ -41,7 +43,7 @@ class SemVer:
             return SemVer.Prerelease(tuple(parts))
 
         @property
-        def parts(self) -> Tuple[Union[str, int], ...]:
+        def parts(self) -> tuple[str | int, ...]:
             return self._parts
 
         def __lt__(self, other: object) -> bool:
@@ -70,10 +72,10 @@ class SemVer:
     major: int
     minor: int
     patch: int
-    prerelease: Optional[Prerelease] = None
+    prerelease: Prerelease | None = None
 
     @staticmethod
-    def parse(version: str) -> 'SemVer':
+    def parse(version: str) -> SemVer:
         match = SemVer._SEMVER_RE.match(version)
         if match is None:
             raise ValueError(f'Invalid semver version: {version}')
@@ -90,7 +92,7 @@ class PackageSource:
 
 @dataclass(frozen=True, eq=True)
 class PackageFileSource(PackageSource):
-    integrity: Optional[Integrity]
+    integrity: Integrity | None
 
 
 @dataclass(frozen=True, eq=True)
@@ -122,7 +124,7 @@ class GitSource(PackageSource):
     original: str
     url: str
     commit: str
-    from_: Optional[str]
+    from_: str | None
 
 
 @dataclass(frozen=True, eq=True)
@@ -140,7 +142,7 @@ class LocalSource(PackageSource):
 class Lockfile:
     path: Path
     version: int
-    cache_key: Optional[str] = None
+    cache_key: str | None = None
 
 
 class Package(NamedTuple):

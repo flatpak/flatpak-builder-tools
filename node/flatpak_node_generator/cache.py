@@ -1,17 +1,19 @@
+from __future__ import annotations
+
 import os
 import re
 import tempfile
 import types
 from collections.abc import Iterator
 from pathlib import Path
-from typing import IO, Optional, Type
+from typing import IO
 
 
 class Cache:
-    instance: 'Cache'
+    instance: Cache
 
     @classmethod
-    def get_working_instance_if(cls, condition: bool) -> 'Cache':
+    def get_working_instance_if(cls, condition: bool) -> Cache:
         return cls.instance if condition else NullCache()
 
     class BucketReader:
@@ -24,14 +26,14 @@ class Cache:
         def close(self) -> None:
             raise NotImplementedError
 
-        def __enter__(self) -> 'Cache.BucketReader':
+        def __enter__(self) -> Cache.BucketReader:
             return self
 
         def __exit__(
             self,
-            exc_type: Optional[Type[BaseException]],
-            exc_value: Optional[BaseException],
-            traceback: Optional[types.TracebackType],
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: types.TracebackType | None,
         ) -> None:
             self.close()
 
@@ -45,14 +47,14 @@ class Cache:
         def seal(self) -> None:
             raise NotImplementedError
 
-        def __enter__(self) -> 'Cache.BucketWriter':
+        def __enter__(self) -> Cache.BucketWriter:
             return self
 
         def __exit__(
             self,
-            exc_type: Optional[Type[BaseException]],
-            exc_value: Optional[BaseException],
-            traceback: Optional[types.TracebackType],
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: types.TracebackType | None,
         ) -> None:
             if traceback is None:
                 self.seal()
@@ -63,10 +65,10 @@ class Cache:
         def __init__(self, key: str) -> None:
             self.key = key
 
-        def open_read(self) -> Optional['Cache.BucketReader']:
+        def open_read(self) -> Cache.BucketReader | None:
             raise NotImplementedError
 
-        def open_write(self) -> 'Cache.BucketWriter':
+        def open_write(self) -> Cache.BucketWriter:
             raise NotImplementedError
 
     def get(self, key: str) -> BucketRef:
@@ -88,7 +90,7 @@ class NullCache(Cache):
         def __init__(self, key: str) -> None:
             super().__init__(key)
 
-        def open_read(self) -> Optional[Cache.BucketReader]:
+        def open_read(self) -> Cache.BucketReader | None:
             return None
 
         def open_write(self) -> Cache.BucketWriter:
@@ -102,7 +104,7 @@ class FilesystemBasedCache(Cache):
     _SUBDIR = 'flatpak-node-generator'
     _KEY_CHAR_ESCAPE_RE = re.compile(r'[^A-Za-z0-9._\-]')
 
-    def __init__(self, cache_root: Optional[Path] = None) -> None:
+    def __init__(self, cache_root: Path | None = None) -> None:
         self._cache_root = cache_root or self._default_cache_root()
 
     @staticmethod
@@ -153,7 +155,8 @@ class FilesystemBasedCache(Cache):
 
             self._cache_path = self._cache_root / FilesystemBasedCache._escape_key(key)
 
-        def open_read(self) -> Optional[Cache.BucketReader]:
+        def open_read(self) -> Cache.BucketReader | None:
+
             try:
                 fp = self._cache_path.open('rb')
             except FileNotFoundError:

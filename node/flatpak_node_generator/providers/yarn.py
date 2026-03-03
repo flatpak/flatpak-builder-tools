@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import json
 import os
@@ -7,7 +9,7 @@ import types
 import urllib.parse
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
+from typing import Any, NamedTuple
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
@@ -62,8 +64,8 @@ class YarnLockfileProvider(LockfileProvider):
                         return True
         return False
 
-    def parse_lockfile(self, lockfile: Path) -> Dict[str, Any]:
-        def _iter_lines() -> Iterator[Tuple[int, str]]:
+    def parse_lockfile(self, lockfile: Path) -> dict[str, Any]:
+        def _iter_lines() -> Iterator[tuple[int, str]]:
             indent = '  '
             for line in lockfile.open(encoding='utf-8'):
                 level = 0
@@ -73,7 +75,7 @@ class YarnLockfileProvider(LockfileProvider):
                     current_line = current_line[len(indent) :]
                 yield level, current_line.strip()
 
-        root_entry: Dict[str, Any] = {}
+        root_entry: dict[str, Any] = {}
         parent_entries = [root_entry]
 
         for level, line in _iter_lines():
@@ -104,7 +106,7 @@ class YarnLockfileProvider(LockfileProvider):
             return string
 
     def process_package_v1(
-        self, lockfile: Lockfile, name_line: str, entry: Dict[str, Any]
+        self, lockfile: Lockfile, name_line: str, entry: dict[str, Any]
     ) -> Package:
         assert name_line and entry
 
@@ -132,8 +134,8 @@ class YarnLockfileProvider(LockfileProvider):
         )
 
     def process_package(
-        self, lockfile: Lockfile, name_line: str, entry: Dict[str, Any]
-    ) -> Optional[Package]:
+        self, lockfile: Lockfile, name_line: str, entry: dict[str, Any]
+    ) -> Package | None:
         assert name_line and entry
         name = self.unquote(name_line).split(',', 1)[0]
         name, _ = name.rsplit('@', 1)
@@ -163,10 +165,10 @@ class YarnLockfileProvider(LockfileProvider):
         return Package(name=name, version=version, source=source, lockfile=lockfile)
 
     def process_lockfile(self, lockfile_path: Path) -> Iterator[Package]:
-        lock_dict: Dict[str, Any] = self.parse_lockfile(lockfile_path)
+        lock_dict: dict[str, Any] = self.parse_lockfile(lockfile_path)
         cache_key = None
         if '__metadata' in lock_dict:
-            metadata: Dict[str, Any] = lock_dict['__metadata']
+            metadata: dict[str, Any] = lock_dict['__metadata']
             self.version = int(metadata.get('version', 1))
             assert self.version > 0
             if self.version > 1:
@@ -181,7 +183,7 @@ class YarnLockfileProvider(LockfileProvider):
                 yield self.process_package_v1(lockfile, name_line, package)
         else:
             for name_line, package in lock_dict.items():
-                res_package: Optional[Package] = self.process_package(
+                res_package: Package | None = self.process_package(
                     lockfile, name_line, package
                 )
                 if res_package:
@@ -202,9 +204,9 @@ class YarnModuleProvider(ModuleProvider):
 
     class GitRepoUrlParts(NamedTuple):
         repo: str
-        protocol: Optional[str]
+        protocol: str | None
         request: str
-        extra: Optional[Dict[str, str]]
+        extra: dict[str, str] | None
 
     # From https://github.com/yarnpkg/berry/blob/%40yarnpkg/shell%2F3.1.0/packages/yarnpkg-core/sources/structUtils.ts#L412
     _RESOLUTION_RE = re.compile(r'^(?:@([^/]+?)\/)?([^/]+?)(?:@(.+))$')
@@ -228,9 +230,9 @@ class YarnModuleProvider(ModuleProvider):
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        tb: Optional[types.TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        tb: types.TracebackType | None,
     ) -> None:
         self._finalize()
 
@@ -256,9 +258,9 @@ class YarnModuleProvider(ModuleProvider):
     # From https://github.com/yarnpkg/berry/blob/%40yarnpkg/shell%2F3.1.0/packages/plugin-git/sources/gitUtils.ts#L56
     def parse_git_subsequent(self, url: str) -> GitRepoUrlParts:
         repo, subsequent = url.split('#', 1)
-        protocol: Optional[str] = None
+        protocol: str | None = None
         request: str = ''
-        extra: Dict[str, str] = {}
+        extra: dict[str, str] = {}
         if not subsequent:
             return self.GitRepoUrlParts(
                 repo=repo, protocol='head', request='HEAD', extra=None
@@ -418,7 +420,7 @@ class YarnProviderFactory(ProviderFactory):
     def create_lockfile_provider(self) -> YarnLockfileProvider:
         return YarnLockfileProvider()
 
-    def create_rcfile_providers(self) -> List[RCFileProvider]:
+    def create_rcfile_providers(self) -> list[RCFileProvider]:
         return [YarnRCFileProvider(), NpmRCFileProvider()]
 
     def create_module_provider(

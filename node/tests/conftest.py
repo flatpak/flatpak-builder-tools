@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import enum
 import json
 import subprocess
@@ -5,7 +7,7 @@ import sys
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -87,9 +89,9 @@ class FlatpakBuilder:
     def build(
         self,
         *,
-        sources: Iterable[Dict[Any, Any]],
-        commands: Optional[List[str]] = None,
-        use_node: Optional[Union[int, bool]] = None,
+        sources: Iterable[dict[Any, Any]],
+        commands: list[str] | None = None,
+        use_node: int | bool | None = None,
     ) -> None:
         if commands is None:
             commands = []
@@ -236,9 +238,9 @@ class ProviderFactorySpec:
         self,
         lockfile_root: str,
         node_version: int,
-        npm_lockfile: Optional[NpmLockfileProvider.Options] = None,
-        npm_module: Optional[NpmModuleProvider.Options] = None,
-    ) -> Tuple[ProviderFactory, ProviderPaths]:
+        npm_lockfile: NpmLockfileProvider.Options | None = None,
+        npm_module: NpmModuleProvider.Options | None = None,
+    ) -> tuple[ProviderFactory, ProviderPaths]:
         paths = ProviderPaths(
             type=self.type,
             root=self.datadir / 'packages' / lockfile_root,
@@ -275,8 +277,8 @@ class ProviderFactorySpec:
         lockfile_root: str,
         gen: ManifestGenerator,
         node_version: int = _DEFAULT_NODE,
-        npm_lockfile: Optional[NpmLockfileProvider.Options] = None,
-        npm_module: Optional[NpmModuleProvider.Options] = None,
+        npm_lockfile: NpmLockfileProvider.Options | None = None,
+        npm_module: NpmModuleProvider.Options | None = None,
     ) -> ProviderPaths:
         factory, paths = self.create_factory(
             lockfile_root,

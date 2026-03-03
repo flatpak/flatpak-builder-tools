@@ -1,5 +1,3 @@
-from typing import List
-
 from conftest import RequestsController
 
 from flatpak_node_generator.electron import ElectronBinaryManager
@@ -31,7 +29,7 @@ def _expect_integrity_request(requests: RequestsController) -> None:
 def _list_binaries(
     manager: ElectronBinaryManager,
     binary: str,
-) -> List[ElectronBinaryManager.Binary]:
+) -> list[ElectronBinaryManager.Binary]:
     return sorted(manager.find_binaries(binary), key=lambda b: b.filename)
 
 

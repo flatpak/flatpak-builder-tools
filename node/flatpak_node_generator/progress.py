@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 import asyncio
 import shutil
 import sys
 import types
 from collections.abc import Collection
-from typing import ContextManager, Optional, Type
+from contextlib import AbstractContextManager
 
 from .package import Package
 from .providers import ModuleProvider
 
 
-class GeneratorProgress(ContextManager['GeneratorProgress']):
+class GeneratorProgress(AbstractContextManager['GeneratorProgress']):
     def __init__(
         self,
         packages: Collection[Package],
@@ -20,14 +22,14 @@ class GeneratorProgress(ContextManager['GeneratorProgress']):
         self.packages = packages
         self.module_provider = module_provider
         self.parallel_limit = asyncio.Semaphore(max_parallel)
-        self.previous_package: Optional[Package] = None
-        self.current_package: Optional[Package] = None
+        self.previous_package: Package | None = None
+        self.current_package: Package | None = None
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        tb: Optional[types.TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        tb: types.TracebackType | None,
     ) -> None:
         print()
 

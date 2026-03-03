@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import collections
 import itertools
 import json
 import re
 import urllib.parse
 from pathlib import Path
-from typing import DefaultDict, List, NamedTuple, Optional, Tuple
+from typing import NamedTuple
 
 from ..electron import ElectronBinaryManager
 from ..integrity import Integrity
@@ -19,14 +21,14 @@ _NPM_MIRROR = 'https://unpkg.com/'
 
 class SpecialSourceProvider:
     class Options(NamedTuple):
-        node_chromedriver_from_electron: Optional[str]
-        electron_ffmpeg: Optional[str]
+        node_chromedriver_from_electron: str | None
+        electron_ffmpeg: str | None
         electron_node_headers: bool
-        nwjs_version: Optional[str]
+        nwjs_version: str | None
         nwjs_node_headers: bool
         nwjs_ffmpeg: bool
         xdg_layout: bool
-        node_sdk_extension: Optional[str]
+        node_sdk_extension: str | None
 
     def __init__(self, gen: ManifestGenerator, options: Options):
         self.gen = gen
@@ -57,8 +59,8 @@ class SpecialSourceProvider:
         add_integrities: bool = True,
     ) -> None:
         electron_cache_dir = self.electron_cache_dir
-        links_to_create: DefaultDict[
-            str, List[Tuple[ElectronBinaryManager.Binary, str]]
+        links_to_create: collections.defaultdict[
+            str, list[tuple[ElectronBinaryManager.Binary, str]]
         ] = collections.defaultdict(list)
 
         for binary in manager.find_binaries(binary_name):
@@ -444,7 +446,7 @@ class SpecialSourceProvider:
     def _handle_electron_builder(self, package: Package) -> None:
         destination = self.gen.data_root / 'electron-builder-arch-args.sh'
 
-        script: List[str] = []
+        script: list[str] = []
         script.append('case "$FLATPAK_ARCH" in')
 
         for (
@@ -460,7 +462,7 @@ class SpecialSourceProvider:
         self.gen.add_script_source(script, destination)
 
     async def generate_node_headers(
-        self, node_headers: NodeHeaders, dest: Optional[Path] = None
+        self, node_headers: NodeHeaders, dest: Path | None = None
     ) -> None:
         url = node_headers.url
         install_version = node_headers.install_version(self.node_sdk_extension)
