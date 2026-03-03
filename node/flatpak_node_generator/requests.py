@@ -21,9 +21,11 @@ class Requests:
 
     @contextlib.asynccontextmanager
     async def _open_stream(self, url: str) -> AsyncIterator[aiohttp.StreamReader]:
-        async with aiohttp.ClientSession(raise_for_status=True) as session:
-            async with session.get(url) as response:
-                yield response.content
+        async with (
+            aiohttp.ClientSession(raise_for_status=True) as session,
+            session.get(url) as response,
+        ):
+            yield response.content
 
     async def _read_parts(
         self, url: str, size: int = DEFAULT_PART_SIZE
