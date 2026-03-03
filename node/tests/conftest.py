@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -223,15 +223,17 @@ class ProviderPaths:
 class ProviderFactorySpec:
     datadir: Path
     type: ProviderFactoryType
-    special: SpecialSourceProvider.Options = SpecialSourceProvider.Options(
-        node_chromedriver_from_electron=None,
-        electron_ffmpeg=None,
-        electron_node_headers=False,
-        nwjs_version=None,
-        nwjs_node_headers=False,
-        nwjs_ffmpeg=False,
-        xdg_layout=True,
-        node_sdk_extension=None,
+    special: SpecialSourceProvider.Options = field(
+        default_factory=lambda: SpecialSourceProvider.Options(
+            node_chromedriver_from_electron=None,
+            electron_ffmpeg=None,
+            electron_node_headers=False,
+            nwjs_version=None,
+            nwjs_node_headers=False,
+            nwjs_ffmpeg=False,
+            xdg_layout=True,
+            node_sdk_extension=None,
+        )
     )
 
     def create_factory(
