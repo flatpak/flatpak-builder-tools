@@ -127,7 +127,7 @@ class NodeHeaders(NamedTuple):
                     f"from SDK extension '{sdk_extension}'"
                 )
                 return version
-        except Exception as e:
+        except json.JSONDecodeError as e:
             print(
                 f'\nFailed to read node-gyp installVersion from Node SDK extension '
                 f"'{sdk_extension}', using '{NODE_GYP_INSTALL_VERSION}': {e}"
