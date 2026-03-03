@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import base64
 import binascii
 import hashlib
-from typing import Any, NamedTuple, Union
+from typing import Any, NamedTuple
 
 
 class Integrity(NamedTuple):
@@ -9,7 +11,7 @@ class Integrity(NamedTuple):
     digest: str
 
     @staticmethod
-    def parse(value: str) -> 'Integrity':
+    def parse(value: str) -> Integrity:
         algorithm, encoded_digest = value.split('-', 1)
         assert algorithm.startswith('sha'), algorithm
         digest = binascii.hexlify(base64.b64decode(encoded_digest)).decode()
@@ -17,18 +19,18 @@ class Integrity(NamedTuple):
         return Integrity(algorithm, digest)
 
     @staticmethod
-    def from_sha1(sha1: str) -> 'Integrity':
+    def from_sha1(sha1: str) -> Integrity:
         assert len(sha1) == 40, f'Invalid length of sha1: {sha1}'
         return Integrity('sha1', sha1)
 
     @staticmethod
-    def generate(data: Union[str, bytes], *, algorithm: str = 'sha256') -> 'Integrity':
+    def generate(data: str | bytes, *, algorithm: str = 'sha256') -> Integrity:
         builder = IntegrityBuilder(algorithm)
         builder.update(data)
         return builder.build()
 
     @staticmethod
-    def from_json_object(data: Any) -> 'Integrity':
+    def from_json_object(data: Any) -> Integrity:
         return Integrity(algorithm=data['algorithm'], digest=data['digest'])
 
     def to_json_object(self) -> Any:
@@ -43,7 +45,7 @@ class IntegrityBuilder:
         self.algorithm = algorithm
         self._hasher = hashlib.new(algorithm)
 
-    def update(self, data: Union[str, bytes]) -> None:
+    def update(self, data: str | bytes) -> None:
         data_bytes: bytes
         if isinstance(data, str):
             data_bytes = data.encode()

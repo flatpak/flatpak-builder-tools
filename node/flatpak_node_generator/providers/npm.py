@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import collections
 import functools
@@ -9,16 +11,7 @@ import types
 import urllib.parse
 from collections.abc import Iterator
 from pathlib import Path
-from typing import (
-    Any,
-    DefaultDict,
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Set,
-    Type,
-)
+from typing import Any, NamedTuple
 
 from ..integrity import Integrity
 from ..manifest import ManifestGenerator
@@ -54,7 +47,7 @@ class NpmLockfileProvider(LockfileProvider):
         self.no_devel = options.no_devel
 
     def _process_packages_v1(
-        self, lockfile: Lockfile, entry: Dict[str, Dict[Any, Any]]
+        self, lockfile: Lockfile, entry: dict[str, dict[Any, Any]]
     ) -> Iterator[Package]:
         for pkgname, info in entry.get('dependencies', {}).items():
             if info.get('dev') and self.no_devel or info.get('bundled'):
@@ -107,7 +100,7 @@ class NpmLockfileProvider(LockfileProvider):
                 yield from self._process_packages_v1(lockfile, info)
 
     def _process_packages_v2(
-        self, lockfile: Lockfile, entry: Dict[str, Dict[Any, Any]]
+        self, lockfile: Lockfile, entry: dict[str, dict[Any, Any]]
     ) -> Iterator[Package]:
         for install_path, info in entry.get('packages', {}).items():
             if (info.get('dev') or info.get('devOptional')) and self.no_devel:
@@ -185,8 +178,8 @@ class NpmModuleProvider(ModuleProvider):
 
     class RegistryPackageIndex(NamedTuple):
         url: str
-        data: Dict[Any, Any]
-        used_versions: Set[str]
+        data: dict[Any, Any]
+        used_versions: set[str]
 
     def __init__(
         self,
@@ -204,24 +197,24 @@ class NpmModuleProvider(ModuleProvider):
         self.npm_cache_dir = self.gen.data_root / 'npm-cache'
         self.cacache_dir = self.npm_cache_dir / '_cacache'
         # Awaitable so multiple tasks can be waiting on the same package info.
-        self.registry_packages: Dict[
+        self.registry_packages: dict[
             str, asyncio.Future[NpmModuleProvider.RegistryPackageIndex]
         ] = {}
-        self.index_entries: Dict[Path, str] = {}
-        self.all_lockfiles: Set[Lockfile] = set()
+        self.index_entries: dict[Path, str] = {}
+        self.all_lockfiles: set[Lockfile] = set()
         # Mapping of lockfiles to a dict of the Git source target paths and
         # NamedGitSource objects (package name + GitSource)
-        self.git_sources: DefaultDict[Lockfile, Dict[Path, NamedGitSource]] = (
-            collections.defaultdict(dict)
-        )
+        self.git_sources: collections.defaultdict[
+            Lockfile, dict[Path, NamedGitSource]
+        ] = collections.defaultdict(dict)
         # FIXME better pass the same provider object we created in main
         self.rcfile_provider = NpmRCFileProvider()
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        tb: Optional[types.TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        tb: types.TracebackType | None,
     ) -> None:
         # Don't bother finalizing if an exception was thrown.
         if exc_type is None:
@@ -250,7 +243,7 @@ class NpmModuleProvider(ModuleProvider):
         self,
         url: str,
         metadata: RemoteUrlMetadata,
-        request_headers: Optional[Dict[str, str]] = None,
+        request_headers: dict[str, str] | None = None,
     ) -> None:
         if request_headers is None:
             request_headers = {}
@@ -436,7 +429,7 @@ class NpmModuleProvider(ModuleProvider):
         return lockfile.parent.relative_to(self.lockfile_root)
 
     @functools.lru_cache(typed=True)  # noqa: B019 ?
-    def get_lockfile_rc(self, lockfile: Path) -> Dict[str, str]:
+    def get_lockfile_rc(self, lockfile: Path) -> dict[str, str]:
         rc = {}
         rcfile_path = lockfile.parent / self.rcfile_provider.RCFILE_NAME
         if rcfile_path.is_file():
@@ -472,7 +465,9 @@ class NpmModuleProvider(ModuleProvider):
                 index.url, metadata, request_headers={'accept': _NPM_CORGIDOC}
             )
 
-        patch_commands: DefaultDict[Path, List[str]] = collections.defaultdict(list)
+        patch_commands: collections.defaultdict[Path, list[str]] = (
+            collections.defaultdict(list)
+        )
 
         if self.git_sources:
             # Generate jq scripts to patch the package*.json files.
@@ -504,7 +499,7 @@ class NpmModuleProvider(ModuleProvider):
 
             for lockfile, sources in self.git_sources.items():
                 prefix = self.relative_lockfile_dir(lockfile.path)
-                data: Dict[str, Dict[str, str]] = {
+                data: dict[str, dict[str, str]] = {
                     'package.json': {},
                     'package-lock.json': {},
                 }
@@ -547,7 +542,7 @@ class NpmModuleProvider(ModuleProvider):
                         patch_commands[lockfile.path].append(f'mv {target}{{.new,}}')
 
         if len(patch_commands) > 0:
-            patch_all_commands: List[str] = []
+            patch_all_commands: list[str] = []
             for lockfile in self.all_lockfiles:
                 patch_dest = (
                     self.gen.data_root
@@ -586,7 +581,7 @@ class NpmProviderFactory(ProviderFactory):
     def create_lockfile_provider(self) -> NpmLockfileProvider:
         return NpmLockfileProvider(self.options.lockfile)
 
-    def create_rcfile_providers(self) -> List[RCFileProvider]:
+    def create_rcfile_providers(self) -> list[RCFileProvider]:
         return [NpmRCFileProvider()]
 
     def create_module_provider(

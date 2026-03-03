@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 import re
 import urllib.parse
 from collections.abc import Iterator
+from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import ContextManager, Dict, List, Optional
 
 from ..manifest import ManifestGenerator
 from ..node_headers import NodeHeaders
 from ..package import GitSource, Package
 from .special import SpecialSourceProvider
 
-_GIT_SCHEMES: Dict[str, Dict[str, str]] = {
+_GIT_SCHEMES: dict[str, dict[str, str]] = {
     'github': {'scheme': 'https', 'netloc': 'github.com'},
     'gitlab': {'scheme': 'https', 'netloc': 'gitlab.com'},
     'bitbucket': {'scheme': 'https', 'netloc': 'bitbucket.com'},
@@ -21,7 +23,7 @@ _GIT_SCHEMES: Dict[str, Dict[str, str]] = {
 
 
 class LockfileProvider:
-    def parse_git_source(self, version: str, from_: Optional[str] = None) -> GitSource:
+    def parse_git_source(self, version: str, from_: str | None = None) -> GitSource:
         # https://github.com/microsoft/pyright/issues/1589
         # pyright: reportPrivateUsage=false
 
@@ -57,18 +59,18 @@ class LockfileProvider:
 class RCFileProvider:
     RCFILE_NAME: str
 
-    def parse_rcfile(self, rcfile: Path) -> Dict[str, str]:
+    def parse_rcfile(self, rcfile: Path) -> dict[str, str]:
         with open(rcfile, 'r', encoding='utf-8') as r:
             rcfile_text = r.read()
         parser_re = re.compile(
             r'^(?!#|;)(\S+)(?:\s+|\s*=\s*)(?:"(.+)"|(\S+))$', re.MULTILINE
         )
-        result: Dict[str, str] = {}
+        result: dict[str, str] = {}
         for key, quoted_val, val in parser_re.findall(rcfile_text):
             result[key] = quoted_val or val
         return result
 
-    def get_node_headers(self, rcfile: Path) -> Optional[NodeHeaders]:
+    def get_node_headers(self, rcfile: Path) -> NodeHeaders | None:
         rc_data = self.parse_rcfile(rcfile)
         if 'target' not in rc_data:
             return None
@@ -81,7 +83,7 @@ class RCFileProvider:
         return NodeHeaders.with_defaults(target, runtime, disturl)
 
 
-class ModuleProvider(ContextManager['ModuleProvider']):
+class ModuleProvider(AbstractContextManager['ModuleProvider']):
     async def generate_package(self, package: Package) -> None:
         raise NotImplementedError()
 
@@ -90,7 +92,7 @@ class ProviderFactory:
     def create_lockfile_provider(self) -> LockfileProvider:
         raise NotImplementedError()
 
-    def create_rcfile_providers(self) -> List[RCFileProvider]:
+    def create_rcfile_providers(self) -> list[RCFileProvider]:
         raise NotImplementedError()
 
     def create_module_provider(

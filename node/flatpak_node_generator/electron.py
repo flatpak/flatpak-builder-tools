@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import hashlib
 import os.path
 import urllib.parse
 from collections.abc import Iterator
-from typing import Dict, NamedTuple, Optional
+from typing import NamedTuple
 
 from .integrity import Integrity
 from .package import SemVer
@@ -19,7 +21,7 @@ class ElectronBinaryManager:
         url: str
         integrity: Integrity
 
-        arch: Optional['ElectronBinaryManager.Arch'] = None
+        arch: ElectronBinaryManager.Arch | None = None
 
         @property
         def url_hash(self) -> str:
@@ -39,7 +41,7 @@ class ElectronBinaryManager:
     INTEGRITY_BASE_FILENAME = 'SHASUMS256.txt'
 
     def __init__(
-        self, version: str, base_url: str, integrities: Dict[str, Integrity]
+        self, version: str, base_url: str, integrities: dict[str, Integrity]
     ) -> None:
         self.version = version
         self.base_url = base_url
@@ -48,7 +50,7 @@ class ElectronBinaryManager:
     def child_url(self, child: str) -> str:
         return f'{self.base_url}/{child}'
 
-    def find_binaries(self, binary: str) -> Iterator['ElectronBinaryManager.Binary']:
+    def find_binaries(self, binary: str) -> Iterator[ElectronBinaryManager.Binary]:
         for electron_arch, flatpak_arch in self.ELECTRON_ARCHES_TO_FLATPAK.items():
             # Electron v19+ drop linux-ia32 support.
             if (
@@ -71,7 +73,7 @@ class ElectronBinaryManager:
             )
 
     @property
-    def integrity_file(self) -> 'ElectronBinaryManager.Binary':
+    def integrity_file(self) -> ElectronBinaryManager.Binary:
         return ElectronBinaryManager.Binary(
             filename=f'SHASUMS256.txt-{self.version}',
             url=self.child_url(self.INTEGRITY_BASE_FILENAME),
@@ -80,8 +82,8 @@ class ElectronBinaryManager:
 
     @staticmethod
     async def for_version(
-        version: str, *, base_url: Optional[str] = None
-    ) -> 'ElectronBinaryManager':
+        version: str, *, base_url: str | None = None
+    ) -> ElectronBinaryManager:
         if base_url is None:
             base_url = (
                 f'https://github.com/electron/electron/releases/download/v{version}'
@@ -92,7 +94,7 @@ class ElectronBinaryManager:
             await Requests.instance.read_all(integrity_url, cachable=True)
         ).decode()
 
-        integrities: Dict[str, Integrity] = {}
+        integrities: dict[str, Integrity] = {}
         for line in integrity_data.splitlines():
             digest, star_filename = line.split()
             filename = star_filename.strip('*')

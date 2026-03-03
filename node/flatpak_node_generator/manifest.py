@@ -1,40 +1,33 @@
+from __future__ import annotations
+
 import base64
 import json
 import types
 from collections.abc import Iterator
+from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import (
-    Any,
-    ContextManager,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import Any
 
 from .integrity import Integrity
 
 DEFAULT_SPLIT_SIZE_KB = 49 * 1000  # GitHub has 49 MB limit
 
 
-class ManifestGenerator(ContextManager['ManifestGenerator']):
+class ManifestGenerator(AbstractContextManager['ManifestGenerator']):
     JSON_INDENT = 4
 
     def __init__(self) -> None:
         # Store the dicts as a set of tuples, then rebuild the dict when returning it.
         # That way, we ensure uniqueness.
-        self._sources: Set[Tuple[Tuple[str, Any], ...]] = set()
-        self._commands: List[str] = []
+        self._sources: set[tuple[tuple[str, Any], ...]] = set()
+        self._commands: list[str] = []
         self.split_size = DEFAULT_SPLIT_SIZE_KB * 1000
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        tb: Optional[types.TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        tb: types.TracebackType | None,
     ) -> None:
         self._finalize()
 
@@ -50,18 +43,18 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
     def source_count(self) -> int:
         return len(self._sources)
 
-    def set_upgraded_sources(self, sources: List[Dict[Any, Any]]) -> None:
+    def set_upgraded_sources(self, sources: list[dict[Any, Any]]) -> None:
         self._upgraded_sources = sources
 
-    def ordered_sources(self) -> Iterator[Dict[Any, Any]]:
+    def ordered_sources(self) -> Iterator[dict[Any, Any]]:
         if hasattr(self, '_upgraded_sources'):
             return iter(self._upgraded_sources)
         return map(dict, sorted(self._sources))
 
-    def split_sources(self) -> Iterator[List[Dict[Any, Any]]]:
+    def split_sources(self) -> Iterator[list[dict[Any, Any]]]:
         BASE_CURRENT_SIZE = len('[\n]')
         current_size = BASE_CURRENT_SIZE
-        current: List[Dict[Any, Any]] = []
+        current: list[dict[Any, Any]] = []
 
         for source in self.ordered_sources():
             # Generate one source by itself, then check the length without the closing and
@@ -78,16 +71,16 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         if current:
             yield current
 
-    def _add_source(self, source: Dict[str, Any]) -> None:
+    def _add_source(self, source: dict[str, Any]) -> None:
         self._sources.add(tuple(source.items()))
 
     def _add_source_with_destination(
         self,
-        source: Dict[str, Any],
-        destination: Optional[Path],
+        source: dict[str, Any],
+        destination: Path | None = None,
         *,
         is_dir: bool,
-        only_arches: Optional[List[str]] = None,
+        only_arches: list[str] | None = None,
     ) -> None:
         if destination is not None:
             if is_dir:
@@ -105,11 +98,11 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
     def add_local_file_source(
         self,
         path: Path,
-        destination: Optional[Path] = None,
+        destination: Path | None = None,
         *,
-        only_arches: Optional[List[str]] = None,
+        only_arches: list[str] | None = None,
     ) -> None:
-        source: Dict[str, Any] = {
+        source: dict[str, Any] = {
             'type': 'file',
             'path': str(path),
         }
@@ -121,11 +114,11 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         self,
         url: str,
         integrity: Integrity,
-        destination: Optional[Path] = None,
+        destination: Path | None = None,
         *,
-        only_arches: Optional[List[str]] = None,
+        only_arches: list[str] | None = None,
     ) -> None:
-        source: Dict[str, Any] = {
+        source: dict[str, Any] = {
             'type': 'file',
             'url': url,
             integrity.algorithm: integrity.digest,
@@ -138,11 +131,11 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
         self,
         url: str,
         integrity: Integrity,
-        destination: Optional[Path] = None,
-        only_arches: Optional[List[str]] = None,
+        destination: Path | None = None,
+        only_arches: list[str] | None = None,
         strip_components: int = 1,
     ) -> None:
-        source: Dict[str, Any] = {
+        source: dict[str, Any] = {
             'type': 'archive',
             'url': url,
             'strip-components': strip_components,
@@ -152,7 +145,7 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
             source, destination, is_dir=True, only_arches=only_arches
         )
 
-    def add_data_source(self, data: Union[str, bytes], destination: Path) -> None:
+    def add_data_source(self, data: str | bytes, destination: Path) -> None:
         if isinstance(data, bytes):
             source = {
                 'type': 'inline',
@@ -170,9 +163,9 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
     def add_git_source(
         self,
         url: str,
-        commit: Optional[str] = None,
-        destination: Optional[Path] = None,
-        tag: Optional[str] = None,
+        commit: str | None = None,
+        destination: Path | None = None,
+        tag: str | None = None,
     ) -> None:
         source = {'type': 'git', 'url': url}
         assert commit or tag
@@ -182,15 +175,15 @@ class ManifestGenerator(ContextManager['ManifestGenerator']):
             source['tag'] = tag
         self._add_source_with_destination(source, destination, is_dir=True)
 
-    def add_script_source(self, commands: List[str], destination: Path) -> None:
+    def add_script_source(self, commands: list[str], destination: Path) -> None:
         source = {'type': 'script', 'commands': tuple(commands)}
         self._add_source_with_destination(source, destination, is_dir=False)
 
     def add_shell_source(
         self,
-        commands: List[str],
-        destination: Optional[Path] = None,
-        only_arches: Optional[List[str]] = None,
+        commands: list[str],
+        destination: Path | None = None,
+        only_arches: list[str] | None = None,
     ) -> None:
         """This might be slow for multiple instances. Use `add_command()` instead."""
         source = {'type': 'shell', 'commands': tuple(commands)}

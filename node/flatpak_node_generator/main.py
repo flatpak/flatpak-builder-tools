@@ -5,7 +5,6 @@ import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
-from typing import List, Set
 
 from .cache import Cache, FilesystemBasedCache
 from .manifest import DEFAULT_SPLIT_SIZE_KB, ManifestGenerator
@@ -19,7 +18,7 @@ from .providers.yarn import YarnProviderFactory
 from .requests import Requests, StubRequests
 
 
-def _scan_for_lockfiles(base: Path, patterns: List[str]) -> Iterator[Path]:
+def _scan_for_lockfiles(base: Path, patterns: list[str]) -> Iterator[Path]:
     for root, _, files in os.walk(base.parent):
         if base.name in files:
             lockfile = Path(root) / base.name
@@ -171,7 +170,7 @@ async def _async_main() -> None:
     if not args.no_requests_cache:
         Cache.instance = FilesystemBasedCache()
 
-    lockfiles: List[Path]
+    lockfiles: list[Path]
     if args.recursive or args.recursive_pattern:
         lockfiles = list(
             _scan_for_lockfiles(Path(args.lockfile), args.recursive_pattern)
@@ -201,8 +200,8 @@ async def _async_main() -> None:
         assert False, args.type
 
     print('Reading packages from lockfiles...')
-    packages: Set[Package] = set()
-    rcfile_node_headers: Set[NodeHeaders] = set()
+    packages: set[Package] = set()
+    rcfile_node_headers: set[NodeHeaders] = set()
 
     for lockfile in lockfiles:
         lockfile_provider = provider_factory.create_lockfile_provider()

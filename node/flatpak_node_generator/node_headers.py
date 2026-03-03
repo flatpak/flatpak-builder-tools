@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import json
 import os
 import platform
 import struct
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 NODE_GYP_INSTALL_VERSION = '11'
 
@@ -16,9 +18,9 @@ class NodeHeaders(NamedTuple):
     def with_defaults(
         cls,
         target: str,
-        runtime: Optional[str] = None,
-        disturl: Optional[str] = None,
-    ) -> 'NodeHeaders':
+        runtime: str | None = None,
+        disturl: str | None = None,
+    ) -> NodeHeaders:
         if runtime is None:
             runtime = 'node'
         if disturl is None:
@@ -57,7 +59,7 @@ class NodeHeaders(NamedTuple):
         return machine
 
     @staticmethod
-    def _find_node_gyp_path(sdk_extension: str) -> Optional[str]:
+    def _find_node_gyp_path(sdk_extension: str) -> str | None:
         try:
             ext_id, version = sdk_extension.split('//')
         except ValueError:
@@ -100,7 +102,7 @@ class NodeHeaders(NamedTuple):
 
         return None
 
-    def install_version(self, sdk_extension: Optional[str] = None) -> str:
+    def install_version(self, sdk_extension: str | None = None) -> str:
         if sdk_extension is None:
             print(
                 f"\nNo Node SDK extension supplied, using node-gyp installVersion '{NODE_GYP_INSTALL_VERSION}'"
