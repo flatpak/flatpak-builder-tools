@@ -1,6 +1,6 @@
 # flatpak-node-generator
 
-A more modern successor for flatpak-npm-generator and flatpak-yarn-generator, for Node 10+ only.
+A more modern successor for flatpak-npm-generator and flatpak-yarn-generator, for Node 10+ only. Supports npm, yarn, and pnpm.
 (For Node 8, use flatpak-npm-generator and flatpak-yarn-generator.)
 
 **NOTE:** `--xdg-layout` was recently changed to be the default. In the stark
@@ -50,16 +50,24 @@ get npm with electron-builder.
 ## Usage
 
 ```
-usage: flatpak-node-generator [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN] [--registry REGISTRY] [--no-trim-index] [--no-devel] [--no-requests-cache] [--max-parallel MAX_PARALLEL] [--retries RETRIES] [-P]
-                              [-s] [-S SPLIT_SIZE] [--node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON] [--electron-ffmpeg {archive,lib}] [--electron-node-headers]
-                              [--nwjs-version NWJS_VERSION] [--nwjs-node-headers] [--nwjs-ffmpeg] [--no-xdg-layout] [--node-sdk-extension NODE_SDK_EXTENSION]
-                              {npm,yarn} lockfile
+usage: flatpak-node-generator [-h] [-o OUTPUT] [-r] [-R RECURSIVE_PATTERN] [--registry REGISTRY] [--no-trim-index]
+                              [--no-devel] [--no-requests-cache]
+                              [--max-parallel MAX_PARALLEL]
+                              [--retries RETRIES] [-P] [-s] [-S SPLIT_SIZE]
+                              [--node-chromedriver-from-electron NODE_CHROMEDRIVER_FROM_ELECTRON]
+                              [--electron-ffmpeg {archive,lib}]
+                              [--electron-node-headers]
+                              [--nwjs-version NWJS_VERSION]
+                              [--nwjs-node-headers] [--nwjs-ffmpeg]
+                              [--no-xdg-layout]
+                              [--node-sdk-extension NODE_SDK_EXTENSION]
+                              {npm,yarn,pnpm} lockfile
 
 Flatpak Node generator
 
 positional arguments:
-  {npm,yarn}
-  lockfile              The lockfile path (package-lock.json or yarn.lock)
+  {npm,yarn,pnpm}
+  lockfile              The lockfile path (package-lock.json, yarn.lock, or pnpm-lock.yaml)
 
 options:
   -h, --help            show this help message and exit
@@ -67,9 +75,9 @@ options:
   -r, --recursive       Recursively process all files under the lockfile directory with the lockfile basename
   -R, --recursive-pattern RECURSIVE_PATTERN
                         Given -r, restrict files to those matching the given pattern.
-  --registry REGISTRY   The registry to use (npm only)
+  --registry REGISTRY   The registry to use (npm/pnpm)
   --no-trim-index       Don't trim npm package metadata (npm only)
-  --no-devel            Don't include devel dependencies (npm only)
+  --no-devel            Don't include devel dependencies (npm/pnpm)
   --no-requests-cache   Disable the requests cache
   --max-parallel MAX_PARALLEL
                         Maximium number of packages to process in parallel
@@ -93,12 +101,12 @@ options:
                         Flatpak node SDK extension (e.g. org.freedesktop.Sdk.Extension.node24//25.08)
 ```
 
-flatpak-node-generator.py takes the package manager (npm or yarn), and a path to a lockfile for
-that package manager. It will then write an output sources file (default is generated-sources.json)
-containing all the sources set up like needed for the given package manager.
+flatpak-node-generator takes a package manager (npm, yarn, or pnpm), and a path to a lockfile for
+that package manager. It writes an output sources file (default is generated-sources.json)
+containing all the sources needed for the given package manager.
 
-If you're on npm and you don't want to include devel dependencies, pass `--no-devel`, and pass
-`--production` to `npm install` itself when you call.
+If you're on npm or pnpm and you don't want to include devel dependencies, pass `--no-devel`.
+For npm, also pass `--production` to `npm install` itself.
 
 If you're using npm, you must run this script when the `node_modules` directory is **NOT** present.
 If you generate the `generated-sources.json` in CI, you can do this by passing `--package-lock-only`
