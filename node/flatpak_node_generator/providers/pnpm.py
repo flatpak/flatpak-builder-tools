@@ -189,19 +189,19 @@ class PnpmModuleProvider(ModuleProvider):
         if isinstance(source, ResolvedSource):
             assert source.resolved is not None
 
-            if source.integrity is None:
+            integrity = source.integrity
+            if integrity is None:
                 print(
-                    f'WARNING: skipping {package.name}@{package.version}: '
-                    'no integrity in lockfile (required for pnpm store)',
+                    f'INFO: {package.name}@{package.version}: '
+                    'no integrity in lockfile, fetching to compute...',
                     file=sys.stderr,
                 )
-                return
+                integrity = await source.retrieve_integrity()
 
-            # Use name-version as filename; replace / in scoped names
             tarball_name = f'{package.name.replace("/", "__")}-{package.version}.tgz'
             self.gen.add_url_source(
                 url=source.resolved,
-                integrity=source.integrity,
+                integrity=integrity,
                 destination=self.tarball_dir / tarball_name,
             )
             self._tarballs.append(
@@ -209,7 +209,7 @@ class PnpmModuleProvider(ModuleProvider):
                     tarball_name=tarball_name,
                     name=package.name,
                     version=package.version,
-                    integrity=source.integrity,
+                    integrity=integrity,
                 )
             )
 
@@ -236,11 +236,14 @@ class PnpmModuleProvider(ModuleProvider):
     def _add_store_population_script(self) -> None:
         packages = {}
         for info in self._tarballs:
-            packages[info.tarball_name] = {
+            entry: dict[str, str] = {
                 'name': info.name,
                 'version': info.version,
                 'integrity_hex': info.integrity.digest,
             }
+            if info.version.startswith(('http://', 'https://')):
+                entry['tarball_url'] = info.version
+            packages[info.tarball_name] = entry
 
         manifest = {
             'store_version': self._store_version,
