@@ -11,6 +11,7 @@ authors = [
 requires-python = "<4.0,>=3.10"
 dependencies = [
     "aiohttp<4.0.0,>=3.9.0",
+    "pyyaml<7.0,>=6.0",
 ]
 
 [tool.poetry.group.dev.dependencies]
@@ -22,6 +23,7 @@ pytest-datadir = ">=1,<2"
 pytest-httpserver = ">=1,<2"
 pytest-xdist = ">=3,<4"
 poethepoet = ">=0.34,<1"
+types-pyyaml = ">=6.0.12.2,<7"
 
 [tool.poetry.scripts]
 flatpak-node-generator = "flatpak_node_generator.main:main"
