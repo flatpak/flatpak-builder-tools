@@ -352,41 +352,55 @@ class SpecialSourceProvider:
             revision = int(browser['revision'])
 
             if name == 'chromium':
+                version = browser['browserVersion']
                 # Revision number scheme was changed from Chromium revisions to incrementing
                 # integers above 1000; now it's same as for other browsers
                 if (
                     SemVer.parse(package.version) < SemVer.parse('1.21.0')
                     and revision < 792639
                 ):
-                    url_tp = 'https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/%d/%s'
                     dl_file = 'chrome-linux.zip'
-                else:
-                    url_tp = 'https://playwright.azureedge.net/builds/chromium/%d/%s'
+                    dl_url = f'https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/{revision}/{dl_file}'
+                elif SemVer.parse(package.version) < SemVer.parse('1.58.0'):
                     dl_file = 'chromium-linux.zip'
+                    dl_url = f'https://cdn.playwright.dev/builds/chromium/{revision}/{dl_file}'
+                else:
+                    dl_file = 'chrome-linux64.zip'
+                    dl_url = f'https://cdn.playwright.dev/builds/cft/{version}/linux64/{dl_file}'
             elif name == 'chromium-headless-shell':
-                url_tp = 'https://playwright.azureedge.net/builds/chromium/%d/%s'
-                dl_file = 'chromium-headless-shell-linux.zip'
+                version = browser['browserVersion']
+                if SemVer.parse(package.version) < SemVer.parse('1.58.0'):
+                    dl_file = 'chromium-headless-shell-linux.zip'
+                    dl_url = f'https://cdn.playwright.dev/builds/chromium/{revision}/{dl_file}'
+                else:
+                    dl_file = 'chrome-headless-shell-linux64.zip'
+                    dl_url = f'https://cdn.playwright.dev/builds/cft/{version}/linux64/{dl_file}'
             elif name == 'firefox':
-                url_tp = 'https://playwright.azureedge.net/builds/firefox/%d/%s'
                 if revision < 1140:
                     dl_file = 'firefox-linux.zip'
                 else:
                     dl_file = 'firefox-ubuntu-22.04.zip'
+                dl_url = (
+                    f'https://cdn.playwright.dev/builds/firefox/{revision}/{dl_file}'
+                )
             elif name == 'webkit':
-                url_tp = 'https://playwright.azureedge.net/builds/webkit/%d/%s'
                 if revision < 1317:
                     dl_file = 'minibrowser-gtk-wpe.zip'
                 elif revision <= 2092:
                     dl_file = 'webkit-ubuntu-20.04.zip'
                 else:
                     dl_file = 'webkit-ubuntu-24.04.zip'
+                dl_url = (
+                    f'https://cdn.playwright.dev/builds/webkit/{revision}/{dl_file}'
+                )
             elif name == 'ffmpeg':
-                url_tp = 'https://playwright.azureedge.net/builds/ffmpeg/%d/%s'
                 dl_file = 'ffmpeg-linux.zip'
+                dl_url = (
+                    f'https://cdn.playwright.dev/builds/ffmpeg/{revision}/{dl_file}'
+                )
             else:
                 raise ValueError(f'Unknown playwright browser {name}')
 
-            dl_url = url_tp % (revision, dl_file)
             metadata = await RemoteUrlMetadata.get(dl_url, cachable=True)
             destdir = (
                 self.gen.data_root / 'cache' / 'ms-playwright' / f'{name}-{revision}'
