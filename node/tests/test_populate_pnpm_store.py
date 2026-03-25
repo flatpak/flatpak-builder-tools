@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import tarfile
@@ -126,5 +127,55 @@ def test_process_tarball_with_tarball_url_v6(tmp_path: Path) -> None:
 
     url_dir_name = re.sub(r'[:/]', '+', tarball_url)
     url_idx_file = store_dir / url_dir_name / 'integrity.json'
+
+    assert url_idx_file.exists()
+
+
+def test_process_tarball_with_uppercase_path(tmp_path: Path) -> None:
+    tar_path = tmp_path / 'pkg.tgz'
+    store_dir = tmp_path / 'store'
+    tarball_url = 'https://example.com/PKG.tgz'
+
+    _create_tarball(tar_path, {'package/index.js': "console.log('hello');"})
+
+    _process_tarball(
+        tarball_path=str(tar_path),
+        pkg_name='pkg',
+        pkg_version='1.0.0',
+        integrity_hex='a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+        store=str(store_dir),
+        now=1234567890,
+        tarball_url=tarball_url,
+        store_version='v6',
+    )
+
+    sanitized_tarball_url = re.sub(r'[:/]', '+', tarball_url)
+    normalized_tarball_url = f'{sanitized_tarball_url}_{hashlib.sha256(sanitized_tarball_url.encode()).hexdigest()[:32]}'
+    url_idx_file = store_dir / normalized_tarball_url / 'integrity.json'
+
+    assert url_idx_file.exists()
+
+
+def test_process_tarball_with_long_path(tmp_path: Path) -> None:
+    tar_path = tmp_path / 'pkg.tgz'
+    store_dir = tmp_path / 'store'
+    tarball_url = f'https://example.com{"pkg" * 50}.tgz'
+
+    _create_tarball(tar_path, {'package/index.js': "console.log('hello');"})
+
+    _process_tarball(
+        tarball_path=str(tar_path),
+        pkg_name='pkg',
+        pkg_version='1.0.0',
+        integrity_hex='a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+        store=str(store_dir),
+        now=1234567890,
+        tarball_url=tarball_url,
+        store_version='v6',
+    )
+
+    sanitized_tarball_url = re.sub(r'[:/]', '+', tarball_url)
+    normalized_tarball_url = f'{sanitized_tarball_url[:87]}_{hashlib.sha256(sanitized_tarball_url.encode()).hexdigest()[:32]}'
+    url_idx_file = store_dir / normalized_tarball_url / 'integrity.json'
 
     assert url_idx_file.exists()
