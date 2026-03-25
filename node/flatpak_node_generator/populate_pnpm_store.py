@@ -11,6 +11,7 @@ import tarfile
 import time
 
 _SANITIZE_RE = re.compile(r'[\\/:*?"<>|]')
+_MAX_LENGTH_WITHOUT_HASH = 120
 
 
 def populate_store(manifest_path: str, tarball_dir: str, store_dir: str) -> None:
@@ -134,6 +135,11 @@ def _process_tarball(
                 json.dump(index_data, out)
         else:
             url_dir_name = re.sub(r'[:/]', '+', tarball_url)
+            if (
+                len(url_dir_name) > _MAX_LENGTH_WITHOUT_HASH
+                or url_dir_name != url_dir_name.lower()
+            ):
+                url_dir_name = f'{url_dir_name[: _MAX_LENGTH_WITHOUT_HASH - 33]}_{hashlib.sha256(url_dir_name.encode()).hexdigest()[:32]}'
             url_idx_dir = os.path.join(store, url_dir_name)
             os.makedirs(url_idx_dir, exist_ok=True)
             url_idx_path = os.path.join(url_idx_dir, 'integrity.json')
