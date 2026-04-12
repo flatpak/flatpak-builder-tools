@@ -428,7 +428,12 @@ def resolve_package_sources(
         (f for f in get_pypi_files() if is_universal(f["filename"])),
         None,
     )
-    if pypi_universal:
+
+    # Only take a universal wheel if there are no platform-specific ones: the
+    # platform-specific ones likely contain precompiled fast-paths.  In that
+    # case we'll either want the platform-specific wheels or a source build,
+    # depending on user preference.
+    if pypi_universal and not any(is_platform_wheel(f["filename"]) for f in get_pypi_files()):
         return [make_source(pypi_universal)], []
 
     if not is_preferred:
