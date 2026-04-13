@@ -252,8 +252,8 @@ if opts.prefer_wheels:
 
         if get_platform_tags_from_runtime(arch) is None:
             print(
-                f"Warning: Runtime for arch '{arch}' is not installed ",
-                f"platform tags will be extrapolated from the '{runtime_arch}' runtime.",
+                f"\nWarning: Runtime for arch '{arch}' is not installed",
+                f"Platform tags will be extrapolated from the '{runtime_arch}' runtime.\n",
                 file=sys.stderr,
             )
 
