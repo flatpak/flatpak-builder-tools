@@ -817,6 +817,10 @@ with open(requirements_file_output) as in_req_file:
 
 python_version = "2" if opts.python2 else "3"
 pip_executable = "pip2" if opts.python2 else "pip3"
+pip_base_args = [
+    "--no-input",
+    "--disable-pip-version-check",
+]
 
 if opts.runtime:
     flatpak_cmd = [
@@ -835,6 +839,8 @@ if opts.runtime:
         flatpak_cmd.insert(1, flag)
 else:
     flatpak_cmd = [pip_executable]
+
+flatpak_cmd += pip_base_args
 
 output_path = ""
 output_package = ""
