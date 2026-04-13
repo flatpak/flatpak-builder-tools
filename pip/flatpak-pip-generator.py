@@ -17,11 +17,9 @@ if sys.version_info < (3, 10):
 
 import platform
 import argparse
-import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 import urllib.request
@@ -549,28 +547,6 @@ def get_file_version(filename: str) -> str:
     for ext in ["tar.gz", "whl", "tar.xz", "tar.gz", "tar.bz2", "zip"]:
         version = version.replace("." + ext, "")
     return version
-
-
-def get_file_hash(filename: str) -> str:
-    sha = hashlib.sha256()
-    print("Generating hash for", filename.split("/")[-1])
-    with open(filename, "rb") as f:
-        while True:
-            data = f.read(1024 * 1024 * 32)
-            if not data:
-                break
-            sha.update(data)
-        return sha.hexdigest()
-
-
-def download_tar_pypi(url: str, tempdir: str) -> None:
-    if not url.startswith(("https://", "http://")):
-        raise ValueError("URL must be HTTP(S)")
-
-    with urllib.request.urlopen(url) as response:  # noqa: S310
-        file_path = os.path.join(tempdir, url.split("/")[-1])
-        with open(file_path, "x+b") as tar_file:
-            shutil.copyfileobj(response, tar_file)
 
 
 def parse_continuation_lines(fin: TextIO) -> Iterator[str]:
