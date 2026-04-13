@@ -168,6 +168,8 @@ if opts.yaml:
     except ImportError:
         sys.exit("Please install the 'PyYAML' module")
 
+_PYPI_CACHE: dict[tuple[str, str], list[dict]] = {}
+
 
 def get_flatpak_runtime_scope(runtime: str) -> str:
     for scope in ("--user", "--system"):
@@ -324,10 +326,15 @@ def resolve_package_sources(
     pypi_files: list[dict] | None = None
 
     def fetch_pypi_files(name: str, version: str) -> list[dict]:
+        key = (name, version)
+        if key in _PYPI_CACHE:
+            return _PYPI_CACHE[key]
         url = f"https://pypi.org/pypi/{name}/{version}/json"
         print(f"Fetching PyPI metadata for {name}=={version}")
         with urllib.request.urlopen(url) as response:  # noqa: S310
-            return json.loads(response.read().decode("utf-8"))["urls"]
+            data = json.loads(response.read().decode("utf-8"))["urls"]
+        _PYPI_CACHE[key] = data
+        return data
 
     def get_pypi_files() -> list[dict]:
         nonlocal pypi_files
