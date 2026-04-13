@@ -43,18 +43,17 @@ You can use that in your manifest like
 By default, this tool selects artifacts from PyPI using the following
 priority: universal wheels (`none-any.whl`) > sdists.
 
-If neither is available for a module, the an error is raised.
-Platform-specific wheels are ignored unless explicitly enabled via
+If neither is available for a module, an error is raised. Platform
+specific wheels are ignored unless explicitly enabled via
 `--prefer-wheels=module1,module2,...`.
 
 When `--prefer-wheels` is used, a Flatpak runtime must be provided with
 the `--runtime` argument. The runtime must include `Python`, `pip`, and
-`python-packaging` module. This is used to determine platform tags
+the `python-packaging` module. This is used to determine platform tags
 (Python version, ABI, and architecture).
 
-By default, platform wheels are considered for the following
-`x86_64` and `aarch64`. This can be overridden with
-`--wheel-arches arch1 arch2 ...`.
+By default, platform wheels are considered for the `x86_64` and
+`aarch64`. This can be overridden with `--wheel-arches arch1,arch2,...`.
 
 If the specified runtime is only available for a single architecture,
 platform tags for other architectures are inferred from it.
