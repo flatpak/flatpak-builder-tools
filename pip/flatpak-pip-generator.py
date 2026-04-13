@@ -299,21 +299,59 @@ def make_source(
     return source
 
 
+def parse_req_hashes(raw_lines: list[str]) -> dict[str, set[str]]:
+    result: dict[str, set[str]] = {}
+    for line in raw_lines:
+        hashes = set(re.findall(r"--hash=sha256:([a-f0-9]+)", line))
+        if not hashes:
+            continue
+        name_part = re.split(r"[=\s;]", line.split("--hash")[0].strip())[0]
+        if not name_part:
+            continue
+        normalized = normalize_name(name_part)
+        result.setdefault(normalized, set()).update(hashes)
+    return result
+
+
 def resolve_package_sources(
     name: str,
     version: str,
     candidates: list[str],
     is_preferred: bool,
+    known_hashes: set[str] | None = None,
 ) -> tuple[list[dict], list[str]]:
+    sources_out: list[dict] = []
     pypi_files: list[dict] | None = None
+
+    def fetch_pypi_files(name: str, version: str) -> list[dict]:
+        url = f"https://pypi.org/pypi/{name}/{version}/json"
+        print(f"Fetching PyPI metadata for {name}=={version}")
+        with urllib.request.urlopen(url) as response:  # noqa: S310
+            return json.loads(response.read().decode("utf-8"))["urls"]
 
     def get_pypi_files() -> list[dict]:
         nonlocal pypi_files
         if pypi_files is None:
-            url = f"https://pypi.org/pypi/{name}/{version}/json"
-            print(f"Fetching PyPI metadata for {name}=={version}")
-            with urllib.request.urlopen(url) as response:  # noqa: S310
-                pypi_files = json.loads(response.read().decode("utf-8"))["urls"]
+            all_files = fetch_pypi_files(name, version)
+            if known_hashes:
+                pypi_hashes = {f["digests"]["sha256"] for f in all_files}
+                if known_hashes != pypi_hashes:
+                    print(
+                        f"\nWARNING: Requirements file does not include hashes for all "
+                        f"artifacts for {name}=={version}. Resolution may be"
+                        "restricted.\n"
+                    )
+                missing = known_hashes - {f["digests"]["sha256"] for f in all_files}
+                if missing:
+                    sys.exit(
+                        f"ERROR: Hash(es) {missing} for {name}=={version} "
+                        "not found on PyPI. Aborting."
+                    )
+                pypi_files = [
+                    f for f in all_files if f["digests"]["sha256"] in known_hashes
+                ]
+            else:
+                pypi_files = all_files
         return pypi_files
 
     def is_universal(filename: str) -> bool:
@@ -440,12 +478,17 @@ def resolve_package_sources(
         if any(is_platform_wheel(f["filename"]) for f in get_pypi_files()):
             return [], [f"__PLATFORM_ONLY__:{name}"]
 
-        return [], [f"{name}: No suitable source found on PyPI"]
+        if known_hashes:
+            return [], [
+                f"{name}: No suitable source found among artifacts matching the "
+                "hashes in the requirements file."
+            ]
+        else:
+            return [], [f"{name}: No suitable source found on PyPI"]
 
     assert SUPPORTED_TAG_SET is not None
     native_py_ver = runtime_python_ver(SUPPORTED_TAG_SET)
 
-    sources_out: list[dict] = []
     errors: list[str] = []
 
     for arch in DEFAULT_WHEEL_ARCHES:
@@ -461,7 +504,15 @@ def resolve_package_sources(
         arch_candidates = arch_platform_candidates(arch, cast(int, py_ver))
 
         if not arch_candidates:
-            errors.append(f"{name}: No platform wheel found for arch '{arch}' on PyPI")
+            if known_hashes:
+                errors.append(
+                    f"{name}: No compatible platform wheel for arch '{arch}' among artifacts matching "
+                    "the hashes in the requirements file."
+                )
+            else:
+                errors.append(
+                    f"{name}: No platform wheel found for arch '{arch}' on PyPI"
+                )
             continue
 
         wheel = max(
@@ -720,28 +771,37 @@ def handle_req_env_markers(requirements_text: str) -> str:
 
 
 packages = []
+req_hashes_by_pkg: dict[str, set[str]] = {}
+
 if opts.requirements_file:
     requirements_file_input = os.path.expanduser(opts.requirements_file)
     try:
         with open(requirements_file_input) as in_req_file:
-            reqs = parse_continuation_lines(in_req_file)
+            raw_lines = list(parse_continuation_lines(in_req_file))
+            req_hashes_by_pkg = parse_req_hashes(raw_lines)
             reqs_as_str = handle_req_env_markers(
-                "\n".join([r.split("--hash")[0] for r in reqs])
+                "\n".join(r.split("--hash")[0] for r in raw_lines)
             )
-            reqs_list_raw = reqs_as_str.splitlines()
-            py_version_regex = re.compile(
-                r";.*python_version .+$"
-            )  # Remove when pip-generator can handle python_version
-            reqs_list = [py_version_regex.sub("", p) for p in reqs_list_raw]
+            py_version_regex = re.compile(r";.*python_version .+$")
+            reqs_list = [
+                py_version_regex.sub("", line) for line in reqs_as_str.splitlines()
+            ]
             if opts.ignore_pkg:
-                reqs_new = "\n".join(i for i in reqs_list if i not in opts.ignore_pkg)
-            else:
-                reqs_new = reqs_as_str
-            packages = list(requirements.parse(reqs_new))
+                reqs_list = [
+                    line
+                    for line in reqs_list
+                    if line.strip().split("==")[0].strip() not in opts.ignore_pkg
+                ]
+                raw_lines = [
+                    line
+                    for line in raw_lines
+                    if line.strip().split("==")[0].strip() not in opts.ignore_pkg
+                ]
+            packages = list(requirements.parse("\n".join(reqs_list)))
             with tempfile.NamedTemporaryFile(
                 "w", delete=False, prefix="requirements."
             ) as temp_req_file:
-                temp_req_file.write(reqs_new)
+                temp_req_file.write("\n".join(raw_lines))
                 requirements_file_output = temp_req_file.name
     except FileNotFoundError as err:
         print(err)
@@ -954,8 +1014,9 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             version = get_file_version(candidates[0])
             is_preferred = name_cf in prefer_set
 
+            known_hashes = req_hashes_by_pkg.get(name_cf) if use_hash else None
             resolved, errors = resolve_package_sources(
-                name_cf, version, candidates, is_preferred
+                name_cf, version, candidates, is_preferred, known_hashes
             )
 
             for error in errors:
