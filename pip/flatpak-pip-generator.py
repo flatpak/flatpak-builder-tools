@@ -987,11 +987,22 @@ PYQT_PACKAGES = {
     "pyqt5",
 }
 
+PYSIDE6_PACKAGES = {
+    "pyside6",
+    "pyside6-addons",
+    "pyside6-essentials",
+    "shiboken6",
+}
+
 for i in packages:
-    if i["name"].lower() in PYQT_PACKAGES:
+    name = i["name"].lower()
+    if name in PYQT_PACKAGES:
         print(
             "Please use the baseapp https://github.com/flathub/com.riverbankcomputing.PyQt.BaseApp"
         )
+        sys.exit(0)
+    elif name in PYSIDE6_PACKAGES:
+        print("Please use the baseapp https://github.com/flathub/io.qt.PySide.BaseApp")
         sys.exit(0)
 
 with open(requirements_file_output) as in_req_file:
