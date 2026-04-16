@@ -977,13 +977,20 @@ elif not len(sys.argv) > 1:
 else:
     sys.exit("This option can only be used with requirements file")
 
+PYQT_PACKAGES = {
+    "pyqt-builder",
+    "pyqt6-sip",
+    "pyqt5-sip",
+    "pyqt6-webengine",
+    "pyqt5-webengine",
+    "pyqt6",
+    "pyqt5",
+}
+
 for i in packages:
-    if i["name"].lower().startswith("pyqt"):
-        print("PyQt packages are not supported by flapak-pip-generator")
-        print("However, there is a BaseApp for PyQt available, that you should use")
+    if i["name"].lower() in PYQT_PACKAGES:
         print(
-            "Visit https://github.com/flathub/com.riverbankcomputing.PyQt.BaseApp "
-            "for more information"
+            "Please use the baseapp https://github.com/flathub/com.riverbankcomputing.PyQt.BaseApp"
         )
         sys.exit(0)
 
