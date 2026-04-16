@@ -26,7 +26,7 @@ import urllib.request
 from collections import OrderedDict
 from collections.abc import Iterator
 from contextlib import suppress
-from typing import Any, TextIO, Callable
+from typing import Any, TextIO, Callable, NoReturn
 import operator
 from packaging.version import Version
 from packaging.tags import Tag
@@ -36,6 +36,20 @@ try:
     import requirements
 except ImportError:
     sys.exit("Please install the 'requirements-parser' module")
+
+ARTIFACT_POLICIES = ("universal", "platform", "sdist")
+
+
+def parse_artifact_policy(s: str) -> tuple[str, str]:
+    module, sep, policy = s.partition("=")
+    module = module.strip()
+    policy = policy.strip()
+
+    if not (sep and module and policy in ARTIFACT_POLICIES):
+        raise argparse.ArgumentTypeError(f"Invalid artifact policy {s!r}")
+
+    return module, policy
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("packages", nargs="*")
@@ -127,9 +141,32 @@ parser.add_argument(
     type=lambda s: [x.strip().lower() for x in s.split(",") if x.strip()],
     help="Comma-separated list of architectures for which platform wheels should be generated (default: x86_64,aarch64)",
 )
-
+parser.add_argument(
+    "--artifact-policy",
+    dest="artifact_policies",
+    metavar="MODULE=POLICY",
+    action="append",
+    default=[],
+    type=parse_artifact_policy,
+    help=argparse.SUPPRESS,
+)
 
 opts = parser.parse_args()
+
+
+def normalize_name(name: str) -> str:
+    return re.sub(r"[-_]+", "-", name.lower())
+
+
+artifact_policy_map: dict[str, str] = {}
+
+for raw_name, policy in opts.artifact_policies:
+    norm = normalize_name(raw_name.lower())
+    if norm in artifact_policy_map and artifact_policy_map[norm] != policy:
+        sys.exit(f"Conflicting artifact policies for {raw_name!r}")
+    artifact_policy_map[norm] = policy
+
+policy_platform_pkgs = {n for n, p in artifact_policy_map.items() if p == "platform"}
 
 if opts.runtime:
     parts = opts.runtime.split("//", 1)
@@ -239,7 +276,15 @@ def get_platform_tags_from_runtime(arch: str) -> set[Tag] | None:
 
 SUPPORTED_TAG_SET: set[Tag] | None = None
 
-if opts.prefer_wheels:
+effective_prefer_wheels = set(opts.prefer_wheels) | policy_platform_pkgs
+
+if effective_prefer_wheels:
+    if not opts.runtime:
+        sys.exit(
+            "--prefer-wheels or --artifact-policy with 'platform' policy"
+            + " requires --runtime to ensure correct platform wheel"
+            + " selection"
+        )
     runtime_arch = get_runtime_arch()
     platform_tags = get_platform_tags_from_runtime(runtime_arch)
 
@@ -262,10 +307,6 @@ if opts.prefer_wheels:
     SUPPORTED_TAG_SET = set(platform_tags)
 
     assert SUPPORTED_TAG_SET is not None
-
-
-def normalize_name(name: str) -> str:
-    return re.sub(r"[-_]+", "-", name.lower())
 
 
 def make_source(
@@ -321,6 +362,7 @@ def resolve_package_sources(
     candidates: list[str],
     is_preferred: bool,
     known_hashes: set[str] | None = None,
+    policy: str | None = None,
 ) -> tuple[list[dict], list[str]]:
     sources_out: list[dict] = []
     pypi_files: list[dict] | None = None
@@ -360,6 +402,8 @@ def resolve_package_sources(
             else:
                 pypi_files = all_files
         return pypi_files
+
+    files = get_pypi_files()
 
     def is_universal(filename: str) -> bool:
         return filename.endswith(".whl") and filename[:-4].split("-")[-1] == "any"
@@ -447,7 +491,7 @@ def resolve_package_sources(
 
         def collect(compat_fn) -> list[dict]:
             result = []
-            for f in get_pypi_files():
+            for f in files:
                 fn = f["filename"]
                 if not fn.endswith(".whl"):
                     continue
@@ -467,66 +511,96 @@ def resolve_package_sources(
             )
         return found
 
-    pypi_universal = next(
-        (f for f in get_pypi_files() if is_universal(f["filename"])),
-        None,
-    )
+    def format_error(msg: str) -> str:
+        if known_hashes:
+            return f"{msg} (constrained by hashes in requirements file)"
+        return msg
+
+    def pkg_error(msg: str) -> str:
+        return f"{name}: {format_error(msg)}"
+
+    def policy_error(msg: str) -> NoReturn:
+        sys.exit(f"ERROR: artifact-policy '{policy}' for {name!r}: {format_error(msg)}")
+
+    def find_universal() -> dict[str, str | dict[str, str]] | None:
+        return next((f for f in files if is_universal(f["filename"])), None)
+
+    def find_sdist() -> dict[str, str | dict[str, str]] | None:
+        return next((f for f in files if not f["filename"].endswith(".whl")), None)
+
+    def resolve_platform_wheels(
+        platform_policy: bool,
+    ) -> tuple[
+        list[dict[str, str | list[str] | dict[str, str]]],
+        list[str],
+    ]:
+        assert SUPPORTED_TAG_SET is not None
+        native_py_ver = runtime_python_ver(SUPPORTED_TAG_SET)
+
+        out = []
+        errs = []
+
+        for arch in DEFAULT_WHEEL_ARCHES:
+            arch_tags = get_tags_for_arch(arch)
+            py_ver = runtime_python_ver(arch_tags) or native_py_ver
+
+            if py_ver is None:
+                msg = f"Unable to determine Python version for arch '{arch}'"
+                if platform_policy:
+                    policy_error(msg)
+                errs.append(pkg_error(msg))
+                continue
+
+            arch_candidates = arch_platform_candidates(arch, cast(int, py_ver))
+
+            if not arch_candidates:
+                msg = f"No compatible platform wheel found for arch '{arch}'"
+                if platform_policy:
+                    policy_error(msg)
+                errs.append(pkg_error(msg))
+                continue
+
+            wheel = max(
+                arch_candidates,
+                key=lambda f: wheel_priority(f["filename"], arch_tags),
+            )
+            out.append(make_source(wheel, only_arches=[arch]))
+
+        return out, errs
+
+    pypi_universal = find_universal()
+    pypi_sdist = find_sdist()
+
+    if policy == "universal":
+        if not pypi_universal:
+            policy_error("No universal wheel found on PyPI")
+        return [make_source(pypi_universal)], []
+
+    if policy == "sdist":
+        if not pypi_sdist:
+            policy_error("No sdist found on PyPI")
+        return [make_source(pypi_sdist)], []
+
+    if policy == "platform":
+        sources_out, _ = resolve_platform_wheels(platform_policy=True)
+        return sources_out, []
+
     if pypi_universal:
         return [make_source(pypi_universal)], []
 
     if not is_preferred:
-        pypi_sdist = next(
-            (f for f in get_pypi_files() if not f["filename"].endswith(".whl")),
-            None,
-        )
         if pypi_sdist:
             return [make_source(pypi_sdist)], []
 
-        if any(is_platform_wheel(f["filename"]) for f in get_pypi_files()):
+        if any(is_platform_wheel(f["filename"]) for f in files):
             return [], [f"__PLATFORM_ONLY__:{name}"]
 
         if known_hashes:
-            return [], [
-                f"{name}: No suitable source found among artifacts matching the "
-                "hashes in the requirements file."
-            ]
+            return [], [pkg_error("No suitable source found on PyPI")]
         else:
             return [], [f"{name}: No suitable source found on PyPI"]
 
-    assert SUPPORTED_TAG_SET is not None
-    native_py_ver = runtime_python_ver(SUPPORTED_TAG_SET)
-
-    errors: list[str] = []
-
-    for arch in DEFAULT_WHEEL_ARCHES:
-        arch_tags = get_tags_for_arch(arch)
-        py_ver = runtime_python_ver(arch_tags) or native_py_ver
-
-        if py_ver is None:
-            errors.append(
-                f"{name}: Unable to determine Python version for arch '{arch}'"
-            )
-            continue
-
-        arch_candidates = arch_platform_candidates(arch, cast(int, py_ver))
-
-        if not arch_candidates:
-            if known_hashes:
-                errors.append(
-                    f"{name}: No compatible platform wheel for arch '{arch}' among artifacts matching "
-                    "the hashes in the requirements file."
-                )
-            else:
-                errors.append(
-                    f"{name}: No platform wheel found for arch '{arch}' on PyPI"
-                )
-            continue
-
-        wheel = max(
-            arch_candidates, key=lambda f: wheel_priority(f["filename"], arch_tags)
-        )
-        sources_out.append(make_source(wheel, only_arches=[arch]))
-
+    sources_out, errors = resolve_platform_wheels(platform_policy=False)
     return sources_out, errors
 
 
@@ -940,7 +1014,7 @@ vcs_modules: list[dict[str, str | list[str] | list[dict[str, Any]]]] = []
 sources: dict[str, Any] = {}
 unresolved_dependencies_errors = []
 prefer_wheels_missing: list[str] = []
-prefer_set = {normalize_name(p) for p in opts.prefer_wheels}
+prefer_set = {normalize_name(p) for p in effective_prefer_wheels}
 
 tempdir_prefix = f"pip-generator-{output_package}"
 with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
@@ -1020,10 +1094,16 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
             name_cf = normalize_name(name)
             version = get_file_version(candidates[0])
             is_preferred = name_cf in prefer_set
+            pkg_policy = artifact_policy_map.get(name_cf)
 
             known_hashes = req_hashes_by_pkg.get(name_cf) if use_hash else None
             resolved, errors = resolve_package_sources(
-                name_cf, version, candidates, is_preferred, known_hashes
+                name_cf,
+                version,
+                candidates,
+                is_preferred,
+                known_hashes,
+                policy=pkg_policy,
             )
 
             for error in errors:
