@@ -38,6 +38,10 @@ try:
 except ImportError:
     sys.exit("Please install the 'requirements-parser' module")
 
+ALLOW_RESTR_MODULES = (
+    os.environ.get("FLATPAK_PIP_GENERATOR_ALLOW_RESTRICTED_MODULES", "0") == "1"
+)
+
 ARTIFACT_POLICIES = ("universal", "platform", "sdist")
 
 
@@ -994,16 +998,19 @@ PYSIDE6_PACKAGES = {
     "shiboken6",
 }
 
-for i in packages:
-    name = i["name"].lower()
-    if name in PYQT_PACKAGES:
-        print(
-            "Please use the baseapp https://github.com/flathub/com.riverbankcomputing.PyQt.BaseApp"
-        )
-        sys.exit(0)
-    elif name in PYSIDE6_PACKAGES:
-        print("Please use the baseapp https://github.com/flathub/io.qt.PySide.BaseApp")
-        sys.exit(0)
+if ALLOW_RESTR_MODULES:
+    for i in packages:
+        name = i["name"].lower()
+        if name in PYQT_PACKAGES:
+            print(
+                "Please use the baseapp https://github.com/flathub/com.riverbankcomputing.PyQt.BaseApp"
+            )
+            sys.exit(0)
+        elif name in PYSIDE6_PACKAGES:
+            print(
+                "Please use the baseapp https://github.com/flathub/io.qt.PySide.BaseApp"
+            )
+            sys.exit(0)
 
 with open(requirements_file_output) as in_req_file:
     use_hash = "--hash=" in in_req_file.read()
@@ -1175,17 +1182,20 @@ with tempfile.TemporaryDirectory(prefix=tempdir_prefix) as tempdir:
                     "pypi": True,
                 }
 
-# Python3 packages that come as part of org.freedesktop.Sdk.
-system_packages = [
-    "cython",
-    "mako",
-    "markdown",
-    "meson",
-    "packaging",
-    "pip",
-    "setuptools",
-    "wheel",
-]
+if ALLOW_RESTR_MODULES:
+    system_packages = []
+else:
+    # Python3 packages that come as part of org.freedesktop.Sdk.
+    system_packages = [
+        "cython",
+        "mako",
+        "markdown",
+        "meson",
+        "packaging",
+        "pip",
+        "setuptools",
+        "wheel",
+    ]
 
 ignore_installed = {pkg.casefold() for pkg in opts.ignore_installed}
 
