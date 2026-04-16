@@ -78,6 +78,18 @@ platform tags for other architectures are inferred from it.
 ./flatpak-pip-generator --runtime org.freedesktop.Sdk//25.08 --prefer-wheels=cryptography,cffi --wheel-arches x86_64,ppc64le cryptography
 ```
 
+### Advanced usage
+
+Artifact policy can be specified on a per-module basis, although this
+option is generally not recommended. The available policies are
+`universal`, `sdist`, and `platform`, corresponding to universal
+wheels, source distributions, and platform-specific wheels,
+respectively.
+
+```
+./flatpak-pip-generator --runtime org.freedesktop.Sdk//25.08 --artifact-policy cryptography=sdist --artifact-policy cffi=platform cryptography
+```
+
 ## Options
 
 ```
