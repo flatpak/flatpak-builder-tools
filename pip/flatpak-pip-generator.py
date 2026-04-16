@@ -1329,6 +1329,10 @@ for package in packages:
         modules.append(module)
 
 modules = vcs_modules + modules
+
+if not modules:
+    sys.exit("No modules were generated. Nothing to write.")
+
 if len(modules) == 1:
     pypi_module = modules[0]
 else:
