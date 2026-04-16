@@ -15,6 +15,7 @@ if sys.version_info < (3, 10):
     sys.stderr.write("Error: This script requires Python 3.10 or higher.\n")
     sys.exit(1)
 
+import textwrap
 import platform
 import argparse
 import json
@@ -51,7 +52,27 @@ def parse_artifact_policy(s: str) -> tuple[str, str]:
     return module, policy
 
 
-parser = argparse.ArgumentParser()
+def parse_comma_list(s: str) -> list[str]:
+    return [x.strip().lower() for x in s.split(",") if x.strip()]
+
+
+description = textwrap.dedent("""\
+    flatpak-pip-generator
+
+    Tool to generate flatpak-builder manifests for Python modules
+""")
+parser = argparse.ArgumentParser(
+    description=description,
+    formatter_class=argparse.RawTextHelpFormatter,
+    usage=argparse.SUPPRESS,
+    add_help=False,
+)
+parser.add_argument(
+    "-h",
+    "--help",
+    action="help",
+    help="Show this help message and exit",
+)
 parser.add_argument("packages", nargs="*")
 parser.add_argument(
     "--python2", action="store_true", help="Look for a Python 2 package"
@@ -62,17 +83,20 @@ parser.add_argument(
 parser.add_argument(
     "--requirements-file",
     "-r",
+    metavar="",
     help="Specify requirements.txt file. Cannot be used with pyproject file.",
 )
 parser.add_argument(
     "--pyproject-file",
+    metavar="",
     help="Specify pyproject.toml file. Cannot be used with requirements file.",
 )
 parser.add_argument(
     "--optdep-groups",
-    nargs="*",
-    metavar="GROUP",
-    help="Specify optional dependency groups to include. Can only be used with pyproject file.",
+    type=parse_comma_list,
+    default=[],
+    metavar="",
+    help="Comma-separated optional dependency groups to include. Can only be used with pyproject file.",
 )
 parser.add_argument(
     "--build-only",
@@ -93,8 +117,9 @@ parser.add_argument(
 )
 parser.add_argument(
     "--ignore-installed",
-    type=lambda s: s.split(","),
-    default="",
+    type=parse_comma_list,
+    metavar="",
+    default=[],
     help="Comma-separated list of package names for which pip "
     "should ignore already installed packages. Useful when "
     "the package is installed in the SDK but not in the "
@@ -105,9 +130,10 @@ parser.add_argument(
     action="store_true",
     help='Include x-checker-data in output for the "Flatpak External Data Checker"',
 )
-parser.add_argument("--output", "-o", help="Specify output file name")
+parser.add_argument("--output", "-o", metavar="", help="Specify output file name")
 parser.add_argument(
     "--runtime",
+    metavar="",
     help=(
         "Specify a flatpak to run pip inside of a sandbox, "
         "ensures python version compatibility. Format: $RUNTIME_ID//$RUNTIME_BRANCH"
@@ -123,28 +149,33 @@ parser.add_argument(
 )
 parser.add_argument(
     "--ignore-pkg",
-    nargs="*",
+    type=parse_comma_list,
+    default=[],
+    metavar="",
     help=(
-        "Ignore packages when generating the manifest. "
-        "Needs to be specified with version constraints if present "
-        "(e.g. --ignore-pkg 'foo>=3.0.0' 'baz>=21.0')."
+        "Comma-separated list of packages to ignore when generating the manifest. "
+        "Include version constraints if present "
+        "(e.g. --ignore-pkg 'foo>=3.0.0,baz>=21.0')."
     ),
 )
 parser.add_argument(
     "--prefer-wheels",
-    type=lambda s: [x.strip().lower() for x in s.split(",")],
+    metavar="",
+    type=parse_comma_list,
     default=[],
     help="Comma-separated list of packages for which platform wheels should be preferred over sdists",
 )
+
 parser.add_argument(
     "--wheel-arches",
-    type=lambda s: [x.strip().lower() for x in s.split(",") if x.strip()],
+    metavar="",
+    type=parse_comma_list,
     help="Comma-separated list of architectures for which platform wheels should be generated (default: x86_64,aarch64)",
 )
 parser.add_argument(
     "--artifact-policy",
     dest="artifact_policies",
-    metavar="MODULE=POLICY",
+    metavar="",
     action="append",
     default=[],
     type=parse_artifact_policy,
@@ -354,6 +385,10 @@ def parse_req_hashes(raw_lines: list[str]) -> dict[str, set[str]]:
         normalized = normalize_name(name_part)
         result.setdefault(normalized, set()).update(hashes)
     return result
+
+
+def get_req_name(s: str) -> str:
+    return re.split(r"[<>=!~\[\s]", s, maxsplit=1)[0].strip().casefold()
 
 
 def resolve_package_sources(
@@ -853,6 +888,7 @@ def handle_req_env_markers(requirements_text: str) -> str:
 
 packages = []
 req_hashes_by_pkg: dict[str, set[str]] = {}
+ignore_pkg = {pkg.casefold() for pkg in opts.ignore_pkg}
 
 if opts.requirements_file:
     requirements_file_input = os.path.expanduser(opts.requirements_file)
@@ -867,16 +903,13 @@ if opts.requirements_file:
             reqs_list = [
                 py_version_regex.sub("", line) for line in reqs_as_str.splitlines()
             ]
-            if opts.ignore_pkg:
+
+            if ignore_pkg:
                 reqs_list = [
-                    line
-                    for line in reqs_list
-                    if line.strip().split("==")[0].strip() not in opts.ignore_pkg
+                    line for line in reqs_list if get_req_name(line) not in ignore_pkg
                 ]
                 raw_lines = [
-                    line
-                    for line in raw_lines
-                    if line.strip().split("==")[0].strip() not in opts.ignore_pkg
+                    line for line in raw_lines if get_req_name(line) not in ignore_pkg
                 ]
             packages = list(requirements.parse("\n".join(reqs_list)))
             with tempfile.NamedTemporaryFile(
@@ -898,9 +931,12 @@ elif opts.pyproject_file:
     else:
         dependencies = pyproject_data.get("project", {}).get("dependencies", [])
         if opts.optdep_groups:
-            pyproject_optdep_groups = pyproject_data.get("project", {}).get(
-                "optional-dependencies", []
-            )
+            pyproject_optdep_groups = {
+                k.lower(): v
+                for k, v in pyproject_data.get("project", {})
+                .get("optional-dependencies", {})
+                .items()
+            }
             for group in opts.optdep_groups:
                 if group not in pyproject_optdep_groups:
                     sys.exit(
@@ -915,11 +951,9 @@ elif opts.pyproject_file:
     if build_system_requires:
         dependencies.extend(build_system_requires)
 
-    if opts.ignore_pkg:
-        print(dependencies)
-        print(opts.ignore_pkg)
+    if ignore_pkg:
         dependencies = [
-            dep for dep in dependencies if dep.split(" ")[0] not in opts.ignore_pkg
+            dep for dep in dependencies if get_req_name(dep) not in ignore_pkg
         ]
 
     packages = list(requirements.parse("\n".join(dependencies)))
@@ -1135,6 +1169,8 @@ system_packages = [
     "wheel",
 ]
 
+ignore_installed = {pkg.casefold() for pkg in opts.ignore_installed}
+
 fprint("Generating dependencies")
 for package in packages:
     if package.name is None:
@@ -1151,7 +1187,7 @@ for package in packages:
     elif (
         not opts.python2
         and package.name.casefold() in system_packages
-        and package.name.casefold() not in opts.ignore_installed
+        and package.name.casefold() not in ignore_installed
     ):
         print(f"{package.name} is in system_packages. Skipping.")
         continue
@@ -1193,7 +1229,7 @@ for package in packages:
                 dep_name = get_package_name(filename)
                 if (
                     dep_name.casefold() in system_packages
-                    and dep_name.casefold() not in opts.ignore_installed
+                    and dep_name.casefold() not in ignore_installed
                 ):
                     continue
                 dependencies.append(dep_name)
@@ -1241,7 +1277,7 @@ for package in packages:
         "--prefix=${FLATPAK_DEST}",
         f'"{name_for_pip}"',
     ]
-    if package.name in opts.ignore_installed:
+    if package.name in ignore_installed:
         pip_command.append("--ignore-installed")
     if not opts.build_isolation:
         pip_command.append("--no-build-isolation")

@@ -81,40 +81,34 @@ platform tags for other architectures are inferred from it.
 ## Options
 
 ```
-usage: flatpak-pip-generator [-h] [--python2] [--cleanup {scripts,all}] [--requirements-file REQUIREMENTS_FILE] [--pyproject-file PYPROJECT_FILE] [--optdep-groups [GROUP ...]] [--build-only]
-                             [--build-isolation] [--ignore-installed IGNORE_INSTALLED] [--checker-data] [--output OUTPUT] [--runtime RUNTIME] [--yaml] [--ignore-errors] [--ignore-pkg [IGNORE_PKG ...]]
-                             [--prefer-wheels PREFER_WHEELS] [--wheel-arches WHEEL_ARCHES]
-                             [packages ...]
+./flatpak-pip-generator --help
+flatpak-pip-generator
+
+Tool to generate flatpak-builder manifests for Python modules
 
 positional arguments:
   packages
 
 options:
-  -h, --help            show this help message and exit
+  -h, --help            Show this help message and exit
   --python2             Look for a Python 2 package
   --cleanup {scripts,all}
                         Select what to clean up after build
-  --requirements-file, -r REQUIREMENTS_FILE
+  --requirements-file, -r
                         Specify requirements.txt file. Cannot be used with pyproject file.
-  --pyproject-file PYPROJECT_FILE
-                        Specify pyproject.toml file. Cannot be used with requirements file.
-  --optdep-groups [GROUP ...]
-                        Specify optional dependency groups to include. Can only be used with pyproject file.
+  --pyproject-file      Specify pyproject.toml file. Cannot be used with requirements file.
+  --optdep-groups       Comma-separated optional dependency groups to include. Can only be used with pyproject file.
   --build-only          Clean up all files after build
   --build-isolation     Do not disable build isolation. Mostly useful on pip that does't support the feature.
-  --ignore-installed IGNORE_INSTALLED
-                        Comma-separated list of package names for which pip should ignore already installed packages. Useful when the package is installed in the SDK but not in the runtime.
+  --ignore-installed    Comma-separated list of package names for which pip should ignore already installed packages. Useful when the package is installed in the SDK but not in the runtime.
   --checker-data        Include x-checker-data in output for the "Flatpak External Data Checker"
-  --output, -o OUTPUT   Specify output file name
-  --runtime RUNTIME     Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility. Format: $RUNTIME_ID//$RUNTIME_BRANCH
+  --output, -o          Specify output file name
+  --runtime             Specify a flatpak to run pip inside of a sandbox, ensures python version compatibility. Format: $RUNTIME_ID//$RUNTIME_BRANCH
   --yaml                Use YAML as output format instead of JSON
   --ignore-errors       Ignore errors when downloading packages
-  --ignore-pkg [IGNORE_PKG ...]
-                        Ignore packages when generating the manifest. Needs to be specified with version constraints if present (e.g. --ignore-pkg 'foo>=3.0.0' 'baz>=21.0').
-  --prefer-wheels PREFER_WHEELS
-                        Comma-separated list of packages for which platform wheels should be preferred over sdists
-  --wheel-arches WHEEL_ARCHES
-                        Comma-separated list of architectures for which platform wheels should be generated (default: x86_64,aarch64)
+  --ignore-pkg          Comma-separated list of packages to ignore when generating the manifest. Include version constraints if present (e.g. --ignore-pkg 'foo>=3.0.0,baz>=21.0').
+  --prefer-wheels       Comma-separated list of packages for which platform wheels should be preferred over sdists
+  --wheel-arches        Comma-separated list of architectures for which platform wheels should be generated (default: x86_64,aarch64)
 ```
 
 ## Development
