@@ -424,15 +424,15 @@ def resolve_package_sources(
         nonlocal pypi_files
         if pypi_files is None:
             all_files = fetch_pypi_files(name, version)
+            pypi_hashes = {f["digests"]["sha256"] for f in all_files}
             if known_hashes:
-                pypi_hashes = {f["digests"]["sha256"] for f in all_files}
                 if known_hashes != pypi_hashes:
                     print(
                         f"\nWARNING: Requirements file does not include hashes for all "
                         f"artifacts for {name}=={version}. Resolution may be"
                         "restricted.\n"
                     )
-                missing = known_hashes - {f["digests"]["sha256"] for f in all_files}
+                missing = known_hashes - pypi_hashes
                 if missing:
                     sys.exit(
                         f"ERROR: Hash(es) {missing} for {name}=={version} "
