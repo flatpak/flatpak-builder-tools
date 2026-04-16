@@ -234,6 +234,9 @@ if opts.pyproject_file:
         except ModuleNotFoundError:
             sys.exit("Please install the 'tomli' module")
 
+if opts.ignore_pkg and not (opts.requirements_file or opts.pyproject_file):
+    sys.exit("--ignore-pkg can only be used with requirements or pyproject file")
+
 if opts.yaml:
     try:
         import yaml
