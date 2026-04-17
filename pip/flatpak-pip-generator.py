@@ -1001,7 +1001,7 @@ PYSIDE6_PACKAGES = {
     "shiboken6",
 }
 
-if ALLOW_RESTR_MODULES:
+if not ALLOW_RESTR_MODULES:
     for i in packages:
         name = i["name"].lower()
         if name in PYQT_PACKAGES:
