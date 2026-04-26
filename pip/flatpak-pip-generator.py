@@ -756,6 +756,15 @@ def handle_req_env_markers(requirements_text: str) -> str:
                 return False
         return True
 
+    def handle_platform_system(marker: str) -> bool:
+        pattern = r'platform_system\s*(==|!=)\s*["\']([^"\']+)["\']'
+
+        for match in re.finditer(pattern, marker, re.IGNORECASE):
+            op, system = match.group(1), match.group(2).lower()
+            if (op == "==" and system != "linux") or (op == "!=" and system == "linux"):
+                return False
+        return True
+
     def handle_os_name(marker: str) -> bool:
         pattern = r'os_name\s*(==|!=)\s*["\']([^"\']+)["\']'
 
@@ -861,6 +870,7 @@ def handle_req_env_markers(requirements_text: str) -> str:
 
     marker_handlers = (
         handle_sys_platform,
+        handle_platform_system,
         handle_os_name,
         handle_implementation_name,
         handle_platform_machine,
