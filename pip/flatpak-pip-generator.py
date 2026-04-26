@@ -973,7 +973,7 @@ elif opts.pyproject_file:
             dep for dep in dependencies if get_req_name(dep) not in ignore_pkg
         ]
 
-    packages = list(requirements.parse("\n".join(dependencies)))
+    packages = list(requirements.parse(handle_req_env_markers("\n".join(dependencies))))
 
     with tempfile.NamedTemporaryFile(
         "w", delete=False, prefix="requirements."
