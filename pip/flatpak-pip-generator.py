@@ -420,6 +420,22 @@ def resolve_package_sources(
         _PYPI_CACHE[key] = data
         return data
 
+    def is_py2_wheel(filename: str) -> bool:
+        if not filename.endswith(".whl"):
+            return False
+        py_tag = filename[:-4].split("-")[-3]
+        return any(
+            t.startswith("py2") or t.startswith("cp2") for t in py_tag.split(".")
+        )
+
+    def is_py3_wheel(filename: str) -> bool:
+        if not filename.endswith(".whl"):
+            return False
+        py_tag = filename[:-4].split("-")[-3]
+        return any(
+            t.startswith("py3") or t.startswith("cp3") for t in py_tag.split(".")
+        )
+
     def get_pypi_files() -> list[dict]:
         nonlocal pypi_files
         if pypi_files is None:
@@ -446,6 +462,11 @@ def resolve_package_sources(
         return pypi_files
 
     files = get_pypi_files()
+
+    if opts.python2:
+        files = [f for f in files if not is_py3_wheel(f["filename"])]
+    else:
+        files = [f for f in files if not is_py2_wheel(f["filename"])]
 
     def is_universal(filename: str) -> bool:
         return filename.endswith(".whl") and filename[:-4].split("-")[-1] == "any"
