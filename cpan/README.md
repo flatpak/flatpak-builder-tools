@@ -17,7 +17,7 @@ Generates a sources file for a list of CPAN modules.
 Example installation on Fedora:
 
 ```bash
-$ sudo dnf install 'perl(App::cpanminus)' 'perl(Getopt::Long::Descriptive)' ...
+sudo dnf install 'perl(App::cpanminus)' 'perl(Getopt::Long::Descriptive)' 'perl(JSON::MaybeXS)' 'perl(LWP::UserAgent)' 'perl(MetaCPAN::Client)' 'perl(Capture::Tiny)'
 ```
 
 ## Usage
