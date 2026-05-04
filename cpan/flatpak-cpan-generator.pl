@@ -17,14 +17,16 @@ use Capture::Tiny qw(tee);
 
 
 sub scan_deps {
-  my @deps = grep(/^Successfully installed/, @_);
+  my @deps;
 
-  for (@deps)
-  {
-      s/^Successfully installed (\S+).*/$1/;
+  for (@_) {
+    next unless /^Successfully (?:re)?installed /;
+
+    my ($dist) = /^Successfully (?:re)?installed ([^ ]+)/;
+    push @deps, $dist if defined $dist;
   }
 
-   @deps
+  return @deps;
 }
 
 sub get_url_sha256 {
@@ -95,7 +97,7 @@ sub main {
 
   my $tmpdir = File::Temp->newdir;
   my ($stdout, $stderr, $exit) = tee {
-      system ('cpanm', '-n', '-L', $tmpdir, "--", @ARGV);
+      system ('cpanm', '--reinstall', '-n', '-L', $tmpdir, "--", @ARGV);
   };
   die "cpanm failed with exit status $exit\n" if $exit != 0;
 
