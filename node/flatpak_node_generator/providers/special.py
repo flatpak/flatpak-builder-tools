@@ -448,10 +448,12 @@ class SpecialSourceProvider:
                 strip_components=1,
             )
 
+            bin_dst_rel = bin_dst.relative_to(cache_dst / 'bin')
+
             cmd = [
-                f'mkdir -p "{bin_dst.parent.relative_to(cache_dst)}"',
+                f'mkdir -p "bin/{bin_dst_rel.parent}"',
                 f'cp "{bin_src.relative_to(cache_dst)}" "{bin_dst.relative_to(cache_dst)}"',
-                f'ln -sf "{bin_dst.name}" "bin/esbuild-current"',
+                f'ln -sf "{bin_dst_rel}" "bin/esbuild-current"',
             ]
             self.gen.add_shell_source(
                 cmd, only_arches=[flatpak_arch], destination=cache_dst
