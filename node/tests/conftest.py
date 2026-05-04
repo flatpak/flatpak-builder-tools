@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Iterable, Iterator
@@ -75,13 +76,24 @@ _DEFAULT_NODE = 20
 class FlatpakBuilder:
     root: Path
 
+    def __init__(self, root: Path):
+        self.root = root
+
+        github_workspace = os.environ.get('GITHUB_WORKSPACE')
+        if github_workspace:
+            self._state_dir = Path(github_workspace) / 'cache' / '.flatpak-builder'
+        else:
+            self._state_dir = self.root / 'state'
+
+        self._state_dir.mkdir(parents=True, exist_ok=True)
+
     @property
     def build_dir(self) -> Path:
         return self.root / 'build'
 
     @property
     def state_dir(self) -> Path:
-        return self.root / 'state'
+        return self._state_dir
 
     @property
     def manifest_file(self) -> Path:
