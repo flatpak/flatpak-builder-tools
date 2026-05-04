@@ -51,6 +51,28 @@ jobs:
       - name: Install OS dependencies
         run: sudo apt-get update && sudo apt-get install -y flatpak-builder
 
+      - name: Cache flatpak-builder sources
+        # 5.0.2
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7
+        with:
+          path: |
+            cache/.flatpak-builder/downloads
+            cache/.flatpak-builder/git
+          key: ci-node-flatpak-builder-cache-${{ github.repository }}-${{ github.ref_name }}
+          restore-keys: |
+            ci-node-flatpak-builder-cache-${{ github.repository }}-
+            ci-node-flatpak-builder-cache-
+
+      - name: Cache Poetry dependencies
+        # 5.0.2
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ runner.os }}-${{ matrix.python-version }}-
+            poetry-${{ runner.os }}-
+
       - name: Install dependencies
         run: poetry install --with=dev
 
