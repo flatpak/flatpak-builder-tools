@@ -106,6 +106,11 @@ sub main {
   my @stdout = split "\n", $stdout;
   my @deps = scan_deps @stdout;
   # my @deps = scan_deps 'lib';
+
+  if (@deps == 0) {
+    die "No dependencies detected. cpanm output was:\n$stdout\n";
+  }
+
   my @sources = ();
 
   foreach my $dep (@deps) {
