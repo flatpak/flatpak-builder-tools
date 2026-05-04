@@ -59,6 +59,11 @@ class ElectronBinaryManager:
             ):
                 continue
 
+            if binary == 'chromedriver' and SemVer.parse(self.version) < SemVer.parse(
+                '1.8.5'
+            ):
+                continue
+
             binary_filename = f'{binary}-v{self.version}-linux-{electron_arch}.zip'
             binary_url = self.child_url(binary_filename)
 
