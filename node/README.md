@@ -326,13 +326,8 @@ or invoke pytest manually:
 $ poetry run pytest -n auto
 ```
 
-The tests need Flathub set up and certain SDK extensions installed:
-
-```sh
-flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak --user install -y flathub org.freedesktop.{Platform,Sdk{,.Extension.node{14,16,18}}}//22.08
-flatpak --user install -y flathub org.freedesktop.{Platform,Sdk{,.Extension.node{20,22}}}//24.08
-```
+The tests require flatpak, flatpak-builder and some common dependencies
+like git pre-installed through the distribution.
 
 Note that these tests can take up quite a bit of space in /tmp, so if you hit `No space
 left on device` errors, try expanding `/tmp` or changing `$TMPDIR`.

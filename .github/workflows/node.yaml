@@ -51,12 +51,6 @@ jobs:
       - name: Install OS dependencies
         run: sudo apt-get update && sudo apt-get install -y flatpak-builder
 
-      - name: Install Flatpak dependencies
-        run: |
-          flatpak --user remote-add flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak --user install -y flathub \
-            org.freedesktop.{Platform,Sdk{,.Extension.node{20,22,24}}}//25.08
-
       - name: Install dependencies
         run: poetry install --with=dev
 

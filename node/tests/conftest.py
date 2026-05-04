@@ -29,6 +29,15 @@ from flatpak_node_generator.requests import Requests
 Requests.retries = 3
 
 
+REQUIRED_FLATPAK_REFS = [
+    'org.freedesktop.Platform//25.08',
+    'org.freedesktop.Sdk//25.08',
+    'org.freedesktop.Sdk.Extension.node20//25.08',
+    'org.freedesktop.Sdk.Extension.node22//25.08',
+    'org.freedesktop.Sdk.Extension.node24//25.08',
+]
+
+
 @pytest.fixture(autouse=True)
 def fs_cache(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
     Cache.instance = FilesystemBasedCache(tmp_path_factory.mktemp('fs_cache'))
@@ -157,6 +166,44 @@ class FlatpakBuilder:
             ],
             check=True,
         )
+
+
+@pytest.fixture(scope='session', autouse=True)
+def ensure_flatpak_deps(request: pytest.FixtureRequest) -> None:
+    if not any(
+        item.get_closest_marker('integration') for item in request.session.items
+    ):
+        return
+
+    subprocess.run(
+        [
+            'flatpak',
+            '--user',
+            'remote-add',
+            '--if-not-exists',
+            'flathub',
+            'https://flathub.org/repo/flathub.flatpakrepo',
+        ],
+        check=True,
+    )
+
+    subprocess.run(
+        [
+            'flatpak',
+            '--user',
+            'install',
+            '-y',
+            '--no-related',
+            '--no-deps',
+            '--no-auto-pin',
+            '--assumeyes',
+            '--noninteractive',
+            '--or-update',
+            'flathub',
+            *REQUIRED_FLATPAK_REFS,
+        ],
+        check=True,
+    )
 
 
 @pytest.fixture
