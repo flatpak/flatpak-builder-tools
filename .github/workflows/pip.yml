@@ -1,4 +1,4 @@
-name: CI
+name: PIP CI
 
 on:
   push:

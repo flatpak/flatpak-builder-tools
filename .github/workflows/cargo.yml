@@ -1,4 +1,4 @@
-name: CI
+name: Cargo CI
 
 on:
   push:

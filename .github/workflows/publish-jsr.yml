@@ -1,4 +1,4 @@
-name: Publish
+name: Deno Publish
 on:
   push:
     paths:
