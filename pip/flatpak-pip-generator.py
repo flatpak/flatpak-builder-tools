@@ -420,21 +420,20 @@ def resolve_package_sources(
         _PYPI_CACHE[key] = data
         return data
 
+    def get_py_tags(filename: str) -> list[str]:
+        return filename[:-4].split("-")[-3].split(".")
+
     def is_py2_wheel(filename: str) -> bool:
         if not filename.endswith(".whl"):
             return False
-        py_tag = filename[:-4].split("-")[-3]
-        return any(
-            t.startswith("py2") or t.startswith("cp2") for t in py_tag.split(".")
-        )
+        py_tags = get_py_tags(filename)
+        return any(t.startswith("py2") or t.startswith("cp2") for t in py_tags)
 
     def is_py3_wheel(filename: str) -> bool:
         if not filename.endswith(".whl"):
             return False
-        py_tag = filename[:-4].split("-")[-3]
-        return any(
-            t.startswith("py3") or t.startswith("cp3") for t in py_tag.split(".")
-        )
+        py_tags = get_py_tags(filename)
+        return any(t.startswith("py3") or t.startswith("cp3") for t in py_tags)
 
     def get_pypi_files() -> list[dict]:
         nonlocal pypi_files
