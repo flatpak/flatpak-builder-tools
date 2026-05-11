@@ -93,10 +93,11 @@ def test_lockfile_v9(tmp_path: Path) -> None:
         PnpmLockfileProvider.Options(
             no_devel=False,
             registry='https://registry.npmjs.org',
+            store_version=None,
         )
     )
 
-    lockfile = Lockfile(tmp_path / 'pnpm-lock.yaml', 9)
+    lockfile = Lockfile(tmp_path / 'pnpm-lock.yaml', 9, store_version='v10')
     lockfile.path.write_text(TEST_LOCKFILE_V9)
 
     packages = list(provider.process_lockfile(lockfile.path))
@@ -146,10 +147,11 @@ def test_lockfile_v6(tmp_path: Path) -> None:
         PnpmLockfileProvider.Options(
             no_devel=False,
             registry='https://registry.npmjs.org',
+            store_version=None,
         )
     )
 
-    lockfile = Lockfile(tmp_path / 'pnpm-lock.yaml', 6)
+    lockfile = Lockfile(tmp_path / 'pnpm-lock.yaml', 6, store_version='v3')
     lockfile.path.write_text(TEST_LOCKFILE_V6)
 
     packages = list(provider.process_lockfile(lockfile.path))
@@ -199,6 +201,7 @@ def test_lockfile_v6_no_devel(tmp_path: Path) -> None:
         PnpmLockfileProvider.Options(
             no_devel=True,
             registry='https://registry.npmjs.org',
+            store_version=None,
         )
     )
 
@@ -218,6 +221,7 @@ def test_lockfile_v5_rejected(tmp_path: Path) -> None:
         PnpmLockfileProvider.Options(
             no_devel=False,
             registry='https://registry.npmjs.org',
+            store_version=None,
         )
     )
 
@@ -237,6 +241,7 @@ def test_lockfile_unsupported_version_rejected(tmp_path: Path) -> None:
         PnpmLockfileProvider.Options(
             no_devel=False,
             registry='https://registry.npmjs.org',
+            store_version=None,
         )
     )
 
@@ -258,6 +263,7 @@ def test_lockfile_v9_no_devel_warns(
         PnpmLockfileProvider.Options(
             no_devel=True,
             registry='https://registry.npmjs.org',
+            store_version=None,
         )
     )
 
@@ -306,10 +312,11 @@ def test_lockfile_v9_git_and_local(tmp_path: Path) -> None:
         PnpmLockfileProvider.Options(
             no_devel=False,
             registry='https://registry.npmjs.org',
+            store_version=None,
         )
     )
 
-    lockfile = Lockfile(tmp_path / 'pnpm-lock.yaml', 9)
+    lockfile = Lockfile(tmp_path / 'pnpm-lock.yaml', 9, store_version='v10')
     lockfile.path.write_text(TEST_LOCKFILE_V9_GIT_AND_LOCAL)
 
     packages = list(provider.process_lockfile(lockfile.path))
@@ -358,13 +365,13 @@ def test_pnpm_module_provider_tarball_url(tmp_path: Path) -> None:
             tarball_name='normal-pkg-1.0.0.tgz',
             name='normal-pkg',
             version='1.0.0',
-            integrity=Integrity('sha512', 'abc123def456'),
+            integrity=Integrity('sha512', 'abc123def456ab'),
         ),
         PnpmModuleProvider._TarballInfo(
             tarball_name='url-pkg-http-123.tgz',
             name='url-pkg',
             version='http://example.com/url-pkg.tgz',
-            integrity=Integrity('sha512', 'fedcba654'),
+            integrity=Integrity('sha512', 'fedcba65401234'),
         ),
         PnpmModuleProvider._TarballInfo(
             tarball_name='url-pkg-https-123.tgz',
@@ -391,6 +398,10 @@ def test_pnpm_module_provider_tarball_url(tmp_path: Path) -> None:
     for tarball in provider._tarballs:
         pkg = packages[tarball.tarball_name]
         assert pkg['version'] == tarball.version
+        expected_integrity = (
+            f'{tarball.integrity.algorithm}-{tarball.integrity.to_base64()}'
+        )
+        assert f'{pkg["integrity_algo"]}-{pkg["integrity"]}' == expected_integrity
         if tarball.version.startswith(('http://', 'https://')):
             assert pkg['tarball_url'] == tarball.version
         else:
@@ -418,9 +429,8 @@ async def test_pnpm_module_provider_missing_integrity(
     )
 
     provider = PnpmModuleProvider(gen, special, tmp_path)
-    provider._store_version = 'v3'
 
-    lockfile = Lockfile(tmp_path / 'pnpm-lock.yaml', 9)
+    lockfile = Lockfile(tmp_path / 'pnpm-lock.yaml', 9, store_version='v3')
 
     test_data = b'dummy tarball content'
     test_digest = hashlib.sha256(test_data).hexdigest()

@@ -96,6 +96,7 @@ options:
                         Specify NW.js version (will use latest otherwise)
   --nwjs-node-headers   Download the NW.js node headers
   --nwjs-ffmpeg         Download prebuilt ffmpeg for current NW.js version
+  --pnpm-store-version  Specify the store version for pnpm v9 lockfile. Default is v10.
   --no-xdg-layout       Don't use the XDG layout for caches
   --node-sdk-extension NODE_SDK_EXTENSION
                         Flatpak node SDK extension (e.g. org.freedesktop.Sdk.Extension.node24//25.08)
