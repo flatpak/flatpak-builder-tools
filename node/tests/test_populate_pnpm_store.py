@@ -10,6 +10,7 @@ from flatpak_node_generator.integrity import Integrity
 from flatpak_node_generator.populate_pnpm_store import (
     _pack_v11_store_entry,
     _process_tarball,
+    populate_store,
 )
 
 
@@ -395,6 +396,60 @@ def test_process_tarball_with_long_path(tmp_path: Path) -> None:
     url_idx_file = store_dir / normalized_tarball_url / 'integrity.json'
 
     assert url_idx_file.exists()
+
+
+def test_populate_store_v11(tmp_path: Path) -> None:
+    manifest_path = tmp_path / 'manifest.json'
+    tar_path = tmp_path / 'pkg.tgz'
+    store_dir = tmp_path / 'store'
+    pkg_json = json.dumps({'name': 'real-pkg', 'version': '1.2.3'})
+
+    integrity = Integrity(
+        'sha512', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
+    )
+
+    _create_tarball(
+        tar_path,
+        {'package/package.json': pkg_json, 'package/index.js': "console.log('hello');"},
+    )
+
+    manifest_json = json.dumps(
+        {
+            'store_version': 'v11',
+            'packages': {
+                'pkg.tgz': {
+                    'name': 'real-pkg',
+                    'version': '1.2.3',
+                    'integrity': integrity.to_base64(),
+                    'integrity_digest': integrity.digest,
+                    'integrity_algo': integrity.algorithm,
+                }
+            },
+        }
+    )
+
+    with open(manifest_path, 'w', encoding='utf-8') as f:
+        f.write(manifest_json)
+
+    populate_store(str(manifest_path), str(tmp_path), str(store_dir))
+
+    db = sqlite3.connect(str(store_dir / 'v11' / 'index.db'))
+
+    pkg_id = 'real-pkg@1.2.3'
+    expected_key = f'{integrity.algorithm}-{integrity.to_base64()}\t{pkg_id}'
+
+    row = db.execute(
+        'SELECT data FROM package_index WHERE key = ?', (expected_key,)
+    ).fetchone()
+    assert row is not None, f'No row found for key {expected_key}'
+
+    data = _decode_v11(row[0])
+    assert data['algo'] == 'sha512'
+    assert data['requiresBuild'] is False
+    assert data['manifest'] == {'name': 'real-pkg', 'version': '1.2.3'}
+    assert isinstance(data['files'], dict)
+    assert 'package.json' in data['files']
+    assert 'index.js' in data['files']
 
 
 def test_process_tarball_v11(tmp_path: Path) -> None:
