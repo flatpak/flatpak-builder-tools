@@ -421,7 +421,7 @@ def test_process_tarball_v11(tmp_path: Path) -> None:
     )
 
     integrity = Integrity(
-        'sha256', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
+        'sha512', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
     )
 
     try:
@@ -590,7 +590,7 @@ def test_pack_v11_store_entry() -> None:
         },
     }
     manifest = {'name': 'test-pkg', 'version': '1.0.0'}
-    packed = _pack_v11_store_entry(files, manifest)
+    packed = _pack_v11_store_entry('sha512', files, manifest)
 
     data = _decode_v11(packed)
     assert isinstance(data, dict)
@@ -610,7 +610,7 @@ def test_pack_v11_store_entry_no_manifest() -> None:
     files = {
         'index.js': {'checkedAt': 123, 'digest': 'hex123', 'mode': 420, 'size': 50}
     }
-    packed = _pack_v11_store_entry(files, None)
+    packed = _pack_v11_store_entry('sha512', files, None)
 
     data = _decode_v11(packed)
     assert isinstance(data, dict)
