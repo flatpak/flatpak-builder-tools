@@ -14,6 +14,7 @@ from .progress import GeneratorProgress
 from .providers import ProviderFactory
 from .providers.npm import NpmLockfileProvider, NpmModuleProvider, NpmProviderFactory
 from .providers.pnpm import (
+    STORE_VERSION_ARGUMENT_DEFAULT,
     PnpmLockfileProvider,
     PnpmProviderFactory,
 )
@@ -113,6 +114,10 @@ async def _async_main() -> None:
         help='Use the ChromeDriver version associated with the given '
         'Electron version for node-chromedriver',
     )
+    parser.add_argument(
+        '--pnpm-store-version',
+        help=f'Specify the store version for pnpm v9 lockfile. Default is {STORE_VERSION_ARGUMENT_DEFAULT}',
+    )
     # Deprecated alternative to --node-chromedriver-from-electron
     parser.add_argument('--electron-chromedriver', help=argparse.SUPPRESS)
     parser.add_argument(
@@ -209,6 +214,7 @@ async def _async_main() -> None:
             PnpmLockfileProvider.Options(
                 no_devel=args.no_devel,
                 registry=args.registry,
+                store_version=args.pnpm_store_version,
             ),
         )
         provider_factory = PnpmProviderFactory(lockfile_root, pnpm_options)

@@ -143,6 +143,7 @@ class Lockfile:
     path: Path
     version: int
     cache_key: str | None = None
+    store_version: str | None = None
 
 
 class Package(NamedTuple):

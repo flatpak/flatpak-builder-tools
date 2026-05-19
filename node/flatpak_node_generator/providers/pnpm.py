@@ -28,13 +28,15 @@ from .special import SpecialSourceProvider
 _V6_FORMAT_VERSIONS = {6, 7}
 _SUPPORTED_VERSIONS = {6, 7, 9}
 
-_STORE_VERSION_BY_LOCKFILE: dict[int, str] = {
-    6: 'v3',
-    7: 'v3',
-    9: 'v10',
+_STORE_VERSION_BY_LOCKFILE: dict[int, list[str]] = {
+    6: ['v3'],
+    7: ['v3'],
+    9: ['v10', 'v11'],
 }
 
 _POPULATE_STORE_SCRIPT = Path(__file__).parents[1] / 'populate_pnpm_store.py'
+
+STORE_VERSION_ARGUMENT_DEFAULT = _STORE_VERSION_BY_LOCKFILE[9][0]
 
 
 class PnpmLockfileProvider(LockfileProvider):
@@ -46,10 +48,12 @@ class PnpmLockfileProvider(LockfileProvider):
     class Options(NamedTuple):
         no_devel: bool
         registry: str
+        store_version: str | None = None
 
     def __init__(self, options: 'PnpmLockfileProvider.Options') -> None:
         self.no_devel = options.no_devel
         self.registry = options.registry.rstrip('/')
+        self.store_version = options.store_version
 
     def _get_tarball_url(
         self,
@@ -93,6 +97,17 @@ class PnpmLockfileProvider(LockfileProvider):
                 f'Supported versions: {supported}.'
             )
 
+        supported_store_versions = _STORE_VERSION_BY_LOCKFILE[major]
+        store_version = self.store_version
+        if store_version is None:
+            store_version = supported_store_versions[0]
+        elif store_version not in supported_store_versions:
+            supported = ', '.join(str(v) for v in sorted(supported_store_versions))
+            raise ValueError(
+                f"{lockfile_path}: lockfileVersion {raw_version} doesn't support store version {self.store_version}. "
+                f'Supported versions: {supported}.'
+            )
+
         if self.no_devel and major not in _V6_FORMAT_VERSIONS:
             print(
                 'WARNING: --no-devel is not yet supported for pnpm lockfile v9; '
@@ -100,7 +115,7 @@ class PnpmLockfileProvider(LockfileProvider):
                 file=sys.stderr,
             )
 
-        lockfile = Lockfile(lockfile_path, major)
+        lockfile = Lockfile(lockfile_path, major, store_version=store_version)
 
         packages_dict: dict[str, Any] = data.get('packages', {})
         if not packages_dict:
@@ -181,10 +196,20 @@ class PnpmModuleProvider(ModuleProvider):
             self._finalize()
 
     async def generate_package(self, package: Package) -> None:
-        if self._store_version is None:
-            self._store_version = _STORE_VERSION_BY_LOCKFILE[package.lockfile.version]
-
         source = package.source
+
+        sv = package.lockfile.store_version
+        if sv is None:
+            raise TypeError(
+                f'{package.name}@{package.version}: lockfile provides no store version'
+            )
+        if self._store_version is None:
+            self._store_version = sv
+        elif self._store_version != sv:
+            raise ValueError(
+                f'{package.name}@{package.version}: store version mismatch: '
+                f'expected {self._store_version!r}, got {sv!r}'
+            )
 
         if isinstance(source, ResolvedSource):
             assert source.resolved is not None
@@ -239,7 +264,9 @@ class PnpmModuleProvider(ModuleProvider):
             entry: dict[str, str] = {
                 'name': info.name,
                 'version': info.version,
-                'integrity_hex': info.integrity.digest,
+                'integrity': info.integrity.to_base64(),
+                'integrity_digest': info.integrity.digest,
+                'integrity_algo': info.integrity.algorithm,
             }
             if info.version.startswith(('http://', 'https://')):
                 entry['tarball_url'] = info.version
@@ -263,7 +290,12 @@ class PnpmModuleProvider(ModuleProvider):
         )
 
     def _add_pnpm_config(self) -> None:
-        self.gen.add_command(f'echo "store-dir=$PWD/{self.store_dir}" >> .npmrc')
+        if self._store_version == 'v11':
+            self.gen.add_command(
+                f'echo "storeDir=$PWD/{self.store_dir}" >> pnpm-workspace.yaml'
+            )
+        else:
+            self.gen.add_command(f'echo "store-dir=$PWD/{self.store_dir}" >> .npmrc')
 
 
 class PnpmProviderFactory(ProviderFactory):
