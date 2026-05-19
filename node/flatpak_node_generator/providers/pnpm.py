@@ -98,9 +98,10 @@ class PnpmLockfileProvider(LockfileProvider):
             )
 
         supported_store_versions = _STORE_VERSION_BY_LOCKFILE[major]
-        if self.store_version is None:
-            self.store_version = supported_store_versions[0]
-        elif self.store_version not in supported_store_versions:
+        store_version = self.store_version
+        if store_version is None:
+            store_version = supported_store_versions[0]
+        elif store_version not in supported_store_versions:
             supported = ', '.join(str(v) for v in sorted(supported_store_versions))
             raise ValueError(
                 f"{lockfile_path}: lockfileVersion {raw_version} doesn't support store version {self.store_version}. "
@@ -114,7 +115,7 @@ class PnpmLockfileProvider(LockfileProvider):
                 file=sys.stderr,
             )
 
-        lockfile = Lockfile(lockfile_path, major, store_version=self.store_version)
+        lockfile = Lockfile(lockfile_path, major, store_version=store_version)
 
         packages_dict: dict[str, Any] = data.get('packages', {})
         if not packages_dict:
@@ -197,11 +198,18 @@ class PnpmModuleProvider(ModuleProvider):
     async def generate_package(self, package: Package) -> None:
         source = package.source
 
+        sv = package.lockfile.store_version
+        if sv is None:
+            raise TypeError(
+                f'{package.name}@{package.version}: lockfile provides no store version'
+            )
         if self._store_version is None:
-            sv = package.lockfile.store_version
-            if sv is None:
-                raise TypeError('pnpm expects lockfile provides store version')
             self._store_version = sv
+        elif self._store_version != sv:
+            raise ValueError(
+                f'{package.name}@{package.version}: store version mismatch: '
+                f'expected {self._store_version!r}, got {sv!r}'
+            )
 
         if isinstance(source, ResolvedSource):
             assert source.resolved is not None
