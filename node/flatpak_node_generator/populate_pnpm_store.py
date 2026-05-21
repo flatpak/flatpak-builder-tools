@@ -141,6 +141,8 @@ def _pack_v11_store_entry(
 
     # Record with fixed entries
     result = RECORD_HEADER + b'\x40' + _msgpack_pack(store_entry_keys)
+    # This is hardcoded to use sha512 per pnpm's behavior, see @pnpm/store.cafs/index and
+    # file digest logic below
     result += _msgpack_pack('sha512')  # algo
     result += _msgpack_pack(False)  # requiresBuild
     result += files_map_bytes  # files (standard map → iterable Map in JS)
