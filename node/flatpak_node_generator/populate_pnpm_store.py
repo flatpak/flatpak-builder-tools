@@ -98,7 +98,6 @@ RECORD_HEADER = b'\xd4\x72'
 
 
 def _pack_v11_store_entry(
-    algo: str,
     files: dict[str, dict[str, object]],
     manifest: dict[str, str] | None = None,
 ) -> bytes:
@@ -142,7 +141,7 @@ def _pack_v11_store_entry(
 
     # Record with fixed entries
     result = RECORD_HEADER + b'\x40' + _msgpack_pack(store_entry_keys)
-    result += _msgpack_pack(algo)  # algo
+    result += _msgpack_pack('sha512')  # algo
     result += _msgpack_pack(False)  # requiresBuild
     result += files_map_bytes  # files (standard map → iterable Map in JS)
 
@@ -295,7 +294,7 @@ def _process_tarball(
                 'version': real_pkg_version,
             }
 
-        entry_bytes = _pack_v11_store_entry(integrity_algo, v11_files, manifest)
+        entry_bytes = _pack_v11_store_entry(v11_files, manifest)
 
         # It's currently not possible to fully determine which store key pnpm will use,
         # so we insert multiple keys to ensure pnpm can find the entry it wants.
