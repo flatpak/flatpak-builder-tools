@@ -1,6 +1,3 @@
-[tool.poetry]
-package-mode = false
-
 [project]
 name = "flatpak_cargo_generator"
 version = "0.0.1"
@@ -47,3 +44,10 @@ check_untyped_defs = true
 warn_unused_ignores = true
 show_error_codes = true
 warn_return_any = true
+
+[tool.poetry.scripts]
+flatpak-cargo-generator = "flatpak_cargo_generator.main:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

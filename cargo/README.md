@@ -4,20 +4,41 @@ Tool to automatically generate `flatpak-builder` manifest json from a `Cargo.loc
 
 ## Requirements
 
-Poetry users can run `poetry install` and skip this.
-
-Otherwise install Python 3.9+ with these modules:
-- tomlkit
-- aiohttp
-- (Optional) PyYAML>=6.0.2 for YAML output instead of JSON
+- Python 3.9+
+- [pipx](https://pypa.github.io/pipx/) (recommended), [uv](https://github.com/astral-sh/uv), or [poetry](https://python-poetry.org/)
 
 Generated manifests are supported by flatpak-builder 1.2.x or newer.
 
 ## Usage
 
-1. Install poetry v2 https://python-poetry.org/docs/#installation
-2. Run `poetry env activate` inside the `cargo` folder
-3. `python3 flatpak-cargo-generator.py /path/to/Cargo.lock -o cargo-sources.json`
+### Direct installation (Recommended)
+
+The easiest way to use this tool is to run or install it using `pipx`, `uvx`, or `uv tool`:
+
+Using `pipx`:
+```sh
+$ pipx install git+https://github.com/flatpak/flatpak-builder-tools.git#subdirectory=cargo
+$ flatpak-cargo-generator /path/to/Cargo.lock -o cargo-sources.json
+```
+
+Or run it directly without installing using `uvx`:
+```sh
+$ uvx --from "git+https://github.com/flatpak/flatpak-builder-tools.git#subdirectory=cargo" flatpak-cargo-generator /path/to/Cargo.lock -o cargo-sources.json
+```
+
+### Running from a local checkout
+
+If you have cloned the repository, you can install the dependencies and run it via poetry:
+
+1. Install poetry: https://python-poetry.org/docs/#installation
+2. Install dependencies:
+   ```sh
+   poetry install
+   ```
+3. Run the generator:
+   ```sh
+   poetry run flatpak-cargo-generator /path/to/Cargo.lock -o cargo-sources.json
+   ```
 
 The generated cargo manifest file `cargo-sources.json` should be added
 to the Flatpak manifest inside `sources`. An example of a complete
