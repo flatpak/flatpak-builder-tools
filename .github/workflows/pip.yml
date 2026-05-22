@@ -32,6 +32,7 @@ jobs:
         with:
           version: "0.6.9"
           enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/master' }}
           cache-dependency-glob: |
             **/uv.lock
             **/pyproject.toml
