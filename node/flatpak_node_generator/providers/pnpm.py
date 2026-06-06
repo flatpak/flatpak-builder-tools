@@ -292,7 +292,7 @@ class PnpmModuleProvider(ModuleProvider):
     def _add_pnpm_config(self) -> None:
         if self._store_version == 'v11':
             self.gen.add_command(
-                f'echo "storeDir=$PWD/{self.store_dir}" >> pnpm-workspace.yaml'
+                f'echo "storeDir: $PWD/{self.store_dir}" >> pnpm-workspace.yaml'
             )
         else:
             self.gen.add_command(f'echo "store-dir=$PWD/{self.store_dir}" >> .npmrc')
