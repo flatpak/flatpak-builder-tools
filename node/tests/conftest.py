@@ -181,11 +181,27 @@ class FlatpakBuilder:
 
 
 @pytest.fixture(scope='session', autouse=True)
-def ensure_flatpak_deps(request: pytest.FixtureRequest) -> None:
+def flatpak_user_dir() -> Path:
+    user_dir = Path(__file__).parent.parent / '.flatpak-user-dir'
+    user_dir.mkdir(exist_ok=True)
+    os.environ['FLATPAK_USER_DIR'] = str(user_dir)
+    return user_dir
+
+
+@pytest.fixture(scope='session', autouse=True)
+def ensure_flatpak_deps(
+    request: pytest.FixtureRequest,
+    flatpak_user_dir: Path,
+) -> None:
     if not any(
         item.get_closest_marker('integration') for item in request.session.items
     ):
         return
+
+    print()
+
+    env = os.environ.copy()
+    env['FLATPAK_USER_DIR'] = str(flatpak_user_dir)
 
     subprocess.run(
         [
@@ -197,6 +213,7 @@ def ensure_flatpak_deps(request: pytest.FixtureRequest) -> None:
             'https://flathub.org/repo/flathub.flatpakrepo',
         ],
         check=True,
+        env=env,
     )
 
     subprocess.run(
@@ -215,6 +232,7 @@ def ensure_flatpak_deps(request: pytest.FixtureRequest) -> None:
             *REQUIRED_FLATPAK_REFS,
         ],
         check=True,
+        env=env,
     )
 
 
