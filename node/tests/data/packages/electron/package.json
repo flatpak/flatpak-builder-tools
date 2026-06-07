@@ -4,5 +4,11 @@
   "dependencies": {
     "@electron/get": "^2.0.3",
     "electron": "^26.3.0"
+  },
+  "overrides": {
+    "yauzl": "3.3.2"
+  },
+  "resolutions": {
+    "yauzl": "3.3.2"
   }
 }
