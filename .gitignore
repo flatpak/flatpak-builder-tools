@@ -1,1 +1,8 @@
-deno/coverage
+__pycache__/
+.flatpak-user-dir/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+deno/coverage/
+node_modules/
