@@ -9,6 +9,7 @@ on:
     branches: master
     paths:
       - poetry/**
+  workflow_dispatch:
 
 defaults:
   run:

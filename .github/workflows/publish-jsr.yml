@@ -5,6 +5,7 @@ on:
       - deno/**
     branches:
       - master
+  workflow_dispatch:
 
 defaults:
   run:

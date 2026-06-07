@@ -9,6 +9,7 @@ on:
     branches: master
     paths:
       - dotnet/**
+  workflow_dispatch:
 
 defaults:
   run:
