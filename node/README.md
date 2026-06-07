@@ -327,11 +327,30 @@ or invoke pytest manually:
 $ poetry run pytest -n auto
 ```
 
+Run integration tests:
+
+```
+poetry run poe check-integration
+```
+
 The tests require flatpak, flatpak-builder and some common dependencies
 like git pre-installed through the distribution.
 
 Note that these tests can take up quite a bit of space in /tmp, so if you hit `No space
 left on device` errors, try expanding `/tmp` or changing `$TMPDIR`.
+
+### Regenerate test data
+
+Lockfiles inside test data can be regenerated using:
+
+```
+cd node/tests/data/packages/<module>
+
+npm install --lockfile-version=1 && cp -vf package-lock.json package-lock.v1.json
+npm install --lockfile-version=2 && cp -vf package-lock.json package-lock.v2.json
+npm install --lockfile-version=3 && cp -vf package-lock.json package-lock.v3.json
+yarn install
+```
 
 ### Utility Scripts
 
