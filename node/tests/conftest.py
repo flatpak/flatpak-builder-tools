@@ -216,6 +216,8 @@ def ensure_flatpak_deps(
         env=env,
     )
 
+    print()
+
     subprocess.run(
         [
             'flatpak',
