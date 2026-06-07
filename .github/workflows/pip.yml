@@ -5,10 +5,12 @@ on:
     branches: master
     paths:
       - pip/**
+      - .github/workflows/pip.yml
   pull_request:
     branches: master
     paths:
       - pip/**
+      - .github/workflows/pip.yml
   workflow_dispatch:
 
 defaults:

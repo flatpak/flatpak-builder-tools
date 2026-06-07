@@ -4,11 +4,13 @@ on:
   push:
     paths:
       - deno/**
+      - .github/workflows/deno.yml
     branches:
       - master
   pull_request:
     paths:
       - deno/**
+      - .github/workflows/deno.yml
     branches:
       - master
   workflow_dispatch:

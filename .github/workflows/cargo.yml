@@ -5,10 +5,12 @@ on:
     branches: master
     paths:
       - cargo/**
+      - .github/workflows/cargo.yml
   pull_request:
     branches: master
     paths:
       - cargo/**
+      - .github/workflows/cargo.yml
   workflow_dispatch:
 
 defaults:

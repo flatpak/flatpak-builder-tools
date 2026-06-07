@@ -5,10 +5,12 @@ on:
     branches: master
     paths:
       - poetry/**
+      - .github/workflows/poetry.yml
   pull_request:
     branches: master
     paths:
       - poetry/**
+      - .github/workflows/poetry.yml
   workflow_dispatch:
 
 defaults:

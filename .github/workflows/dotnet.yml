@@ -5,10 +5,12 @@ on:
     branches: master
     paths:
       - dotnet/**
+      - .github/workflows/dotnet.yml
   pull_request:
     branches: master
     paths:
       - dotnet/**
+      - .github/workflows/dotnet.yml
   workflow_dispatch:
 
 defaults:

@@ -5,10 +5,12 @@ on:
     branches: master
     paths:
       - node/**
+      - .github/workflows/node.yaml
   pull_request:
     branches: master
     paths:
       - node/**
+      - .github/workflows/node.yaml
   workflow_dispatch:
 
 defaults:

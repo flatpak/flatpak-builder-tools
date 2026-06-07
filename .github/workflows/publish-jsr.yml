@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - deno/**
+      - .github/workflows/publish-jsr.yml
     branches:
       - master
   workflow_dispatch:
