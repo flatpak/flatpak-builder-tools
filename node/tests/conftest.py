@@ -167,7 +167,7 @@ class FlatpakBuilder:
         with self.manifest_file.open('w') as fp:
             json.dump(manifest, fp, indent=4)
 
-        subprocess.run(
+        result = subprocess.run(
             [
                 'flatpak-builder',
                 '--build-only',
@@ -176,8 +176,20 @@ class FlatpakBuilder:
                 str(self.build_dir),
                 str(self.manifest_file),
             ],
-            check=True,
+            capture_output=True,
+            text=True,
+            check=False,
         )
+
+        if result.returncode != 0:
+            print(result.stdout)
+            print(result.stderr, file=sys.stderr)
+            raise subprocess.CalledProcessError(
+                result.returncode,
+                result.args,
+                output=result.stdout,
+                stderr=result.stderr,
+            )
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -344,6 +356,9 @@ class ProviderFactorySpec:
                     options=NpmProviderFactory.Options(
                         lockfile=npm_lockfile,
                         module=npm_module,
+                    ),
+                    node_sdk_extension=(
+                        f'org.freedesktop.Sdk.Extension.node{node_version}//25.08'
                     ),
                 ),
                 paths,

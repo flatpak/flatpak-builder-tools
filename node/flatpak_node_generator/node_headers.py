@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import json
-import os
-import platform
-import struct
 from typing import NamedTuple
+
+from .sdk_extension import find_installed_package
 
 NODE_GYP_INSTALL_VERSION = '11'
 
@@ -39,69 +38,6 @@ class NodeHeaders(NamedTuple):
         # TODO it may be better to retrieve urls from disturl/index.json
         return f'{self.disturl}/v{self.target}/node-v{self.target}-headers.tar.gz'
 
-    @staticmethod
-    def _get_flatpak_arch() -> str:
-        machine = platform.machine().lower()
-        is_32bit = struct.calcsize('P') * 8 == 32
-
-        if machine in ('x86_64', 'amd64'):
-            return 'i386' if is_32bit else 'x86_64'
-
-        if machine in ('i386', 'i486', 'i586', 'i686'):
-            return 'i386'
-
-        if machine == 'aarch64':
-            return 'aarch64'
-
-        if machine.startswith('arm'):
-            return 'arm'
-
-        return machine
-
-    @staticmethod
-    def _find_node_gyp_path(sdk_extension: str) -> str | None:
-        try:
-            ext_id, version = sdk_extension.split('//')
-        except ValueError:
-            return None
-
-        flatpak_user_dir = os.environ.get('FLATPAK_USER_DIR')
-        if flatpak_user_dir:
-            search_roots = [flatpak_user_dir]
-        else:
-            xdg_data_home = os.environ.get(
-                'XDG_DATA_HOME',
-                os.path.expanduser('~/.local/share'),
-            )
-            search_roots = [
-                os.path.join(xdg_data_home, 'flatpak'),
-                '/var/lib/flatpak',
-            ]
-
-        arch = NodeHeaders._get_flatpak_arch()
-
-        for root in search_roots:
-            candidate = os.path.join(
-                root,
-                'runtime',
-                ext_id,
-                arch,
-                version,
-                'active',
-                'files',
-                'lib',
-                'node_modules',
-                'npm',
-                'node_modules',
-                'node-gyp',
-                'package.json',
-            )
-
-            if os.path.isfile(candidate):
-                return candidate
-
-        return None
-
     def install_version(self, sdk_extension: str | None = None) -> str:
         if sdk_extension is None:
             print(
@@ -109,7 +45,7 @@ class NodeHeaders(NamedTuple):
             )
             return NODE_GYP_INSTALL_VERSION
 
-        pkg_path = self._find_node_gyp_path(sdk_extension)
+        pkg_path = find_installed_package(sdk_extension, 'node-gyp')
 
         if pkg_path is None:
             print(
