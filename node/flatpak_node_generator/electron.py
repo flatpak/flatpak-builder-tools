@@ -59,6 +59,13 @@ class ElectronBinaryManager:
             ):
                 continue
 
+            # Electron v44+ drop linux-armv7l support.
+            if (
+                SemVer.parse(self.version) >= SemVer.parse('44.0.0')
+                and electron_arch == 'armv7l'
+            ):
+                continue
+
             if binary == 'chromedriver' and SemVer.parse(self.version) < SemVer.parse(
                 '1.8.5'
             ):
