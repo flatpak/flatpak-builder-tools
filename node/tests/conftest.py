@@ -357,6 +357,9 @@ class ProviderFactorySpec:
                         lockfile=npm_lockfile,
                         module=npm_module,
                     ),
+                    node_sdk_extension=(
+                        f'org.freedesktop.Sdk.Extension.node{node_version}//25.08'
+                    ),
                 ),
                 paths,
             )
