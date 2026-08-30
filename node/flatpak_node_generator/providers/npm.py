@@ -29,6 +29,7 @@ from ..package import (
 from ..requests import Requests
 from ..url_metadata import RemoteUrlMetadata
 from . import LockfileProvider, ModuleProvider, ProviderFactory, RCFileProvider
+from .hosted_git_info import gitlab_uses_api_archive_format
 from .special import SpecialSourceProvider
 
 _NPM_CORGIDOC = (
@@ -187,6 +188,7 @@ class NpmModuleProvider(ModuleProvider):
         special: SpecialSourceProvider,
         lockfile_root: Path,
         options: Options,
+        node_sdk_extension: str | None = None,
     ) -> None:
         self.gen = gen
         self.special_source_provider = special
@@ -194,6 +196,7 @@ class NpmModuleProvider(ModuleProvider):
         self.registry = options.registry
         self.no_autopatch = options.no_autopatch
         self.no_trim_index = options.no_trim_index
+        self.node_sdk_extension = node_sdk_extension
         self.npm_cache_dir = self.gen.data_root / 'npm-cache'
         self.cacache_dir = self.npm_cache_dir / '_cacache'
         # Awaitable so multiple tasks can be waiting on the same package info.
@@ -392,9 +395,20 @@ class NpmModuleProvider(ModuleProvider):
                     path=url.path
                     + f'/-/archive/{source.commit}/{package.name}-{source.commit}.tar.gz'
                 )
-                index_url = url._replace(
-                    path=url.path + f'/repository/archive.tar.gz?ref={source.commit}'
-                ).geturl()
+
+                if gitlab_uses_api_archive_format(self.node_sdk_extension):
+                    project_path = urllib.parse.quote(url.path.lstrip('/'), safe='')
+                    index_url = url._replace(
+                        path=(
+                            f'/api/v4/projects/{project_path}/repository/archive.tar.gz'
+                        ),
+                        query=f'sha={source.commit}',
+                    ).geturl()
+                else:
+                    index_url = url._replace(
+                        path=url.path
+                        + f'/repository/archive.tar.gz?ref={source.commit}'
+                    ).geturl()
             else:
                 raise NotImplementedError(
                     f"Don't know how to handle git source with url {url.geturl()}"
@@ -574,9 +588,15 @@ class NpmProviderFactory(ProviderFactory):
         lockfile: NpmLockfileProvider.Options
         module: NpmModuleProvider.Options
 
-    def __init__(self, lockfile_root: Path, options: Options) -> None:
+    def __init__(
+        self,
+        lockfile_root: Path,
+        options: Options,
+        node_sdk_extension: str | None = None,
+    ) -> None:
         self.lockfile_root = lockfile_root
         self.options = options
+        self.node_sdk_extension = node_sdk_extension
 
     def create_lockfile_provider(self) -> NpmLockfileProvider:
         return NpmLockfileProvider(self.options.lockfile)
@@ -587,4 +607,10 @@ class NpmProviderFactory(ProviderFactory):
     def create_module_provider(
         self, gen: ManifestGenerator, special: SpecialSourceProvider
     ) -> NpmModuleProvider:
-        return NpmModuleProvider(gen, special, self.lockfile_root, self.options.module)
+        return NpmModuleProvider(
+            gen,
+            special,
+            self.lockfile_root,
+            self.options.module,
+            node_sdk_extension=self.node_sdk_extension,
+        )

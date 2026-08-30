@@ -206,7 +206,11 @@ async def _async_main() -> None:
                 no_trim_index=args.no_trim_index,
             ),
         )
-        provider_factory = NpmProviderFactory(lockfile_root, npm_options)
+        provider_factory = NpmProviderFactory(
+            lockfile_root,
+            npm_options,
+            node_sdk_extension=args.node_sdk_extension,
+        )
     elif args.type == 'yarn':
         provider_factory = YarnProviderFactory()
     elif args.type == 'pnpm':
