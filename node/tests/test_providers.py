@@ -1,11 +1,16 @@
+import contextlib
 import itertools
 import shlex
+from collections.abc import AsyncGenerator
 from pathlib import Path
 
 import pytest
 from conftest import FlatpakBuilder, ProviderFactorySpec
 
 from flatpak_node_generator.manifest import ManifestGenerator
+from flatpak_node_generator.package import Lockfile, Package, RegistrySource
+from flatpak_node_generator.providers.special import SpecialSourceProvider
+from flatpak_node_generator.requests import Requests
 
 pytestmark = pytest.mark.integration
 
@@ -233,3 +238,44 @@ async def test_special_esbuild(
         ],
         use_node=node_version,
     )
+
+
+async def test_special_no_playwright_browsers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    requested_urls: list[str] = []
+
+    @contextlib.asynccontextmanager
+    async def fail_open_stream(self: Requests, url: str) -> AsyncGenerator[None, None]:
+        requested_urls.append(url)
+        raise AssertionError(f'unexpected request to {url}')
+        yield
+
+    monkeypatch.setattr(Requests, '_open_stream', fail_open_stream)
+
+    with ManifestGenerator() as gen:
+        special = SpecialSourceProvider(
+            gen,
+            SpecialSourceProvider.Options(
+                node_chromedriver_from_electron=None,
+                electron_ffmpeg=None,
+                electron_node_headers=False,
+                nwjs_version=None,
+                nwjs_node_headers=False,
+                nwjs_ffmpeg=False,
+                xdg_layout=True,
+                node_sdk_extension=None,
+                no_playwright_browsers=True,
+            ),
+        )
+        await special.generate_special_sources(
+            Package(
+                name='playwright',
+                version='1.58.0',
+                source=RegistrySource(integrity=None),
+                lockfile=Lockfile(tmp_path / 'package-lock.json', 3),
+            )
+        )
+
+        assert requested_urls == []
+        assert gen.source_count == 0
