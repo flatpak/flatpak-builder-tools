@@ -96,10 +96,32 @@ def _msgpack_pack(obj: object) -> bytes:
 
 RECORD_HEADER = b'\xd4\x72'
 
+# pnpm's PREPUBLISH_SCRIPTS, see packageShouldBeBuilt().
+_PREPUBLISH_SCRIPTS = ('prepublish', 'prepack', 'publish')
+
+
+def _requires_prepare(
+    scripts: Mapping[str, object] | None,
+    main_file_present: bool,
+) -> bool:
+    """Mirror of pnpm's packageShouldBeBuilt().
+
+    True means pnpm must run an install/prepare step, which the offline
+    store cannot satisfy.
+    """
+    if not isinstance(scripts, dict) or not scripts:
+        return False
+    if scripts.get('prepare'):
+        return True
+    if not any(scripts.get(name) for name in _PREPUBLISH_SCRIPTS):
+        return False
+    return not main_file_present
+
 
 def _pack_v11_store_entry(
     files: dict[str, dict[str, object]],
     manifest: dict[str, str] | None = None,
+    requires_prepare: bool | None = None,
 ) -> bytes:
     """Encode a store v11 entry using msgpackr-compatible record extensions.
 
@@ -136,6 +158,8 @@ def _pack_v11_store_entry(
 
     # Outer store_entry as record (struct_id 0x40)
     store_entry_keys = ['algo', 'requiresBuild', 'files']
+    if requires_prepare is not None:
+        store_entry_keys.append('requiresPrepare')
     if manifest is not None:
         store_entry_keys.append('manifest')
 
@@ -146,6 +170,8 @@ def _pack_v11_store_entry(
     result += _msgpack_pack('sha512')  # algo
     result += _msgpack_pack(False)  # requiresBuild
     result += files_map_bytes  # files (standard map → iterable Map in JS)
+    if requires_prepare is not None:
+        result += _msgpack_pack(requires_prepare)  # requiresPrepare
 
     if manifest is not None:
         result += _record(manifest, 0x42)
@@ -222,6 +248,9 @@ def _process_tarball(
     file_digests: dict[str, str] = {}
     real_pkg_name = pkg_name
     real_pkg_version = pkg_version
+    pkg_scripts: Mapping[str, object] | None = None
+    pkg_main: str | None = None
+    rel_names: set[str] = set()
 
     with tarfile.open(tarball_path, 'r:gz') as tf:
         for member in tf.getmembers():
@@ -242,6 +271,10 @@ def _process_tarball(
                             pkg_data['version'], str
                         ):
                             real_pkg_version = pkg_data['version']
+                        if isinstance(pkg_data.get('scripts'), dict):
+                            pkg_scripts = pkg_data['scripts']
+                        if isinstance(pkg_data.get('main'), str):
+                            pkg_main = pkg_data['main']
 
             digest = hashlib.sha512(data).digest()
             file_hex = digest.hex()
@@ -260,6 +293,7 @@ def _process_tarball(
             rel_name = member.name
             if '/' in rel_name:
                 rel_name = rel_name.split('/', 1)[1]
+            rel_names.add(rel_name)
 
             b64 = base64.b64encode(digest).decode()
             index_files[rel_name] = {
@@ -296,7 +330,23 @@ def _process_tarball(
                 'version': real_pkg_version,
             }
 
-        entry_bytes = _pack_v11_store_entry(v11_files, manifest)
+        requires_prepare = None
+        if tarball_url:
+            main_file = os.path.normpath(pkg_main or 'index.js')
+            requires_prepare = _requires_prepare(pkg_scripts, main_file in rel_names)
+            if requires_prepare:
+                # pnpm can only reuse a git-hosted package from the store when
+                # the row records that no prepare step was needed. We cannot
+                # provide the opposite, so leave the field unset: pnpm falls
+                # back to a fetch and fails loudly, rather than silently
+                # linking un-prepared files.
+                print(
+                    f'WARNING: {real_pkg_name} needs a prepare step; '
+                    'the offline store cannot provide it.',
+                    file=sys.stderr,
+                )
+
+        entry_bytes = _pack_v11_store_entry(v11_files, manifest, requires_prepare)
 
         # It's currently not possible to fully determine which store key pnpm will use,
         # so we insert multiple keys to ensure pnpm can find the entry it wants.
