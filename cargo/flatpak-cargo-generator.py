@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import os
+import shutil
 import subprocess
 from typing import (
     TYPE_CHECKING,
@@ -137,26 +138,44 @@ def fetch_git_repo(git_url: str, commit: str) -> str:
     def git(*args: str, **kwargs: Any) -> "subprocess.CompletedProcess[bytes]":
         return subprocess.run(["git", *args], cwd=clone_dir, check=True, **kwargs)
 
-    if not os.path.isdir(os.path.join(clone_dir, ".git")):
+    def clone() -> None:
         subprocess.run(["git", "clone", "--depth=1", git_url, clone_dir], check=True)
 
-    head = git("rev-parse", "HEAD", stdout=subprocess.PIPE).stdout.decode().strip()
+    def checkout_and_update() -> None:
+        head = git("rev-parse", "HEAD", stdout=subprocess.PIPE).stdout.decode().strip()
 
-    if head[:COMMIT_LEN] != commit[:COMMIT_LEN]:
-        git("fetch", "origin", commit)
-        try:
-            git("checkout", commit)
-        except subprocess.CalledProcessError:
-            logging.info(
-                "Checking out commit %s failed for %s. Trying to force checkout the requested commit",
-                commit,
-                git_url,
-            )
-            git("checkout", "-f", commit)
+        if head[:COMMIT_LEN] != commit[:COMMIT_LEN]:
+            git("fetch", "--recurse-submodules=no", "origin", commit)
+            try:
+                git("checkout", commit)
+            except subprocess.CalledProcessError:
+                logging.info(
+                    "Checking out commit %s failed for %s. Trying to force checkout the requested commit",
+                    commit,
+                    git_url,
+                )
+                git("checkout", "-f", commit)
 
-    # Get the submodules as they might contain dependencies. This is a noop if
-    # there are no submodules in the repository
-    git("submodule", "update", "--init", "--recursive")
+        # Get the submodules as they might contain dependencies. This is a noop
+        # if there are no submodules in the repository
+        git("submodule", "sync", "--recursive")
+        git("submodule", "update", "--init", "--recursive")
+
+    if not os.path.isdir(os.path.join(clone_dir, ".git")):
+        clone()
+        checkout_and_update()
+        return clone_dir
+
+    try:
+        checkout_and_update()
+    except subprocess.CalledProcessError:
+        logging.warning(
+            "Cached clone of %s is unusable, deleting it and cloning again",
+            git_url,
+        )
+        shutil.rmtree(clone_dir)
+        clone()
+        checkout_and_update()
 
     return clone_dir
 
