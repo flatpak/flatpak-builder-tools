@@ -133,31 +133,30 @@ def fetch_git_repo(git_url: str, commit: str) -> str:
     repo_dir = git_url.replace("://", "_").replace("/", "_")
     cache_dir = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
     clone_dir = os.path.join(cache_dir, "flatpak-cargo", repo_dir)
+
+    def git(*args: str, **kwargs: Any) -> "subprocess.CompletedProcess[bytes]":
+        return subprocess.run(["git", *args], cwd=clone_dir, check=True, **kwargs)
+
     if not os.path.isdir(os.path.join(clone_dir, ".git")):
         subprocess.run(["git", "clone", "--depth=1", git_url, clone_dir], check=True)
-    rev_parse_proc = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=clone_dir, check=True, stdout=subprocess.PIPE
-    )
-    head = rev_parse_proc.stdout.decode().strip()
+
+    head = git("rev-parse", "HEAD", stdout=subprocess.PIPE).stdout.decode().strip()
+
     if head[:COMMIT_LEN] != commit[:COMMIT_LEN]:
-        subprocess.run(["git", "fetch", "origin", commit], cwd=clone_dir, check=True)
+        git("fetch", "origin", commit)
         try:
-            subprocess.run(["git", "checkout", commit], cwd=clone_dir, check=True)
+            git("checkout", commit)
         except subprocess.CalledProcessError:
             logging.info(
                 "Checking out commit %s failed for %s. Trying to force checkout the requested commit",
                 commit,
                 git_url,
             )
-            subprocess.run(["git", "checkout", "-f", commit], cwd=clone_dir, check=True)
+            git("checkout", "-f", commit)
 
     # Get the submodules as they might contain dependencies. This is a noop if
     # there are no submodules in the repository
-    subprocess.run(
-        ["git", "submodule", "update", "--init", "--recursive"],
-        cwd=clone_dir,
-        check=True,
-    )
+    git("submodule", "update", "--init", "--recursive")
 
     return clone_dir
 
