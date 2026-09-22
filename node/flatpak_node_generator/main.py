@@ -131,6 +131,11 @@ async def _async_main() -> None:
         help='Download the electron node headers',
     )
     parser.add_argument(
+        '--no-playwright-browsers',
+        action='store_true',
+        help="Don't download the prebuilt browsers for playwright",
+    )
+    parser.add_argument(
         '--nwjs-version',
         help='Specify NW.js version (will use latest otherwise)',
     )
@@ -257,6 +262,7 @@ async def _async_main() -> None:
             electron_ffmpeg=args.electron_ffmpeg,
             electron_node_headers=args.electron_node_headers,
             node_sdk_extension=args.node_sdk_extension,
+            no_playwright_browsers=args.no_playwright_browsers,
         )
         special = SpecialSourceProvider(gen, options)
 

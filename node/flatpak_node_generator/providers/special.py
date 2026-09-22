@@ -4,6 +4,7 @@ import collections
 import itertools
 import json
 import re
+import sys
 import urllib.parse
 from pathlib import Path
 from typing import NamedTuple
@@ -29,6 +30,7 @@ class SpecialSourceProvider:
         nwjs_ffmpeg: bool
         xdg_layout: bool
         node_sdk_extension: str | None
+        no_playwright_browsers: bool = False
 
     def __init__(self, gen: ManifestGenerator, options: Options):
         self.gen = gen
@@ -40,6 +42,7 @@ class SpecialSourceProvider:
         self.nwjs_ffmpeg = options.nwjs_ffmpeg
         self.xdg_layout = options.xdg_layout
         self.node_sdk_extension = options.node_sdk_extension
+        self.no_playwright_browsers = options.no_playwright_browsers
 
     @property
     def electron_cache_dir(self) -> Path:
@@ -337,6 +340,14 @@ class SpecialSourceProvider:
             )
 
     async def _handle_playwright(self, package: Package) -> None:
+        if self.no_playwright_browsers:
+            print(
+                    f'INFO: {package.name}@{package.version}: '
+                    'skipping browser downloads (--no-playwright-browsers)',
+                    file=sys.stderr,
+            )
+            return
+
         base_url = f'https://github.com/microsoft/playwright/raw/v{package.version}/'
         if SemVer.parse(package.version) >= SemVer.parse('1.16.0'):
             browsers_json_url = base_url + 'packages/playwright-core/browsers.json'
