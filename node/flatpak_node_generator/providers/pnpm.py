@@ -31,7 +31,7 @@ _SUPPORTED_VERSIONS = {6, 7, 9}
 _STORE_VERSION_BY_LOCKFILE: dict[int, list[str]] = {
     6: ['v3'],
     7: ['v3'],
-    9: ['v10', 'v11'],
+    9: ['v10', 'v11', 'v12'],
 }
 
 _POPULATE_STORE_SCRIPT = Path(__file__).parents[1] / 'populate_pnpm_store.py'
@@ -83,7 +83,8 @@ class PnpmLockfileProvider(LockfileProvider):
 
     def process_lockfile(self, lockfile_path: Path) -> Iterator[Package]:
         with open(lockfile_path, encoding='utf-8') as fp:
-            data = yaml.safe_load(fp)
+            # post v11 a document is prepended, so the last document is always the lockfile
+            *_, data = yaml.safe_load_all(fp)
 
         raw_version = data.get('lockfileVersion')
         if raw_version is None:
