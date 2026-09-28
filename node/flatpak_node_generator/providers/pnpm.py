@@ -31,7 +31,7 @@ _SUPPORTED_VERSIONS = {6, 7, 9}
 _STORE_VERSION_BY_LOCKFILE: dict[int, list[str]] = {
     6: ['v3'],
     7: ['v3'],
-    9: ['v10', 'v11', 'v12'],
+    9: ['v10', 'v11'],
 }
 
 _POPULATE_STORE_SCRIPT = Path(__file__).parents[1] / 'populate_pnpm_store.py'
