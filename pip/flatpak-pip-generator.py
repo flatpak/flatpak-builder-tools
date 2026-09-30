@@ -307,7 +307,8 @@ def get_platform_tags_from_runtime(arch: str) -> set[Tag] | None:
         tags_list = [Tag(*t.split("-")) for t in json.loads(result.stdout)]
         runtime_tags_cache[arch] = set(tags_list)
         return runtime_tags_cache[arch]
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as err:
+        print(err.stderr.strip(), file=sys.stderr)
         runtime_tags_cache[arch] = None
         return None
 
