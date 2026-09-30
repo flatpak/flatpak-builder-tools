@@ -83,7 +83,8 @@ class PnpmLockfileProvider(LockfileProvider):
 
     def process_lockfile(self, lockfile_path: Path) -> Iterator[Package]:
         with open(lockfile_path, encoding='utf-8') as fp:
-            data = yaml.safe_load(fp)
+            # post v11 a document is prepended, so the last document is always the lockfile
+            *_, data = yaml.safe_load_all(fp)
 
         raw_version = data.get('lockfileVersion')
         if raw_version is None:
