@@ -15,6 +15,21 @@ from collections.abc import Mapping
 
 _SANITIZE_RE = re.compile(r'[\\/:*?"<>|]')
 _MAX_LENGTH_WITHOUT_HASH = 120
+_MANIFEST_FIELDS = (
+    'bin',
+    'bundleDependencies',
+    'bundledDependencies',
+    'cpu',
+    'dependencies',
+    'devDependencies',
+    'directories',
+    'engines',
+    'libc',
+    'optionalDependencies',
+    'os',
+    'peerDependencies',
+    'peerDependenciesMeta',
+)
 
 
 def _msgpack_pack(obj: object) -> bytes:
@@ -120,7 +135,7 @@ def _requires_prepare(
 
 def _pack_v11_store_entry(
     files: dict[str, dict[str, object]],
-    manifest: dict[str, str] | None = None,
+    manifest: Mapping[str, object] | None = None,
     requires_prepare: bool | None = None,
 ) -> bytes:
     """Encode a store v11 entry using msgpackr-compatible record extensions.
@@ -250,6 +265,7 @@ def _process_tarball(
     real_pkg_version = pkg_version
     pkg_scripts: Mapping[str, object] | None = None
     pkg_main: str | None = None
+    pkg_manifest: dict[str, object] = {}
     rel_names: set[str] = set()
 
     with tarfile.open(tarball_path, 'r:gz') as tf:
@@ -275,6 +291,9 @@ def _process_tarball(
                             pkg_scripts = pkg_data['scripts']
                         if isinstance(pkg_data.get('main'), str):
                             pkg_main = pkg_data['main']
+                        pkg_manifest = {
+                            k: pkg_data[k] for k in _MANIFEST_FIELDS if k in pkg_data
+                        }
 
             digest = hashlib.sha512(data).digest()
             file_hex = digest.hex()
@@ -326,6 +345,7 @@ def _process_tarball(
         manifest = None
         if real_pkg_name or real_pkg_version:
             manifest = {
+                **pkg_manifest,
                 'name': real_pkg_name,
                 'version': real_pkg_version,
             }

@@ -109,6 +109,9 @@ containing all the sources needed for the given package manager.
 If you're on npm or pnpm and you don't want to include devel dependencies, pass `--no-devel`.
 For npm, also pass `--production` to `npm install` itself.
 
+For pnpm v12, pass `--pnpm-store-version v11` and run `pnpm install --offline --frozen-lockfile --trust-lockfile`.
+Without `--trust-lockfile`, pnpm checks the lockfile against the registry and fails offline.
+
 If you're using npm, you must run this script when the `node_modules` directory is **NOT** present.
 If you generate the `generated-sources.json` in CI, you can do this by passing `--package-lock-only`
 to `npm install`.

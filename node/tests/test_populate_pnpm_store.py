@@ -513,6 +513,73 @@ def test_process_tarball_v11(tmp_path: Path) -> None:
         db.close()
 
 
+def test_process_tarball_v11_manifest_fields(tmp_path: Path) -> None:
+    tar_path = tmp_path / 'pkg.tgz'
+    store_dir = tmp_path / 'store' / 'v11'
+    pkg_json = json.dumps(
+        {
+            'name': 'real-pkg',
+            'version': '1.2.3',
+            'bin': {'real-pkg': 'bin/cli.js'},
+            'dependencies': {'dep': '^1.0.0'},
+            'engines': {'node': '>=18'},
+            'description': 'not kept',
+            'scripts': {'test': 'not kept'},
+        }
+    )
+
+    _create_tarball(
+        tar_path,
+        {'package/package.json': pkg_json, 'package/bin/cli.js': "console.log('hi');"},
+    )
+
+    store_dir.mkdir(parents=True, exist_ok=True)
+    db = sqlite3.connect(str(store_dir / 'index.db'))
+    db.execute(
+        'CREATE TABLE IF NOT EXISTS package_index ('
+        '  key TEXT PRIMARY KEY,'
+        '  data BLOB NOT NULL'
+        ') WITHOUT ROWID'
+    )
+
+    integrity = Integrity(
+        'sha256', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
+    )
+
+    try:
+        _process_tarball(
+            tarball_path=str(tar_path),
+            pkg_name='real-pkg',
+            pkg_version='1.2.3',
+            integrity=integrity.to_base64(),
+            integrity_digest=integrity.digest,
+            integrity_algo=integrity.algorithm,
+            store=str(store_dir),
+            now=1234567890,
+            store_version='v11',
+            index_db=db,
+        )
+        db.commit()
+
+        expected_key = f'{integrity.algorithm}-{integrity.to_base64()}\treal-pkg@1.2.3'
+        row = db.execute(
+            'SELECT data FROM package_index WHERE key = ?', (expected_key,)
+        ).fetchone()
+        assert row is not None
+
+        # pnpm v12 links bins from the manifest in the store index
+        data = _decode_v11(row[0])
+        assert data['manifest'] == {
+            'name': 'real-pkg',
+            'version': '1.2.3',
+            'bin': {'real-pkg': 'bin/cli.js'},
+            'dependencies': {'dep': '^1.0.0'},
+            'engines': {'node': '>=18'},
+        }
+    finally:
+        db.close()
+
+
 def test_process_tarball_v11_no_package_json(tmp_path: Path) -> None:
     tar_path = tmp_path / 'pkg.tgz'
     store_dir = tmp_path / 'store' / 'v11'
