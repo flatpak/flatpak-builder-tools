@@ -298,15 +298,19 @@ class SpecialSourceProvider:
             )
 
     async def _handle_ripgrep_prebuilt(self, package: Package) -> None:
-        async def get_ripgrep_tag(version: str) -> str:
-            url = f'https://github.com/microsoft/vscode-ripgrep/raw/v{version}/lib/postinstall.js'
+        use_new_lockfile = SemVer.parse(package.version) >= SemVer.parse('1.18.0')
+        if use_new_lockfile:
+            url = f'https://raw.githubusercontent.com/microsoft/vscode-ripgrep/v{package.version}/binaries.lock.json'
+            binaries_lock = json.loads(
+                await Requests.instance.read_all(url, cachable=True)
+            )
+        else:
+            url = f'https://github.com/microsoft/vscode-ripgrep/raw/v{package.version}/lib/postinstall.js'
             tag_re = re.compile(r"VERSION\s+=\s+'(v[\d.-]+)';")
             resp = await Requests.instance.read_all(url, cachable=True)
             match = tag_re.search(resp.decode())
             assert match is not None
-            return match.group(1)
-
-        tag = await get_ripgrep_tag(package.version)
+            legacy_tag = match.group(1)
 
         # vscode-ripgrep switched from -gnu to -musl for aarch64 in v1.13.0
         use_gnu_aarch64 = SemVer.parse(package.version) < SemVer.parse('1.13.0')
@@ -326,6 +330,11 @@ class SpecialSourceProvider:
         }
         destdir = self.gen.data_root / 'tmp' / f'vscode-ripgrep-cache-{package.version}'
         for arch, ripgrep_arch in ripgrep_arch_map.items():
+            tag = (
+                binaries_lock[ripgrep_arch]['version']
+                if use_new_lockfile
+                else legacy_tag
+            )
             filename = f'ripgrep-{tag}-{ripgrep_arch}.tar.gz'
             url = f'https://github.com/microsoft/ripgrep-prebuilt/releases/download/{tag}/{filename}'
             metadata = await RemoteUrlMetadata.get(url, cachable=True)
