@@ -523,8 +523,10 @@ def test_process_tarball_v11_manifest_fields(tmp_path: Path) -> None:
             'bin': {'real-pkg': 'bin/cli.js'},
             'dependencies': {'dep': '^1.0.0'},
             'engines': {'node': '>=18'},
+            'gypfile': True,
+            'os': None,
             'description': 'not kept',
-            'scripts': {'test': 'not kept'},
+            'scripts': {'postinstall': 'node install.js', 'test': 'not kept'},
         }
     )
 
@@ -575,6 +577,8 @@ def test_process_tarball_v11_manifest_fields(tmp_path: Path) -> None:
             'bin': {'real-pkg': 'bin/cli.js'},
             'dependencies': {'dep': '^1.0.0'},
             'engines': {'node': '>=18'},
+            'gypfile': True,
+            'scripts': {'postinstall': 'node install.js'},
         }
     finally:
         db.close()

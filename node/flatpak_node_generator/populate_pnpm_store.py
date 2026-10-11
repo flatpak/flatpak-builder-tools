@@ -15,21 +15,24 @@ from collections.abc import Mapping
 
 _SANITIZE_RE = re.compile(r'[\\/:*?"<>|]')
 _MAX_LENGTH_WITHOUT_HASH = 120
+# These are package.json fields pnpm keeps in its store index (normalizeBundledManifest.ts)
 _MANIFEST_FIELDS = (
     'bin',
-    'bundleDependencies',
     'bundledDependencies',
+    'bundleDependencies',
     'cpu',
     'dependencies',
     'devDependencies',
     'directories',
     'engines',
+    'gypfile',
     'libc',
     'optionalDependencies',
     'os',
     'peerDependencies',
     'peerDependenciesMeta',
 )
+_MANIFEST_LIFECYCLE_SCRIPTS = ('preinstall', 'install', 'postinstall')
 
 
 def _msgpack_pack(obj: object) -> bytes:
@@ -292,8 +295,18 @@ def _process_tarball(
                         if isinstance(pkg_data.get('main'), str):
                             pkg_main = pkg_data['main']
                         pkg_manifest = {
-                            k: pkg_data[k] for k in _MANIFEST_FIELDS if k in pkg_data
+                            k: pkg_data[k]
+                            for k in _MANIFEST_FIELDS
+                            if pkg_data.get(k) is not None
                         }
+                        if pkg_scripts is not None:
+                            lifecycle_scripts = {
+                                k: pkg_scripts[k]
+                                for k in _MANIFEST_LIFECYCLE_SCRIPTS
+                                if pkg_scripts.get(k)
+                            }
+                            if lifecycle_scripts:
+                                pkg_manifest['scripts'] = lifecycle_scripts
 
             digest = hashlib.sha512(data).digest()
             file_hex = digest.hex()
