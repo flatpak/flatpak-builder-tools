@@ -22,7 +22,11 @@ class Requests:
     @contextlib.asynccontextmanager
     async def _open_stream(self, url: str) -> AsyncIterator[aiohttp.StreamReader]:
         async with (
-            aiohttp.ClientSession(raise_for_status=True) as session,
+            aiohttp.ClientSession(
+                raise_for_status=True,
+                # GitHub's CSP header can exceed aiohttp's default 8 KiB limit.
+                max_field_size=64 * 1024,
+            ) as session,
             session.get(url) as response,
         ):
             yield response.content
