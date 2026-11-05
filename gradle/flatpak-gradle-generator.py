@@ -83,23 +83,32 @@ def main():
     for arch in req_flatpak_arches:
         req_gradle_arches.append(flatpak_arch_to_gradle_arch(arch))
 
-    urls = []
+    urls = set()
     urls_arch = {}
+    missing_resources = set()
+    resource_missing_r = re.compile(r'^Resource\ missing\.\ \[([A-z]|\ )*:\ https://[\w/\-?=%.]+\.[\w/\-?=%.]+\]$')
     r = re.compile('https://[\\w/\\-?=%.]+\\.[\\w/\\-?=%.]+')
     with open(args.input,'r') as f:
         for lines in f:
+            missing_res = resource_missing_r.match(lines)
             res = r.findall(lines)
+            if missing_res:
+                # If the missing resource pattern matched, we can be certain that there only is
+                # one URL in the given line.
+                missing_resources.add(res[0])
             for url in res:
                 if url.endswith('.jar') or url.endswith('.pom'):
-                    urls.append(url)
+                    urls.add(url)
                 elif url.endswith('.exe'):
                     for host in req_gradle_arches:
                         if host in url:
                             for arch in req_gradle_arches:
                                 new_url = url.replace(host, arch)
-                                urls.append(new_url)
+                                urls.add(new_url)
                                 urls_arch[new_url] = gradle_arch_to_flatpak_arch(arch)
 
+    # Remove all resource URLs that cannot be downloaded.
+    urls.difference_update(missing_resources)
     # print(urls)
     # print(urls_arch)
 
