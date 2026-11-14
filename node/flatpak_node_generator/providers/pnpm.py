@@ -178,10 +178,12 @@ class PnpmModuleProvider(ModuleProvider):
         gen: ManifestGenerator,
         special: SpecialSourceProvider,
         lockfile_root: Path,
+        store_add: bool = False,
     ) -> None:
         self.gen = gen
         self.special_source_provider = special
         self.lockfile_root = lockfile_root
+        self.store_add = store_add
         self.tarball_dir = self.gen.data_root / 'pnpm-tarballs'
         self.store_dir = self.gen.data_root / 'pnpm-store'
         self._tarballs: list[PnpmModuleProvider._TarballInfo] = []
@@ -216,6 +218,13 @@ class PnpmModuleProvider(ModuleProvider):
             assert source.resolved is not None
 
             integrity = source.integrity
+            if integrity is None and self.store_add:
+                print(
+                    f'WARNING: {package.name}@{package.version}: '
+                    'no integrity in lockfile, so pnpm store add cannot '
+                    'prepare it for an offline install.',
+                    file=sys.stderr,
+                )
             if integrity is None:
                 print(
                     f'INFO: {package.name}@{package.version}: '
@@ -256,7 +265,8 @@ class PnpmModuleProvider(ModuleProvider):
 
     def _finalize(self) -> None:
         if self._tarballs:
-            self._add_store_population_script()
+            if not self.store_add:
+                self._add_store_population_script()
             self._add_pnpm_config()
 
     def _add_store_population_script(self) -> None:
@@ -291,7 +301,7 @@ class PnpmModuleProvider(ModuleProvider):
         )
 
     def _add_pnpm_config(self) -> None:
-        if self._store_version == 'v11':
+        if self.store_add or self._store_version == 'v11':
             self.gen.add_command(
                 f'echo "storeDir: $PWD/{self.store_dir}" >> pnpm-workspace.yaml'
             )
@@ -302,6 +312,7 @@ class PnpmModuleProvider(ModuleProvider):
 class PnpmProviderFactory(ProviderFactory):
     class Options(NamedTuple):
         lockfile: PnpmLockfileProvider.Options
+        store_add: bool = False
 
     def __init__(
         self, lockfile_root: Path, options: 'PnpmProviderFactory.Options'
@@ -318,4 +329,6 @@ class PnpmProviderFactory(ProviderFactory):
     def create_module_provider(
         self, gen: ManifestGenerator, special: SpecialSourceProvider
     ) -> PnpmModuleProvider:
-        return PnpmModuleProvider(gen, special, self.lockfile_root)
+        return PnpmModuleProvider(
+            gen, special, self.lockfile_root, store_add=self.options.store_add
+        )

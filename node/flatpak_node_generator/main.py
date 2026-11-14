@@ -118,6 +118,11 @@ async def _async_main() -> None:
         '--pnpm-store-version',
         help=f'Specify the store version for pnpm v9 lockfile. Default is {STORE_VERSION_ARGUMENT_DEFAULT}',
     )
+    parser.add_argument(
+        '--pnpm-store-add',
+        action='store_true',
+        help='Leave filling the pnpm store to `pnpm store add` (pnpm 12.21+)',
+    )
     # Deprecated alternative to --node-chromedriver-from-electron
     parser.add_argument('--electron-chromedriver', help=argparse.SUPPRESS)
     parser.add_argument(
@@ -175,6 +180,9 @@ async def _async_main() -> None:
     if args.type == 'pnpm' and args.no_autopatch:
         sys.exit('--no-autopatch does not apply to pnpm.')
 
+    if args.pnpm_store_add and args.pnpm_store_version:
+        sys.exit('--pnpm-store-version does not apply with --pnpm-store-add.')
+
     if args.electron_chromedriver:
         print('WARNING: --electron-chromedriver is deprecated', file=sys.stderr)
         print(
@@ -225,6 +233,7 @@ async def _async_main() -> None:
                 registry=args.registry,
                 store_version=args.pnpm_store_version,
             ),
+            store_add=args.pnpm_store_add,
         )
         provider_factory = PnpmProviderFactory(lockfile_root, pnpm_options)
     else:

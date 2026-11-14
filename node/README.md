@@ -97,6 +97,7 @@ options:
   --nwjs-node-headers   Download the NW.js node headers
   --nwjs-ffmpeg         Download prebuilt ffmpeg for current NW.js version
   --pnpm-store-version  Specify the store version for pnpm v9 lockfile. Default is v10.
+  --pnpm-store-add      Leave filling the pnpm store to `pnpm store add` (pnpm 12.21+)
   --no-xdg-layout       Don't use the XDG layout for caches
   --node-sdk-extension NODE_SDK_EXTENSION
                         Flatpak node SDK extension (e.g. org.freedesktop.Sdk.Extension.node24//25.08)
@@ -111,6 +112,22 @@ For npm, also pass `--production` to `npm install` itself.
 
 For pnpm v12, pass `--pnpm-store-version v11` and run `pnpm install --offline --frozen-lockfile --trust-lockfile`.
 Without `--trust-lockfile`, pnpm checks the lockfile against the registry and fails offline.
+
+With pnpm 12.21 or newer, you can pass `--pnpm-store-add` instead. The generated sources then
+only download the package tarballs, and your build commands fill the store from them with
+`pnpm store add`, run in the project before installing:
+
+```yaml
+build-commands:
+  - pnpm store add ./flatpak-node/pnpm-tarballs
+  - pnpm install --offline --frozen-lockfile --trust-lockfile
+```
+
+Keep the `./`: without it, pnpm reads `flatpak-node/pnpm-tarballs` as a GitHub repository.
+
+`pnpm store add` reads the project's lockfile, so this also covers dependencies on a tarball URL
+and on a git host such as GitHub, including git-hosted packages with a `prepare` script, as long
+as the lockfile records their `integrity`.
 
 If you're using npm, you must run this script when the `node_modules` directory is **NOT** present.
 If you generate the `generated-sources.json` in CI, you can do this by passing `--package-lock-only`
