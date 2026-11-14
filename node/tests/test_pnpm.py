@@ -698,3 +698,85 @@ def test_lockfile_v9_multi_documents_v12(tmp_path: Path) -> None:
             ),
         ),
     ]
+
+
+def _special_source_provider(gen: ManifestGenerator) -> SpecialSourceProvider:
+    return SpecialSourceProvider(
+        gen,
+        SpecialSourceProvider.Options(
+            node_chromedriver_from_electron=None,
+            electron_ffmpeg=None,
+            electron_node_headers=False,
+            nwjs_version=None,
+            nwjs_node_headers=False,
+            nwjs_ffmpeg=False,
+            xdg_layout=True,
+            node_sdk_extension=None,
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_pnpm_module_provider_store_add(tmp_path: Path) -> None:
+    gen = ManifestGenerator()
+    lockfile = Lockfile(tmp_path / 'pnpm-lock.yaml', 9, store_version='v10')
+    integrity = Integrity.parse(
+        'sha512-Wu1VHeILBK8KAWJUAiSZQX94GmOE45Rg6/538fKwiloUu21KncEkYGPqob2oSZ5mUT73vLGrHQjKw3KMPwfDzg=='
+    )
+    url = 'https://registry.npmjs.org/is-number/-/is-number-6.0.0.tgz'
+
+    with PnpmModuleProvider(
+        gen, _special_source_provider(gen), tmp_path, store_add=True
+    ) as provider:
+        await provider.generate_package(
+            Package(
+                name='is-number',
+                version='6.0.0',
+                source=ResolvedSource(resolved=url, integrity=integrity),
+                lockfile=lockfile,
+            )
+        )
+
+    sources = [dict(s) for s in gen._sources]
+    assert sources == [
+        {
+            'type': 'file',
+            'url': url,
+            'sha512': integrity.digest,
+            'dest': 'flatpak-node/pnpm-tarballs',
+            'dest-filename': 'is-number-6.0.0.tgz',
+        }
+    ]
+    assert gen._commands == [
+        'echo "storeDir: $PWD/flatpak-node/pnpm-store" >> pnpm-workspace.yaml'
+    ]
+
+
+@pytest.mark.asyncio
+async def test_pnpm_module_provider_store_add_warns_about_missing_integrity(
+    tmp_path: Path,
+    requests: RequestsController,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    gen = ManifestGenerator()
+    provider = PnpmModuleProvider(
+        gen, _special_source_provider(gen), tmp_path, store_add=True
+    )
+    requests.server.expect_oneshot_request(
+        '/test-pkg-1.0.0.tgz', 'GET'
+    ).respond_with_data(b'dummy tarball content')
+
+    await provider.generate_package(
+        Package(
+            name='test-pkg',
+            version='1.0.0',
+            source=ResolvedSource(
+                resolved=requests.url_for('/test-pkg-1.0.0.tgz'), integrity=None
+            ),
+            lockfile=Lockfile(tmp_path / 'pnpm-lock.yaml', 9, store_version='v10'),
+        )
+    )
+
+    assert 'WARNING: test-pkg@1.0.0: no integrity in lockfile' in (
+        capsys.readouterr().err
+    )
